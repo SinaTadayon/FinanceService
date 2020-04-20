@@ -1,0 +1,7 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea/
+schema-json
+c.out
+src/TmpState.txt
+src/TmpConsumer.txt
+src/payment-app

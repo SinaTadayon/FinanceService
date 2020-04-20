@@ -1,0 +1,75 @@
+# This file is a template, and might need editing before it works on your project.
+variables:
+  PORT: 9195
+  TAG: test-ci:test
+
+stages:
+  - build
+  - cleanup_build
+  - test
+  - push_image
+  - deploy
+
+1-build:
+  stage: build
+  script:
+    - make compose
+  tags:
+    - go-service
+
+2-cleanup_build:
+  stage: cleanup_build
+  tags:
+    - go-service
+  script:
+    - make compose-down
+    - docker system prune -f
+    - docker rmi `docker images -qa` || true
+    - docker volume rm `docker volume ls -q` || true
+  when: on_failure
+
+3-test:
+  stage: test
+  script:
+    - export $(cat ./testdata/.env | xargs) && make test
+  tags:
+    - go-service
+  after_script:
+    - make compose-down
+    - docker system prune -f
+    - docker rmi `docker images -qa` || true
+    - docker volume rm `docker volume ls -q` || true
+
+4-push_image:
+  stage: push_image
+  tags:
+    - go-service
+  script:
+    - docker build -t registry.faza.io/$CI_PROJECT_NAME/$CI_PROJECT_NAME:`echo $CI_COMMIT_REF_NAME | sed 's/\//-/g'` .
+    - docker push registry.faza.io/$CI_PROJECT_NAME/$CI_PROJECT_NAME:`echo $CI_COMMIT_REF_NAME | sed 's/\//-/g'`
+  when: on_success
+  dependencies:
+    - 3-test
+  only:
+    refs:
+      - staging
+      - master
+      - prelive
+      - live
+
+5-deploy:
+  stage: deploy
+  tags:
+    - go-service
+  script:
+    - ssh root@staging-swarm-manager1.faza.io "cd /root/faza-stack/apps/ && TAG=$CI_COMMIT_REF_NAME bash deploy-stg.sh 2> /dev/null";
+      sleep 5;
+
+  when: on_success
+  dependencies:
+    - 4-push_image
+  only:
+    refs:
+      - staging
+      - master
+      - prelive

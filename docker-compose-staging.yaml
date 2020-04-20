@@ -1,0 +1,50 @@
+version: '3.7'
+services:
+  financeService:
+    image: ${TAG}
+    restart: always
+    ports:
+      - ${PORT}:${PORT}
+      - 40010:40010
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - PORT=${PORT}
+      - APP_MODE=docker
+      - FINANCE_SERVICE_MODE=server
+      - FINANCE_SERVER_ADDRESS=
+      - FINANCE_SERVER_PORT=9095
+      - FINANCE_SERVICE_MONGO_HOST=mongo
+      - FINANCE_SERVICE_MONGO_PORT=27017
+      - FINANCE_SERVICE_MONGO_USER=root
+      - FINANCE_SERVICE_MONGO_CONN_TIMEOUT=5
+      - FINANCE_SERVICE_MONGO_READ_TIMEOUT=5
+      - FINANCE_SERVICE_MONGO_WRITE_TIMEOUT=5
+      - FINANCE_SERVICE_MONGO_MAX_CONN_IDLE_TIME=60
+      - FINANCE_SERVICE_MONGO_MAX_POOL_SIZE=128
+      - FINANCE_SERVICE_MONGO_MIN_POOL_SIZE=64
+      - FINANCE_SERVICE_MONGO_DB_NAME=financeService
+      - FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME=sellerFinance
+
+      - PROMETHEUS_PORT=9100
+
+      - USER_SERVICE_ADDRESS=userService
+      - USER_SERVICE_PORT=9096
+
+      - ORDER_SERVICE_ADDRESS=orderService
+      - ORDER_SERVICE_PORT=9095
+
+      - PAYMENT_TRANSFER_SERVICE_ADDRESS=payemntTransferService
+      - PAYMENT_TRANSFER_SERVICE_PORT=9793
+    depends_on:
+      - mongo
+
+  mongo:
+    image: registry.faza.io/mongo:4.2.2
+    ports:
+      - 27017:27017
+
+  mongo-express:
+    image: registry.faza.io/mongo-express:0.49
+    ports:
+      - 8081:8081
