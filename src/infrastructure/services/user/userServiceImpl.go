@@ -300,76 +300,76 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 		}
 	}
 
-	if userProfile.Data.Seller.CorpInfo != nil {
-		sellerProfile.CorporationInfo = &entities.CorporateSellerInfo{
-			CompanyRegisteredName:     userProfile.Data.Seller.CorpInfo.CompanyRegisteredName,
-			CompanyRegistrationNumber: userProfile.Data.Seller.CorpInfo.CompanyRegistrationNumber,
-			CompanyRationalId:         userProfile.Data.Seller.CorpInfo.CompanyRationalID,
-			TradeNumber:               userProfile.Data.Seller.CorpInfo.TradeNumber,
-		}
-	}
-
-	if userProfile.Data.Seller.IndivInfo != nil {
-		sellerProfile.IndividualInfo = &entities.IndividualSellerInfo{
-			FirstName:          userProfile.Data.Seller.IndivInfo.FirstName,
-			FamilyName:         userProfile.Data.Seller.IndivInfo.FamilyName,
-			NationalId:         userProfile.Data.Seller.IndivInfo.NationalID,
-			NationalIdFrontURL: userProfile.Data.Seller.IndivInfo.NationalIDfrontURL,
-			NationalIdBackURL:  userProfile.Data.Seller.IndivInfo.NationalIDbackURL,
-		}
-	}
-
-	if userProfile.Data.Seller.ReturnInfo != nil {
-		sellerProfile.ReturnInfo = &entities.ReturnInfo{
-
-			PostalAddress: userProfile.Data.Seller.ReturnInfo.PostalAddress,
-			PostalCode:    userProfile.Data.Seller.ReturnInfo.PostalCode,
-		}
-
-		if userProfile.Data.Seller.ReturnInfo.Country != nil {
-			sellerProfile.ReturnInfo.Country = userProfile.Data.Seller.ReturnInfo.Country.Name
-		}
-
-		if userProfile.Data.Seller.ReturnInfo.Province != nil {
-			sellerProfile.ReturnInfo.Province = userProfile.Data.Seller.ReturnInfo.Province.Name
-		}
-
-		if userProfile.Data.Seller.ReturnInfo.City != nil {
-			sellerProfile.ReturnInfo.City = userProfile.Data.Seller.ReturnInfo.City.Name
-		}
-
-		if userProfile.Data.Seller.ReturnInfo.Neighborhood != nil {
-			sellerProfile.ReturnInfo.Neighborhood = userProfile.Data.Seller.ReturnInfo.Neighborhood.Name
-		}
-	}
-
-	if userProfile.Data.Seller.ContactPerson != nil {
-		sellerProfile.ContactPerson = &entities.SellerContactPerson{
-			FirstName:   userProfile.Data.Seller.ContactPerson.FirstName,
-			FamilyName:  userProfile.Data.Seller.ContactPerson.FamilyName,
-			MobilePhone: userProfile.Data.Seller.ContactPerson.MobilePhone,
-			Email:       userProfile.Data.Seller.ContactPerson.Email,
-		}
-	}
-
-	if userProfile.Data.Seller.ShipmentInfo != nil {
-		sellerProfile.ShipmentInfo = &entities.SellerShipmentInfo{}
-		if userProfile.Data.Seller.ShipmentInfo.SameCity != nil {
-			sellerProfile.ShipmentInfo.SameCity = &entities.PricePlan{
-				Threshold:        userProfile.Data.Seller.ShipmentInfo.SameCity.Threshold,
-				BelowPrice:       userProfile.Data.Seller.ShipmentInfo.SameCity.BelowPrice,
-				ReactionTimeDays: userProfile.Data.Seller.ShipmentInfo.SameCity.ReactionTimeDays,
-			}
-		}
-
-		if userProfile.Data.Seller.ShipmentInfo.DifferentCity != nil {
-			sellerProfile.ShipmentInfo.DifferentCity = &entities.PricePlan{
-				Threshold:        userProfile.Data.Seller.ShipmentInfo.DifferentCity.Threshold,
-				BelowPrice:       userProfile.Data.Seller.ShipmentInfo.DifferentCity.BelowPrice,
-				ReactionTimeDays: userProfile.Data.Seller.ShipmentInfo.DifferentCity.ReactionTimeDays,
-			}
-		}
-	}
+	//if userProfile.Data.Seller.CorpInfo != nil {
+	//	sellerProfile.CorporationInfo = &entities.CorporateSellerInfo{
+	//		CompanyRegisteredName:     userProfile.Data.Seller.CorpInfo.CompanyRegisteredName,
+	//		CompanyRegistrationNumber: userProfile.Data.Seller.CorpInfo.CompanyRegistrationNumber,
+	//		CompanyRationalId:         userProfile.Data.Seller.CorpInfo.CompanyRationalID,
+	//		TradeNumber:               userProfile.Data.Seller.CorpInfo.TradeNumber,
+	//	}
+	//}
+	//
+	//if userProfile.Data.Seller.IndivInfo != nil {
+	//	sellerProfile.IndividualInfo = &entities.IndividualSellerInfo{
+	//		FirstName:          userProfile.Data.Seller.IndivInfo.FirstName,
+	//		FamilyName:         userProfile.Data.Seller.IndivInfo.FamilyName,
+	//		NationalId:         userProfile.Data.Seller.IndivInfo.NationalID,
+	//		NationalIdFrontURL: userProfile.Data.Seller.IndivInfo.NationalIDfrontURL,
+	//		NationalIdBackURL:  userProfile.Data.Seller.IndivInfo.NationalIDbackURL,
+	//	}
+	//}
+	//
+	//if userProfile.Data.Seller.ReturnInfo != nil {
+	//	sellerProfile.ReturnInfo = &entities.ReturnInfo{
+	//
+	//		PostalAddress: userProfile.Data.Seller.ReturnInfo.PostalAddress,
+	//		PostalCode:    userProfile.Data.Seller.ReturnInfo.PostalCode,
+	//	}
+	//
+	//	if userProfile.Data.Seller.ReturnInfo.Country != nil {
+	//		sellerProfile.ReturnInfo.Country = userProfile.Data.Seller.ReturnInfo.Country.Name
+	//	}
+	//
+	//	if userProfile.Data.Seller.ReturnInfo.Province != nil {
+	//		sellerProfile.ReturnInfo.Province = userProfile.Data.Seller.ReturnInfo.Province.Name
+	//	}
+	//
+	//	if userProfile.Data.Seller.ReturnInfo.City != nil {
+	//		sellerProfile.ReturnInfo.City = userProfile.Data.Seller.ReturnInfo.City.Name
+	//	}
+	//
+	//	if userProfile.Data.Seller.ReturnInfo.Neighborhood != nil {
+	//		sellerProfile.ReturnInfo.Neighborhood = userProfile.Data.Seller.ReturnInfo.Neighborhood.Name
+	//	}
+	//}
+	//
+	//if userProfile.Data.Seller.ContactPerson != nil {
+	//	sellerProfile.ContactPerson = &entities.SellerContactPerson{
+	//		FirstName:   userProfile.Data.Seller.ContactPerson.FirstName,
+	//		FamilyName:  userProfile.Data.Seller.ContactPerson.FamilyName,
+	//		MobilePhone: userProfile.Data.Seller.ContactPerson.MobilePhone,
+	//		Email:       userProfile.Data.Seller.ContactPerson.Email,
+	//	}
+	//}
+	//
+	//if userProfile.Data.Seller.ShipmentInfo != nil {
+	//	sellerProfile.ShipmentInfo = &entities.SellerShipmentInfo{}
+	//	if userProfile.Data.Seller.ShipmentInfo.SameCity != nil {
+	//		sellerProfile.ShipmentInfo.SameCity = &entities.PricePlan{
+	//			Threshold:        userProfile.Data.Seller.ShipmentInfo.SameCity.Threshold,
+	//			BelowPrice:       userProfile.Data.Seller.ShipmentInfo.SameCity.BelowPrice,
+	//			ReactionTimeDays: userProfile.Data.Seller.ShipmentInfo.SameCity.ReactionTimeDays,
+	//		}
+	//	}
+	//
+	//	if userProfile.Data.Seller.ShipmentInfo.DifferentCity != nil {
+	//		sellerProfile.ShipmentInfo.DifferentCity = &entities.PricePlan{
+	//			Threshold:        userProfile.Data.Seller.ShipmentInfo.DifferentCity.Threshold,
+	//			BelowPrice:       userProfile.Data.Seller.ShipmentInfo.DifferentCity.BelowPrice,
+	//			ReactionTimeDays: userProfile.Data.Seller.ShipmentInfo.DifferentCity.ReactionTimeDays,
+	//		}
+	//	}
+	//}
 
 	if userProfile.Data.Seller.FinanceData != nil {
 		sellerProfile.FinanceData = &entities.SellerFinanceData{
