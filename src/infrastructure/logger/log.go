@@ -1,4 +1,4 @@
-package applog
+package log
 
 import (
 	"gitlab.faza.io/go-framework/logger"

@@ -2,11 +2,10 @@ package app
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
 	"gitlab.faza.io/services/finance/configs"
+	"gitlab.faza.io/services/finance/infrastructure/logger"
 	user_service "gitlab.faza.io/services/finance/infrastructure/services/user"
-	"go.uber.org/zap"
 	"time"
 )
 
@@ -18,11 +17,9 @@ const (
 )
 
 var Globals struct {
-	MongoDriver       *mongoadapter.Mongo
-	Config            *configs.Config
-	ZapLogger         *zap.Logger
-	Logger            logger.Logger
-	UserService       user_service.IUserService
+	MongoDriver *mongoadapter.Mongo
+	Config      *configs.Config
+	UserService user_service.IUserService
 }
 
 func SetupMongoDriver(config configs.Config) (*mongoadapter.Mongo, error) {
@@ -45,25 +42,11 @@ func SetupMongoDriver(config configs.Config) (*mongoadapter.Mongo, error) {
 
 	mongoDriver, err := mongoadapter.NewMongo(mongoConf)
 	if err != nil {
-		Globals.Logger.Error("mongoadapter.NewMongo failed",
+		log.GLog.Logger.Error("mongoadapter.NewMongo failed",
 			"fn", "SetupMongoDriver",
 			"Mongo", err)
 		return nil, errors.Wrap(err, "mongoadapter.NewMongo init failed")
 	}
 
 	return mongoDriver, nil
-}
-
-func InitZap() (zapLogger *zap.Logger) {
-	conf := zap.NewProductionConfig()
-	conf.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	conf.DisableCaller = true
-	conf.DisableStacktrace = true
-	zapLogger, e := conf.Build(zap.AddCaller(), zap.AddCallerSkip(1))
-	// zapLogger, e := conf.Build()
-	// zapLogger, e := zap.NewProduction(zap.AddCallerSkip(3))
-	if e != nil {
-		panic(e)
-	}
-	return
 }

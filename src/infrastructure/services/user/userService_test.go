@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"gitlab.faza.io/go-framework/acl"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
-	applog "gitlab.faza.io/services/finance/infrastructure/logger"
+	"gitlab.faza.io/services/finance/infrastructure/logger"
 	"google.golang.org/grpc/metadata"
 	"os"
 	"testing"
@@ -26,12 +27,12 @@ func TestMain(m *testing.M) {
 		path = ""
 	}
 
-	applog.GLog.ZapLogger = applog.InitZap()
-	applog.GLog.Logger = logger.NewZapLogger(applog.GLog.ZapLogger)
+	log.GLog.ZapLogger = log.InitZap()
+	log.GLog.Logger = logger.NewZapLogger(log.GLog.ZapLogger)
 
 	config, err = configs.LoadConfigs(path)
 	if err != nil {
-		applog.GLog.Logger.Error("configs.LoadConfig failed",
+		log.GLog.Logger.Error("configs.LoadConfig failed",
 			"error", err)
 		os.Exit(1)
 	}
@@ -77,7 +78,8 @@ func TestAuthenticationToken(t *testing.T) {
 	md := metadata.New(authorization)
 	ctxToken := metadata.NewIncomingContext(context.Background(), md)
 
-	acl, err := userService.AuthenticateContextToken(ctxToken)
-	require.Nil(t, err)
-	require.Equal(t, acl.User().UserID, int64(1000001))
+	iFuture := userService.AuthenticateContextToken(ctxToken).Get()
+
+	require.Nil(t, iFuture.Error())
+	require.Equal(t, iFuture.Data().(*acl.Acl).User().UserID, int64(1000001))
 }

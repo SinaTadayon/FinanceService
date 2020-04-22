@@ -3,7 +3,7 @@ package entities
 import "time"
 
 type SellerProfile struct {
-	//SellerId        int64                 `bson:"sellerId"`
+	SellerId    int64              `bson:"sellerId"`
 	GeneralInfo *GeneralSellerInfo `bson:"generalInfo"`
 	//CorporationInfo *CorporateSellerInfo  `bson:"corporationInfo"`
 	//IndividualInfo  *IndividualSellerInfo `bson:"individualInfo"`

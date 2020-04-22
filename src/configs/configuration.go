@@ -4,15 +4,14 @@ import (
 	"flag"
 	"github.com/Netflix/go-env"
 	"github.com/joho/godotenv"
-	applog "gitlab.faza.io/services/finance/infrastructure/logger"
+	"gitlab.faza.io/services/finance/infrastructure/logger"
 	"os"
 )
 
-
 type Config struct {
 	App struct {
-		ServiceMode                          string `env:"FINANCE_SERVICE_MODE"`
-		PrometheusPort                       int    `env:"PROMETHEUS_PORT"`
+		ServiceMode    string `env:"FINANCE_SERVICE_MODE"`
+		PrometheusPort int    `env:"PROMETHEUS_PORT"`
 	}
 
 	GRPCServer struct {
@@ -25,7 +24,20 @@ type Config struct {
 		Port    int    `env:"USER_SERVICE_PORT"`
 		Timeout int    `env:"USER_SERVICE_TIMEOUT"`
 	}
-	
+
+	OrderService struct {
+		Address string `env:"ORDER_SERVICE_ADDRESS"`
+		Port    int    `env:"ORDER_SERVICE_PORT"`
+		Timeout int    `env:"ORDER_SERVICE_TIMEOUT"`
+	}
+
+	PaymentTransferService struct {
+		Address     string `env:"PAYMENT_TRANSFER_SERVICE_ADDRESS"`
+		Port        int    `env:"PAYMENT_TRANSFER_SERVICE_PORT"`
+		Timeout     int    `env:"PAYMENT_TRANSFER_SERVICE_TIMEOUT"`
+		MockEnabled bool   `env:"PAYMENT_TRANSFER_SERVICE_MOCK_ENABLED"`
+	}
+
 	Mongo struct {
 		User              string `env:"FINANCE_SERVICE_MONGO_USER"`
 		Pass              string `env:"FINANCE_SERVICE_MONGO_PASS"`
@@ -47,17 +59,17 @@ type Config struct {
 
 func LoadConfig(path string) (*Config, error) {
 	var config = &Config{}
-	currntPath, err := os.Getwd()
+	currentPath, err := os.Getwd()
 	if err != nil {
-		applog.GLog.Logger.Error("get current working directory failed", "error", err)
+		log.GLog.Logger.Error("get current working directory failed", "error", err)
 	}
 
 	if os.Getenv("APP_MODE") == "dev" {
 		if path != "" {
 			err := godotenv.Load(path)
 			if err != nil {
-				applog.GLog.Logger.Error("Error loading testdata .env file",
-					"Working Directory", currntPath,
+				log.GLog.Logger.Error("Error loading testdata .env file",
+					"Working Directory", currentPath,
 					"path", path,
 					"error", err)
 			}
@@ -65,39 +77,34 @@ func LoadConfig(path string) (*Config, error) {
 			// test mode
 			err := godotenv.Load("../testdata/.env")
 			if err != nil {
-				applog.GLog.Logger.Error("Error loading testdata .env file", "error", err)
+				log.GLog.Logger.Error("Error loading testdata .env file", "error", err)
 			}
-		}
-	} else if os.Getenv("APP_MODE") == "docker" {
-		err := godotenv.Load(path)
-		if err != nil {
-			applog.GLog.Logger.Error("Error loading .docker-env file", "path", path)
 		}
 	}
 
 	// Get environment variables for Config
 	_, err = env.UnmarshalFromEnviron(config)
 	if err != nil {
-		applog.GLog.Logger.Error("env.UnmarshalFromEnviron config failed")
+		log.GLog.Logger.Error("env.UnmarshalFromEnviron config failed", "error", err)
 		return nil, err
 	}
-	
+
 	return config, nil
 }
 
 func LoadConfigs(configPath string) (*Config, error) {
 	var config = &Config{}
-	currntPath, err := os.Getwd()
+	currentPath, err := os.Getwd()
 	if err != nil {
-		applog.GLog.Logger.Error("get current working directory failed", "error", err)
+		log.GLog.Logger.Error("get current working directory failed", "error", err)
 	}
 
 	if os.Getenv("APP_MODE") == "dev" {
 		if configPath != "" {
 			err := godotenv.Load(configPath)
 			if err != nil {
-				applog.GLog.Logger.Error("Error loading testdata .env file",
-					"Working Directory", currntPath,
+				log.GLog.Logger.Error("Error loading testdata .env file",
+					"Working Directory", currentPath,
 					"path", configPath,
 					"error", err)
 			}
@@ -105,7 +112,7 @@ func LoadConfigs(configPath string) (*Config, error) {
 			// test mode
 			err := godotenv.Load("../testdata/.env")
 			if err != nil {
-				applog.GLog.Logger.Error("Error loading testdata .env file", "error", err)
+				log.GLog.Logger.Error("Error loading testdata .env file", "error", err)
 			}
 		}
 	}
@@ -113,7 +120,7 @@ func LoadConfigs(configPath string) (*Config, error) {
 	// Get environment variables for Config
 	_, err = env.UnmarshalFromEnviron(config)
 	if err != nil {
-		applog.GLog.Logger.Error("env.UnmarshalFromEnviron config failed")
+		log.GLog.Logger.Error("env.UnmarshalFromEnviron config failed", "error", err)
 		return nil, err
 	}
 

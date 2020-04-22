@@ -7,7 +7,7 @@ import (
 	protoUserServiceV1 "gitlab.faza.io/protos/user"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	"gitlab.faza.io/services/finance/infrastructure/future"
-	applog "gitlab.faza.io/services/finance/infrastructure/logger"
+	"gitlab.faza.io/services/finance/infrastructure/logger"
 	userclient "gitlab.faza.io/services/user-app-client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -47,7 +47,7 @@ func (userService *iUserServiceImpl) getUserService(ctx context.Context) error {
 			}
 			userService.client, err = userclient.NewClient(ctx, config, grpc.WithInsecure(), grpc.WithBlock())
 			if err != nil {
-				applog.GLog.Logger.FromContext(ctx).Error("userclient.NewClient failed",
+				log.GLog.Logger.FromContext(ctx).Error("userclient.NewClient failed",
 					"fn", "getUserService",
 					"address", userService.serverAddress,
 					"port", userService.serverPort,
@@ -58,7 +58,7 @@ func (userService *iUserServiceImpl) getUserService(ctx context.Context) error {
 			//defer cancel()
 			_, err = userService.client.Connect(ctx)
 			if err != nil {
-				applog.GLog.Logger.FromContext(ctx).Error("userclient.NewClient failed",
+				log.GLog.Logger.FromContext(ctx).Error("userclient.NewClient failed",
 					"fn", "getUserService",
 					"address", userService.serverAddress,
 					"port", userService.serverPort,
@@ -108,7 +108,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 		timeoutTimer.Stop()
 		break
 	case <-timeoutTimer.C:
-		applog.GLog.Logger.FromContext(ctx).Error("userService.client.Login timeout",
+		log.GLog.Logger.FromContext(ctx).Error("userService.client.Login timeout",
 			"fn", "UserLogin",
 			"username", "password", username, password)
 		return future.Factory().SetCapacity(1).
@@ -118,7 +118,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 
 	if err, ok := obj.(error); ok {
 		if err != nil {
-			applog.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
+			log.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
 				"fn", "UserLogin",
 				"username", username,
 				"password", password,
@@ -129,7 +129,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 		}
 	} else if result, ok := obj.(*protoUserServiceV1.LoginResponse); ok {
 		if int(result.Code) != 200 {
-			applog.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
+			log.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
 				"fn", "UserLogin",
 				"username", username,
 				"password", password,
@@ -147,7 +147,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 		return future.Factory().SetCapacity(1).SetData(loginTokens).BuildAndSend()
 	}
 
-	applog.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
+	log.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
 		"fn", "UserLogin",
 		"username", username,
 		"password", password)
@@ -156,10 +156,12 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 		BuildAndSend()
 }
 
-func (userService iUserServiceImpl) AuthenticateContextToken(ctx context.Context) (*acl.Acl, error) {
+func (userService iUserServiceImpl) AuthenticateContextToken(ctx context.Context) future.IFuture {
 	ctx1, _ := context.WithCancel(context.Background())
 	if err := userService.getUserService(ctx1); err != nil {
-		return nil, err
+		return future.Factory().SetCapacity(1).
+			SetError(future.InternalError, "UnknownError", errors.Wrap(err, "Connect to UserService Failed")).
+			BuildAndSend()
 	}
 
 	var outCtx context.Context
@@ -191,22 +193,29 @@ func (userService iUserServiceImpl) AuthenticateContextToken(ctx context.Context
 		timeoutTimer.Stop()
 		break
 	case <-timeoutTimer.C:
-		applog.GLog.Logger.FromContext(ctx).Error("userService.client.VerifyAndGetUserFromContextToken timeout",
+		log.GLog.Logger.FromContext(ctx).Error("userService.client.VerifyAndGetUserFromContextToken timeout",
 			"fn", "AuthenticateContextToken")
+		return future.Factory().SetCapacity(1).
+			SetError(future.InternalError, "UnknownError", errors.New("UserLogin Timeout")).
+			BuildAndSend()
 	}
 
 	if err, ok := obj.(error); ok {
 		if err != nil {
-			applog.GLog.Logger.FromContext(ctx).Error("userService.client.AuthenticateContextToken failed",
+			log.GLog.Logger.FromContext(ctx).Error("userService.client.AuthenticateContextToken failed",
 				"fn", "AuthenticateContextToken",
 				"error", err)
-			return nil, err
+			return future.Factory().SetCapacity(1).
+				SetError(future.InternalError, "UnknownError", errors.Wrap(err, "Connect to UserService Failed")).
+				BuildAndSend()
 		}
 	} else if result, ok := obj.(*acl.Acl); ok {
-		return result, nil
+		return future.Factory().SetCapacity(1).SetData(result).BuildAndSend()
 	}
 
-	return nil, errors.New("AuthenticateContextToken Failed")
+	return future.Factory().SetCapacity(1).
+		SetError(future.Forbidden, "Authenticate Token Failed", errors.New("AuthenticateContextToken failed")).
+		BuildAndSend()
 }
 
 func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, sellerId string) future.IFuture {
@@ -246,13 +255,13 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 		timeoutTimer.Stop()
 		break
 	case <-timeoutTimer.C:
-		applog.GLog.Logger.FromContext(ctx).Error("userService.client.InternalUserGetOne timeout",
+		log.GLog.Logger.FromContext(ctx).Error("userService.client.InternalUserGetOne timeout",
 			"fn", "GetSellerProfile")
 	}
 
 	if err, ok := obj.(error); ok {
 		if err != nil {
-			applog.GLog.Logger.FromContext(ctx).Error("userService.client.InternalUserGetOne failed",
+			log.GLog.Logger.FromContext(ctx).Error("userService.client.InternalUserGetOne failed",
 				"fn", "GetSellerProfile",
 				"pid", sellerId, "error", err)
 			return future.Factory().SetCapacity(1).
@@ -381,7 +390,7 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 
 	timestamp, err := time.Parse(ISO8601, userProfile.Data.CreatedAt)
 	if err != nil {
-		applog.GLog.Logger.FromContext(ctx).Error("createdAt time parse failed",
+		log.GLog.Logger.FromContext(ctx).Error("createdAt time parse failed",
 			"fn", "GetSellerProfile",
 			"pid", sellerId, "error", err)
 		timestamp = time.Now()
@@ -390,7 +399,7 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 	sellerProfile.CreatedAt = timestamp
 	timestamp, err = time.Parse(ISO8601, userProfile.Data.UpdatedAt)
 	if err != nil {
-		applog.GLog.Logger.FromContext(ctx).Error("updatedAt time parse failed",
+		log.GLog.Logger.FromContext(ctx).Error("updatedAt time parse failed",
 			"fn", "GetSellerProfile",
 			"pid", sellerId, "error", err)
 		timestamp = time.Now()
