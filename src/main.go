@@ -36,7 +36,7 @@ func main() {
 		app.Globals.Config, err = configs.LoadConfig("")
 	}
 
-	log.GLog.ZapLogger = app.InitZap()
+	log.GLog.ZapLogger = log.InitZap()
 	log.GLog.Logger = logger.NewZapLogger(log.GLog.ZapLogger)
 
 	if err != nil {

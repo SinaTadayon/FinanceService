@@ -33,7 +33,7 @@ type SellerFinance struct {
 	DocVersion string             `bson:"docVersion"`
 	SellerInfo *SellerProfile     `bson:"sellerInfo"`
 	Invoice    Invoice            `bson:"invoice"`
-	Orders     []*Order           `bson:"orders"`
+	Orders     []*OrderFinance    `bson:"orders"`
 	Payment    *FinancePayment    `bson:"payment"`
 	Status     string             `bson:"status"`
 	Start      *time.Time         `bson:"start"`
@@ -68,8 +68,8 @@ type TransferResponse struct {
 
 type TransferResult struct {
 	TransferId      string    `bson:"transferId"`
-	SuccessTransfer Money     `bson:"successTransfer"`
-	FailedTransfer  Money     `bson:"failedTransfer"`
+	SuccessTransfer *Money    `bson:"successTransfer"`
+	FailedTransfer  *Money    `bson:"failedTransfer"`
 	CreatedAt       time.Time `bson:"createdAt"`
 }
 
@@ -86,13 +86,16 @@ type Invoice struct {
 	ShipmentRoundupTotal   *Money `bson:"shipmentRoundupTotal"`
 }
 
-type Order struct {
-	OId                uint64    `bson:"oid"`
-	RawShipmentNet     *Money    `bson:"rawShipmentNet"`
-	RoundupShipmentNet *Money    `bson:"roundupShipmentNet"`
-	Items              []*Item   `bson:"items"`
-	CreatedAt          time.Time `bson:"createdAt"`
-	UpdatedAt          time.Time `bson:"updatedAt"`
+type OrderFinance struct {
+	OId                uint64     `bson:"oid"`
+	FId                string     `bson:"fid"`
+	SellerId           uint64     `bson:"sellerId"`
+	RawShippingNet     *Money     `bson:"rawShippingNet"`
+	RoundupShippingNet *Money     `bson:"roundupShippingNet"`
+	Items              []*Item    `bson:"items"`
+	CreatedAt          time.Time  `bson:"createdAt"`
+	UpdatedAt          time.Time  `bson:"updatedAt"`
+	DeletedAt          *time.Time `bson:"deletedAt"`
 }
 
 type Item struct {
