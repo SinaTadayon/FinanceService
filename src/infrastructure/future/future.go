@@ -36,6 +36,7 @@ type IDataFuture interface {
 }
 
 type IErrorFuture interface {
+	error
 	Code() ErrorCode
 	Message() string
 	Reason() error

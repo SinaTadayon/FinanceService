@@ -1,9 +1,9 @@
 # Compile stage
 FROM registry.faza.io/golang:1.13.1 AS builder
-RUN mkdir /go/src/apps
+RUN mkdir /go/apps
 RUN echo "nobody:x:65534:65534:Nobody:/:" > /etc_passwd
-ADD src /go/src/apps
-WORKDIR /go/src/apps
+ADD . /go/app
+WORKDIR /go/app
 RUN make build-docker
 
 # Final stage

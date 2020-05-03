@@ -6,9 +6,8 @@ import (
 )
 
 type Builder struct {
-	iFuture     *iFutureImpl
-	dataFuture  *iDataFutureImpl
-	errorFuture *iErrorFutureImpl
+	iFuture    *iFutureImpl
+	dataFuture *iDataFutureImpl
 }
 
 func Factory() Builder {
@@ -17,10 +16,52 @@ func Factory() Builder {
 	}
 }
 
+func FactorySync() Builder {
+	return Builder{
+		iFuture: &iFutureImpl{
+			channel:  nil,
+			count:    0,
+			capacity: 1,
+		},
+	}
+}
+
 func FactoryOf(future IFuture) Builder {
 	return Builder{
 		iFuture: future.(*iFutureImpl),
 	}
+}
+
+func FactoryDataOf(iDataFuture IDataFuture) Builder {
+	return Builder{
+		iFuture:    &iFutureImpl{},
+		dataFuture: iDataFuture.(*iDataFutureImpl),
+	}
+}
+
+func FactorySyncDataOf(iDataFuture IDataFuture) Builder {
+	return Builder{
+		iFuture: &iFutureImpl{
+			channel:  nil,
+			count:    0,
+			capacity: 1,
+		},
+		dataFuture: iDataFuture.(*iDataFutureImpl),
+	}
+}
+
+func FactorySyncErrorOf(iErrorFuture IErrorFuture) Builder {
+	builder := Builder{
+		iFuture: &iFutureImpl{
+			channel:  nil,
+			count:    0,
+			capacity: 1,
+		},
+		dataFuture: &iDataFutureImpl{},
+	}
+	errorFuture := iErrorFuture.(*iErrorFutureImpl)
+	builder.dataFuture.futureError = errorFuture
+	return builder
 }
 
 func (builder Builder) SetCapacity(capacity int) Builder {
@@ -43,30 +84,30 @@ func (builder Builder) SetData(data interface{}) Builder {
 }
 
 func (builder Builder) SetError(code ErrorCode, message string, reason error) Builder {
-	builder.errorFuture = &iErrorFutureImpl{}
-	builder.errorFuture.ErrCode = code
-	builder.errorFuture.ErrMsg = message
-	builder.errorFuture.ErrReason = reason
+	errorFuture := &iErrorFutureImpl{}
+	errorFuture.ErrCode = code
+	errorFuture.ErrMsg = message
+	errorFuture.ErrReason = reason
 
 	if builder.dataFuture == nil {
 		builder.dataFuture = &iDataFutureImpl{}
 	}
 
-	builder.dataFuture.futureError = builder.errorFuture
+	builder.dataFuture.futureError = errorFuture
 	return builder
 }
 
-func (builder Builder) SetErrorOf(errorFuture IErrorFuture) Builder {
-	builder.errorFuture = &iErrorFutureImpl{}
-	builder.errorFuture.ErrCode = errorFuture.Code()
-	builder.errorFuture.ErrMsg = errorFuture.Message()
-	builder.errorFuture.ErrReason = errorFuture.Reason()
+func (builder Builder) SetErrorOf(errFuture IErrorFuture) Builder {
+	errorFuture := &iErrorFutureImpl{}
+	errorFuture.ErrCode = errFuture.Code()
+	errorFuture.ErrMsg = errFuture.Message()
+	errorFuture.ErrReason = errFuture.Reason()
 
 	if builder.dataFuture == nil {
 		builder.dataFuture = &iDataFutureImpl{}
 	}
 
-	builder.dataFuture.futureError = builder.errorFuture
+	builder.dataFuture.futureError = errorFuture
 	return builder
 }
 
