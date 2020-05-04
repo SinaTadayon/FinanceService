@@ -1,6 +1,6 @@
 version: '3.7'
 services:
-  financeService:
+  finance_service:
     image: ${TAG}
     restart: always
     ports:
@@ -28,10 +28,10 @@ services:
 
       - PROMETHEUS_PORT=9100
 
-      - USER_SERVICE_ADDRESS=userService
+      - USER_SERVICE_ADDRESS=userservice
       - USER_SERVICE_PORT=9096
 
-      - ORDER_SERVICE_ADDRESS=orderService
+      - ORDER_SERVICE_ADDRESS=orderservice
       - ORDER_SERVICE_PORT=9095
 
       - PAYMENT_TRANSFER_SERVICE_ADDRESS=payemntTransferService

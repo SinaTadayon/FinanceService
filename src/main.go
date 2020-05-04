@@ -7,6 +7,7 @@ import (
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	"os"
+	"time"
 )
 
 // Build Information variants filled at build time by compiler through flags
@@ -39,6 +40,8 @@ func main() {
 	log.GLog.ZapLogger = log.InitZap()
 	log.GLog.Logger = logger.NewZapLogger(log.GLog.ZapLogger)
 
+	time.Sleep(time.Hour)
+
 	if err != nil {
 		log.GLog.Logger.Error("LoadConfig of main init failed",
 			"fn", "main", "error", err)
@@ -55,4 +58,5 @@ func main() {
 		log.GLog.Logger.Info("Order Service Run in Server Mode . . . ", "fn", "main")
 		log.GLog.Logger.Info(buildInfo())
 	}
+
 }
