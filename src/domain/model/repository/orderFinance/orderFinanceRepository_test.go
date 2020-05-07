@@ -94,7 +94,7 @@ func TestFindByFIdAndOId(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	iFuture := orderFinanceRepo.FindByFIdAndOId(ctx, finance.FId, finance.Orders[1].OId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[1].OId, iFuture.Data().(*entities.OrderFinance).OId)
+	require.Equal(t, finance.Orders[1].OId, iFuture.Data().(*entities.SellerOrder).OId)
 }
 
 func TestFindBySellerIdAndOId(t *testing.T) {
@@ -106,7 +106,7 @@ func TestFindBySellerIdAndOId(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	iFuture := orderFinanceRepo.FindBySellerIdAndOId(ctx, finance.SellerId, finance.Orders[0].OId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.OrderFinance)[0].OId)
+	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
 }
 
 func TestFindById(t *testing.T) {
@@ -118,7 +118,7 @@ func TestFindById(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	iFuture := orderFinanceRepo.FindById(ctx, finance.Orders[0].OId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.OrderFinance)[0].OId)
+	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
 }
 
 func TestFindAll(t *testing.T) {
@@ -134,8 +134,8 @@ func TestFindAll(t *testing.T) {
 
 	iFuture := orderFinanceRepo.FindAll(ctx, finance.FId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.OrderFinance)[0].OId)
-	require.Equal(t, finance.Orders[1].OId, iFuture.Data().([]*entities.OrderFinance)[1].OId)
+	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
+	require.Equal(t, finance.Orders[1].OId, iFuture.Data().([]*entities.SellerOrder)[1].OId)
 }
 
 func TestFindAllWithSort(t *testing.T) {
@@ -147,7 +147,7 @@ func TestFindAllWithSort(t *testing.T) {
 	iFuture := orderFinanceRepo.FindAllWithSort(ctx, finance.FId, "orders.oid", -1).Get()
 
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.OrderFinance)[0].OId)
+	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
 }
 
 func TestFindAllWithPage(t *testing.T) {
@@ -204,7 +204,7 @@ func TestFindByFilter(t *testing.T) {
 
 	iFuture := orderFinanceRepo.FindByFilter(ctx, func() (filter interface{}) { return totalPipeline }, func() (filter interface{}) { return pipeline }).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, 2, len(iFuture.Data().([]*entities.OrderFinance)))
+	require.Equal(t, 2, len(iFuture.Data().([]*entities.SellerOrder)))
 }
 
 func TestFindByFilterWithPage(t *testing.T) {
@@ -346,7 +346,7 @@ func createFinance() *entities.SellerFinance {
 				Currency: "IRR",
 			},
 		},
-		Orders: []*entities.OrderFinance{
+		Orders: []*entities.SellerOrder{
 			{
 				OId:      1111111111,
 				FId:      "",
@@ -359,7 +359,7 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "1650000",
 					Currency: "IRR",
 				},
-				Items: []*entities.Item{
+				Items: []*entities.SellerItem{
 					{
 						SId:         1111111111222,
 						SKU:         "yt545-34",
@@ -393,7 +393,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						Invoice: entities.ItemInvoice{
+						Invoice: &entities.ItemInvoice{
 							Commission: &entities.ItemCommission{
 								ItemCommission: 9,
 								RawUnitPrice: &entities.Money{
@@ -490,9 +490,9 @@ func createFinance() *entities.SellerFinance {
 						},
 					},
 				},
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-				DeletedAt: nil,
+				SubPkgUpdatedAt: time.Now(),
+				SubPkgCreatedAt: time.Now(),
+				DeletedAt:       nil,
 			},
 			{
 				OId:      2222222222,
@@ -506,7 +506,7 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "2850000",
 					Currency: "IRR",
 				},
-				Items: []*entities.Item{
+				Items: []*entities.SellerItem{
 					{
 						SId:         2222222222333,
 						SKU:         "ut543-99",
@@ -540,7 +540,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						Invoice: entities.ItemInvoice{
+						Invoice: &entities.ItemInvoice{
 							Commission: &entities.ItemCommission{
 								ItemCommission: 9,
 								RawUnitPrice: &entities.Money{
@@ -637,9 +637,9 @@ func createFinance() *entities.SellerFinance {
 						},
 					},
 				},
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-				DeletedAt: nil,
+				SubPkgUpdatedAt: time.Now(),
+				SubPkgCreatedAt: time.Now(),
+				DeletedAt:       nil,
 			},
 		},
 

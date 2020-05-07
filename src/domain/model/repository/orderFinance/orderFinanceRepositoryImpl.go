@@ -18,8 +18,8 @@ const (
 var ErrorTotalCountExceeded = errors.New("total count exceeded")
 var ErrorPageNotAvailable = errors.New("page not available")
 var ErrorDeleteFailed = errors.New("update deletedAt field failed")
-var ErrorRemoveFailed = errors.New("remove OrderFinance failed")
-var ErrorUpdateFailed = errors.New("update OrderFinance failed")
+var ErrorRemoveFailed = errors.New("remove SellerOrder failed")
+var ErrorUpdateFailed = errors.New("update SellerOrder failed")
 
 type iOrderFinanceRepositoryImpl struct {
 	mongoAdapter *mongoadapter.Mongo
@@ -31,8 +31,8 @@ func NewOrderFinanceRepository(mongoDriver *mongoadapter.Mongo, database, collec
 	return &iOrderFinanceRepositoryImpl{mongoDriver, database, collection}
 }
 
-// return data *entities.OrderFinance , error
-func (repo iOrderFinanceRepositoryImpl) Save(ctx context.Context, order entities.OrderFinance) future.IFuture {
+// return data *entities.SellerOrder , error
+func (repo iOrderFinanceRepositoryImpl) Save(ctx context.Context, order entities.SellerOrder) future.IFuture {
 	updateResult, err := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{
 		{"deletedAt", nil},
 		{"fid", order.FId}},
@@ -40,7 +40,7 @@ func (repo iOrderFinanceRepositoryImpl) Save(ctx context.Context, order entities
 
 	if err != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "UpdateOne OrderFinance Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "UpdateOne SellerOrder Failed")).
 			BuildAndSend()
 	}
 
@@ -55,14 +55,14 @@ func (repo iOrderFinanceRepositoryImpl) Save(ctx context.Context, order entities
 		BuildAndSend()
 }
 
-// return data []*entities.OrderFinance , error
-func (repo iOrderFinanceRepositoryImpl) SaveAll(ctx context.Context, orders []entities.OrderFinance) future.IFuture {
+// return data []*entities.SellerOrder , error
+func (repo iOrderFinanceRepositoryImpl) SaveAll(ctx context.Context, orders []entities.SellerOrder) future.IFuture {
 	panic("must be implement")
 }
 
-// return data *entities.OrderFinance, error
+// return data *entities.SellerOrder, error
 func (repo iOrderFinanceRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid string, oid uint64) future.IFuture {
-	var order entities.OrderFinance
+	var order entities.SellerOrder
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil, "orders.oid": oid}},
 		{"$unwind": "$orders"},
@@ -83,7 +83,7 @@ func (repo iOrderFinanceRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid
 	for cursor.Next(ctx) {
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 	}
@@ -93,7 +93,7 @@ func (repo iOrderFinanceRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid
 		BuildAndSend()
 }
 
-// return data *[]entities.OrderFinance, error
+// return data *[]entities.SellerOrder, error
 func (repo iOrderFinanceRepositoryImpl) FindBySellerIdAndOId(ctx context.Context, sellerId, oid uint64) future.IFuture {
 
 	pipeline := []bson.M{
@@ -113,13 +113,13 @@ func (repo iOrderFinanceRepositoryImpl) FindBySellerIdAndOId(ctx context.Context
 
 	defer closeCursor(ctx, cursor)
 
-	orders := make([]*entities.OrderFinance, 0, 16)
+	orders := make([]*entities.SellerOrder, 0, 16)
 
 	for cursor.Next(ctx) {
-		var order entities.OrderFinance
+		var order entities.SellerOrder
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 
@@ -131,7 +131,7 @@ func (repo iOrderFinanceRepositoryImpl) FindBySellerIdAndOId(ctx context.Context
 		BuildAndSend()
 }
 
-// return data *[]entities.OrderFinance, error
+// return data *[]entities.SellerOrder, error
 func (repo iOrderFinanceRepositoryImpl) FindById(ctx context.Context, oid uint64) future.IFuture {
 
 	pipeline := []bson.M{
@@ -151,13 +151,13 @@ func (repo iOrderFinanceRepositoryImpl) FindById(ctx context.Context, oid uint64
 
 	defer closeCursor(ctx, cursor)
 
-	orders := make([]*entities.OrderFinance, 0, 16)
+	orders := make([]*entities.SellerOrder, 0, 16)
 
 	for cursor.Next(ctx) {
-		var order entities.OrderFinance
+		var order entities.SellerOrder
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 
@@ -169,7 +169,7 @@ func (repo iOrderFinanceRepositoryImpl) FindById(ctx context.Context, oid uint64
 		BuildAndSend()
 }
 
-// return data []*entities.OrderFinance, error
+// return data []*entities.SellerOrder, error
 func (repo iOrderFinanceRepositoryImpl) FindAll(ctx context.Context, fid string) future.IFuture {
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
@@ -187,13 +187,13 @@ func (repo iOrderFinanceRepositoryImpl) FindAll(ctx context.Context, fid string)
 
 	defer closeCursor(ctx, cursor)
 
-	orders := make([]*entities.OrderFinance, 0, 1024)
+	orders := make([]*entities.SellerOrder, 0, 1024)
 
 	for cursor.Next(ctx) {
-		var subpackage entities.OrderFinance
+		var subpackage entities.SellerOrder
 		if err := cursor.Decode(&subpackage); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 
@@ -205,7 +205,7 @@ func (repo iOrderFinanceRepositoryImpl) FindAll(ctx context.Context, fid string)
 		BuildAndSend()
 }
 
-// return data []*entities.OrderFinance, error
+// return data []*entities.SellerOrder, error
 func (repo iOrderFinanceRepositoryImpl) FindAllWithSort(ctx context.Context, fid string, fieldName string, direction int) future.IFuture {
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
@@ -223,12 +223,12 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithSort(ctx context.Context, fid
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*entities.OrderFinance, 0, 1024)
+	orders := make([]*entities.SellerOrder, 0, 1024)
 	for cursor.Next(ctx) {
-		var subpackage entities.OrderFinance
+		var subpackage entities.SellerOrder
 		if err := cursor.Decode(&subpackage); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 
@@ -303,13 +303,13 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithPage(ctx context.Context, fid
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*entities.OrderFinance, 0, perPage)
+	orders := make([]*entities.SellerOrder, 0, perPage)
 
 	for cursor.Next(ctx) {
-		var order entities.OrderFinance
+		var order entities.SellerOrder
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 
@@ -386,12 +386,12 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithPageAndSort(ctx context.Conte
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*entities.OrderFinance, 0, perPage)
+	orders := make([]*entities.SellerOrder, 0, perPage)
 	for cursor.Next(ctx) {
-		var order entities.OrderFinance
+		var order entities.SellerOrder
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 
@@ -405,7 +405,7 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithPageAndSort(ctx context.Conte
 		BuildAndSend()
 }
 
-// return data []*entities.OrderFinance, error
+// return data []*entities.SellerOrder, error
 func (repo iOrderFinanceRepositoryImpl) FindByFilter(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{})) future.IFuture {
 	filter := supplier()
 	iFuture := repo.CountWithFilter(ctx, totalSupplier).Get()
@@ -426,15 +426,15 @@ func (repo iOrderFinanceRepositoryImpl) FindByFilter(ctx context.Context, totalS
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*entities.OrderFinance, 0, total)
+	orders := make([]*entities.SellerOrder, 0, total)
 
 	// iterate through all documents
 	for cursor.Next(ctx) {
-		var order entities.OrderFinance
+		var order entities.SellerOrder
 		// decode the document
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 		orders = append(orders, &order)
@@ -503,15 +503,15 @@ func (repo iOrderFinanceRepositoryImpl) FindByFilterWithPage(ctx context.Context
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*entities.OrderFinance, 0, perPage)
+	orders := make([]*entities.SellerOrder, 0, perPage)
 
 	// iterate through all documents
 	for cursor.Next(ctx) {
-		var order entities.OrderFinance
+		var order entities.SellerOrder
 		// decode the document
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 		orders = append(orders, &order)
@@ -534,7 +534,7 @@ func (repo iOrderFinanceRepositoryImpl) ExistsById(ctx context.Context, oid uint
 				BuildAndSend()
 		}
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "ExistsById OrderFinance Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "ExistsById SellerOrder Failed")).
 			BuildAndSend()
 	}
 	return future.FactorySync().
@@ -566,7 +566,7 @@ func (repo iOrderFinanceRepositoryImpl) Count(ctx context.Context, fid string) f
 	if cursor.Next(ctx) {
 		if err := cursor.Decode(&total); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 	}
@@ -593,7 +593,7 @@ func (repo iOrderFinanceRepositoryImpl) CountWithFilter(ctx context.Context, sup
 	if cursor.Next(ctx) {
 		if err := cursor.Decode(&total); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode OrderFinance Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
 				BuildAndSend()
 		}
 	}

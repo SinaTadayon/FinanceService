@@ -453,7 +453,7 @@ func createFinance() *entities.SellerFinance {
 				Currency: "IRR",
 			},
 		},
-		Orders: []*entities.OrderFinance{
+		Orders: []*entities.SellerOrder{
 			{
 				OId:      1111111111,
 				FId:      "",
@@ -466,7 +466,7 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "1650000",
 					Currency: "IRR",
 				},
-				Items: []*entities.Item{
+				Items: []*entities.SellerItem{
 					{
 						SId:         1111111111222,
 						SKU:         "yt545-34",
@@ -500,7 +500,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						Invoice: entities.ItemInvoice{
+						Invoice: &entities.ItemInvoice{
 							Commission: &entities.ItemCommission{
 								ItemCommission: 9,
 								RawUnitPrice: &entities.Money{
@@ -597,9 +597,9 @@ func createFinance() *entities.SellerFinance {
 						},
 					},
 				},
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-				DeletedAt: nil,
+				SubPkgCreatedAt: time.Now(),
+				SubPkgUpdatedAt: time.Now(),
+				DeletedAt:       nil,
 			},
 		},
 

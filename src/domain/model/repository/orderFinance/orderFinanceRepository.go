@@ -7,30 +7,30 @@ import (
 )
 
 type OrderFinancePageableResult struct {
-	OrderFinances []*entities.OrderFinance
+	OrderFinances []*entities.SellerOrder
 	TotalCount    int64
 }
 
 type IOrderFinanceRepository interface {
-	// return data *entities.OrderFinance , error
-	Save(ctx context.Context, order entities.OrderFinance) future.IFuture
+	// return data *entities.SellerOrder , error
+	Save(ctx context.Context, order entities.SellerOrder) future.IFuture
 
-	// return data []*entities.OrderFinance , error
-	SaveAll(ctx context.Context, orders []entities.OrderFinance) future.IFuture
+	// return data []*entities.SellerOrder , error
+	SaveAll(ctx context.Context, orders []entities.SellerOrder) future.IFuture
 
-	// return data *entities.OrderFinance, error
+	// return data *entities.SellerOrder, error
 	FindByFIdAndOId(ctx context.Context, fid string, oid uint64) future.IFuture
 
-	// return data *[]entities.OrderFinance, error
+	// return data *[]entities.SellerOrder, error
 	FindBySellerIdAndOId(ctx context.Context, sellerId, oid uint64) future.IFuture
 
-	// return data []*entities.OrderFinance, error
+	// return data []*entities.SellerOrder, error
 	FindById(ctx context.Context, oid uint64) future.IFuture
 
-	// return data []*entities.OrderFinance, error
+	// return data []*entities.SellerOrder, error
 	FindAll(ctx context.Context, fid string) future.IFuture
 
-	// return data []*entities.OrderFinance, error
+	// return data []*entities.SellerOrder, error
 	FindAllWithSort(ctx context.Context, fid string, fieldName string, direction int) future.IFuture
 
 	// return data OrderFinancePageableResult, error
@@ -39,7 +39,7 @@ type IOrderFinanceRepository interface {
 	// return data OrderFinancePageableResult, error
 	FindAllWithPageAndSort(ctx context.Context, fid string, page, perPage int64, fieldName string, direction int) future.IFuture
 
-	// return data []*entities.OrderFinance, error
+	// return data []*entities.SellerOrder, error
 	FindByFilter(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{})) future.IFuture
 
 	// return data OrderFinancePageableResult, error

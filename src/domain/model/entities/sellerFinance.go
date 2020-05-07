@@ -33,7 +33,7 @@ type SellerFinance struct {
 	DocVersion string             `bson:"docVersion"`
 	SellerInfo *SellerProfile     `bson:"sellerInfo"`
 	Invoice    Invoice            `bson:"invoice"`
-	Orders     []*OrderFinance    `bson:"orders"`
+	Orders     []*SellerOrder     `bson:"orders"`
 	Payment    *FinancePayment    `bson:"payment"`
 	Status     string             `bson:"status"`
 	Start      *time.Time         `bson:"start"`
@@ -86,19 +86,21 @@ type Invoice struct {
 	ShipmentRoundupTotal   *Money `bson:"shipmentRoundupTotal"`
 }
 
-type OrderFinance struct {
-	OId                uint64     `bson:"oid"`
-	FId                string     `bson:"fid"`
-	SellerId           uint64     `bson:"sellerId"`
-	RawShippingNet     *Money     `bson:"rawShippingNet"`
-	RoundupShippingNet *Money     `bson:"roundupShippingNet"`
-	Items              []*Item    `bson:"items"`
-	CreatedAt          time.Time  `bson:"createdAt"`
-	UpdatedAt          time.Time  `bson:"updatedAt"`
-	DeletedAt          *time.Time `bson:"deletedAt"`
+type SellerOrder struct {
+	OId                uint64        `bson:"oid"`
+	FId                string        `bson:"fid"`
+	SellerId           uint64        `bson:"sellerId"`
+	ShipmentAmount     *Money        `bson:"shipmentAmount"`
+	RawShippingNet     *Money        `bson:"rawShippingNet"`
+	RoundupShippingNet *Money        `bson:"roundupShippingNet"`
+	Items              []*SellerItem `bson:"items"`
+	OrderCreatedAt     time.Time     `bson:"orderCreatedAt"`
+	SubPkgCreatedAt    time.Time     `bson:"subPkgCreatedAt"`
+	SubPkgUpdatedAt    time.Time     `bson:"subPkgUpdatedAt"`
+	DeletedAt          *time.Time    `bson:"deletedAt"`
 }
 
-type Item struct {
+type SellerItem struct {
 	SId         uint64                `bson:"sid"`
 	SKU         string                `bson:"sku"`
 	InventoryId string                `bson:"inventoryId"`
@@ -110,7 +112,7 @@ type Item struct {
 	Returnable  bool                  `bson:"returnable"`
 	Quantity    int32                 `bson:"quantity"`
 	Attributes  map[string]*Attribute `bson:"attributes"`
-	Invoice     ItemInvoice           `bson:"invoice"`
+	Invoice     *ItemInvoice          `bson:"invoice"`
 }
 
 type Attribute struct {
