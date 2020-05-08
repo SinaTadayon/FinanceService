@@ -62,14 +62,10 @@ stages:
   tags:
     - go-service
   script:
-    - ssh root@staging-swarm-manager1.faza.io "cd /root/faza-stack/apps/ && TAG=$CI_COMMIT_REF_NAME bash deploy-stg.sh 2> /dev/null";
+    - ssh root@staging-swarm-manager1.faza.io "cd /root/faza-stack/apps/ && TAG=$CI_COMMIT_REF_NAME SERVICE=$CI_PROJECT_NAME bash deploy-stg.sh 2> /dev/null";
       sleep 5;
-
   when: on_success
   dependencies:
     - 4-push_image
   only:
-    refs:
-      - staging
-      - master
-      - prelive
+    - staging
