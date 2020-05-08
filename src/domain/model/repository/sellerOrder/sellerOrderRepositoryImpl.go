@@ -21,18 +21,18 @@ var ErrorDeleteFailed = errors.New("update deletedAt field failed")
 var ErrorRemoveFailed = errors.New("remove SellerOrder failed")
 var ErrorUpdateFailed = errors.New("update SellerOrder failed")
 
-type iOrderFinanceRepositoryImpl struct {
+type iSellerOrderRepositoryImpl struct {
 	mongoAdapter *mongoadapter.Mongo
 	database     string
 	collection   string
 }
 
-func NewOrderFinanceRepository(mongoDriver *mongoadapter.Mongo, database, collection string) IOrderFinanceRepository {
-	return &iOrderFinanceRepositoryImpl{mongoDriver, database, collection}
+func NewOrderFinanceRepository(mongoDriver *mongoadapter.Mongo, database, collection string) ISellerOrderRepository {
+	return &iSellerOrderRepositoryImpl{mongoDriver, database, collection}
 }
 
 // return data *entities.SellerOrder , error
-func (repo iOrderFinanceRepositoryImpl) Save(ctx context.Context, order entities.SellerOrder) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) Save(ctx context.Context, order entities.SellerOrder) future.IFuture {
 	updateResult, err := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{
 		{"deletedAt", nil},
 		{"fid", order.FId}},
@@ -56,12 +56,12 @@ func (repo iOrderFinanceRepositoryImpl) Save(ctx context.Context, order entities
 }
 
 // return data []*entities.SellerOrder , error
-func (repo iOrderFinanceRepositoryImpl) SaveAll(ctx context.Context, orders []entities.SellerOrder) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) SaveAll(ctx context.Context, orders []entities.SellerOrder) future.IFuture {
 	panic("must be implement")
 }
 
 // return data *entities.SellerOrder, error
-func (repo iOrderFinanceRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid string, oid uint64) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid string, oid uint64) future.IFuture {
 	var order entities.SellerOrder
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil, "orders.oid": oid}},
@@ -94,7 +94,7 @@ func (repo iOrderFinanceRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid
 }
 
 // return data *[]entities.SellerOrder, error
-func (repo iOrderFinanceRepositoryImpl) FindBySellerIdAndOId(ctx context.Context, sellerId, oid uint64) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) FindBySellerIdAndOId(ctx context.Context, sellerId, oid uint64) future.IFuture {
 
 	pipeline := []bson.M{
 		{"$match": bson.M{"sellerId": sellerId, "orders.oid": oid, "deletedAt": nil}},
@@ -132,7 +132,7 @@ func (repo iOrderFinanceRepositoryImpl) FindBySellerIdAndOId(ctx context.Context
 }
 
 // return data *[]entities.SellerOrder, error
-func (repo iOrderFinanceRepositoryImpl) FindById(ctx context.Context, oid uint64) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) FindById(ctx context.Context, oid uint64) future.IFuture {
 
 	pipeline := []bson.M{
 		{"$match": bson.M{"orders.oid": oid, "deletedAt": nil}},
@@ -170,7 +170,7 @@ func (repo iOrderFinanceRepositoryImpl) FindById(ctx context.Context, oid uint64
 }
 
 // return data []*entities.SellerOrder, error
-func (repo iOrderFinanceRepositoryImpl) FindAll(ctx context.Context, fid string) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) FindAll(ctx context.Context, fid string) future.IFuture {
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
 		{"$unwind": "$orders"},
@@ -206,7 +206,7 @@ func (repo iOrderFinanceRepositoryImpl) FindAll(ctx context.Context, fid string)
 }
 
 // return data []*entities.SellerOrder, error
-func (repo iOrderFinanceRepositoryImpl) FindAllWithSort(ctx context.Context, fid string, fieldName string, direction int) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) FindAllWithSort(ctx context.Context, fid string, fieldName string, direction int) future.IFuture {
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
 		{"$unwind": "$orders"},
@@ -240,8 +240,8 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithSort(ctx context.Context, fid
 		BuildAndSend()
 }
 
-// return data OrderFinancePageableResult, error
-func (repo iOrderFinanceRepositoryImpl) FindAllWithPage(ctx context.Context, fid string, page, perPage int64) future.IFuture {
+// return data SellerOrderPageableResult, error
+func (repo iSellerOrderRepositoryImpl) FindAllWithPage(ctx context.Context, fid string, page, perPage int64) future.IFuture {
 
 	if page <= 0 || perPage <= 0 {
 		return future.FactorySync().
@@ -317,14 +317,14 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithPage(ctx context.Context, fid
 	}
 
 	return future.FactorySync().
-		SetData(OrderFinancePageableResult{
+		SetData(SellerOrderPageableResult{
 			orders,
 			totalCount}).
 		BuildAndSend()
 }
 
-// return data OrderFinancePageableResult, error
-func (repo iOrderFinanceRepositoryImpl) FindAllWithPageAndSort(ctx context.Context, fid string, page, perPage int64, fieldName string, direction int) future.IFuture {
+// return data SellerOrderPageableResult, error
+func (repo iSellerOrderRepositoryImpl) FindAllWithPageAndSort(ctx context.Context, fid string, page, perPage int64, fieldName string, direction int) future.IFuture {
 	if page <= 0 || perPage <= 0 {
 		return future.FactorySync().
 			SetError(future.BadRequest, "Request Operation Failed", errors.New("Page or PerPage Invalid")).
@@ -399,14 +399,14 @@ func (repo iOrderFinanceRepositoryImpl) FindAllWithPageAndSort(ctx context.Conte
 	}
 
 	return future.FactorySync().
-		SetData(OrderFinancePageableResult{
+		SetData(SellerOrderPageableResult{
 			orders,
 			totalCount}).
 		BuildAndSend()
 }
 
 // return data []*entities.SellerOrder, error
-func (repo iOrderFinanceRepositoryImpl) FindByFilter(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{})) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) FindByFilter(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{})) future.IFuture {
 	filter := supplier()
 	iFuture := repo.CountWithFilter(ctx, totalSupplier).Get()
 	if iFuture.Error() != nil {
@@ -445,8 +445,8 @@ func (repo iOrderFinanceRepositoryImpl) FindByFilter(ctx context.Context, totalS
 		BuildAndSend()
 }
 
-// return data OrderFinancePageableResult, error
-func (repo iOrderFinanceRepositoryImpl) FindByFilterWithPage(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{}), page, perPage int64) future.IFuture {
+// return data SellerOrderPageableResult, error
+func (repo iSellerOrderRepositoryImpl) FindByFilterWithPage(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{}), page, perPage int64) future.IFuture {
 	if page <= 0 || perPage <= 0 {
 		return future.FactorySync().
 			SetError(future.BadRequest, "Request Operation Failed", errors.New("Page or PerPage Invalid")).
@@ -518,14 +518,14 @@ func (repo iOrderFinanceRepositoryImpl) FindByFilterWithPage(ctx context.Context
 	}
 
 	return future.FactorySync().
-		SetData(OrderFinancePageableResult{
+		SetData(SellerOrderPageableResult{
 			orders,
 			totalCount}).
 		BuildAndSend()
 }
 
 // return data bool, error
-func (repo iOrderFinanceRepositoryImpl) ExistsById(ctx context.Context, oid uint64) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) ExistsById(ctx context.Context, oid uint64) future.IFuture {
 	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"orders.oid", oid}, {"deletedAt", nil}})
 	if err := singleResult.Err(); err != nil {
 		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
@@ -543,7 +543,7 @@ func (repo iOrderFinanceRepositoryImpl) ExistsById(ctx context.Context, oid uint
 }
 
 // return int64, error
-func (repo iOrderFinanceRepositoryImpl) Count(ctx context.Context, fid string) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) Count(ctx context.Context, fid string) future.IFuture {
 	var total struct {
 		Count int
 	}
@@ -577,7 +577,7 @@ func (repo iOrderFinanceRepositoryImpl) Count(ctx context.Context, fid string) f
 }
 
 // return int64, error
-func (repo iOrderFinanceRepositoryImpl) CountWithFilter(ctx context.Context, supplier func() (filter interface{})) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) CountWithFilter(ctx context.Context, supplier func() (filter interface{})) future.IFuture {
 	var total struct {
 		Count int
 	}

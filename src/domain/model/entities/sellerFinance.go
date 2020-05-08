@@ -36,8 +36,8 @@ type SellerFinance struct {
 	Orders     []*SellerOrder     `bson:"orders"`
 	Payment    *FinancePayment    `bson:"payment"`
 	Status     string             `bson:"status"`
-	Start      *time.Time         `bson:"start"`
-	End        *time.Time         `bson:"end"`
+	StartAt    *time.Time         `bson:"startAt"`
+	EndAt      *time.Time         `bson:"endAt"`
 	CreatedAt  time.Time          `bson:"createdAt"`
 	UpdatedAt  time.Time          `bson:"updatedAt"`
 	DeletedAt  *time.Time         `bson:"deletedAt"`

@@ -1,4 +1,4 @@
-package sellerFinance
+package finance_repository
 
 import (
 	"context"
@@ -24,8 +24,8 @@ type iSellerFinanceRepositoryImpl struct {
 var ErrorTotalCountExceeded = errors.New("total count exceeded")
 var ErrorPageNotAvailable = errors.New("page not available")
 var ErrorDeleteFailed = errors.New("update deletedAt field failed")
-var ErrorRemoveFailed = errors.New("remove subpackage failed")
-var ErrorUpdateFailed = errors.New("update subpackage failed")
+var ErrorRemoveFailed = errors.New("remove SellerFinance failed")
+var ErrorUpdateFailed = errors.New("update SellerFinance failed")
 
 func NewSellerFinanceRepository(mongoDriver *mongoadapter.Mongo, database, collection string) ISellerFinanceRepository {
 	return &iSellerFinanceRepositoryImpl{mongoDriver, database, collection}

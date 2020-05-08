@@ -44,7 +44,8 @@ type Config struct {
 		Host              string `env:"FINANCE_SERVICE_MONGO_HOST"`
 		Port              int    `env:"FINANCE_SERVICE_MONGO_PORT"`
 		Database          string `env:"FINANCE_SERVICE_MONGO_DB_NAME"`
-		Collection        string `env:"FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME"`
+		SellerCollection  string `env:"FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME"`
+		TriggerCollection string `env:"FINANCE_SERVICE_MONGO_TRIGGER_COLLECTION_NAME"`
 		ConnectionTimeout int    `env:"FINANCE_SERVICE_MONGO_CONN_TIMEOUT"`
 		ReadTimeout       int    `env:"FINANCE_SERVICE_MONGO_READ_TIMEOUT"`
 		WriteTimeout      int    `env:"FINANCE_SERVICE_MONGO_WRITE_TIMEOUT"`

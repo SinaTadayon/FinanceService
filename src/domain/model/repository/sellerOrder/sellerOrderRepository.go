@@ -6,12 +6,12 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/future"
 )
 
-type OrderFinancePageableResult struct {
-	OrderFinances []*entities.SellerOrder
-	TotalCount    int64
+type SellerOrderPageableResult struct {
+	SellerOrders []*entities.SellerOrder
+	TotalCount   int64
 }
 
-type IOrderFinanceRepository interface {
+type ISellerOrderRepository interface {
 	// return data *entities.SellerOrder , error
 	Save(ctx context.Context, order entities.SellerOrder) future.IFuture
 
@@ -33,16 +33,16 @@ type IOrderFinanceRepository interface {
 	// return data []*entities.SellerOrder, error
 	FindAllWithSort(ctx context.Context, fid string, fieldName string, direction int) future.IFuture
 
-	// return data OrderFinancePageableResult, error
+	// return data SellerOrderPageableResult, error
 	FindAllWithPage(ctx context.Context, fid string, page, perPage int64) future.IFuture
 
-	// return data OrderFinancePageableResult, error
+	// return data SellerOrderPageableResult, error
 	FindAllWithPageAndSort(ctx context.Context, fid string, page, perPage int64, fieldName string, direction int) future.IFuture
 
 	// return data []*entities.SellerOrder, error
 	FindByFilter(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{})) future.IFuture
 
-	// return data OrderFinancePageableResult, error
+	// return data SellerOrderPageableResult, error
 	FindByFilterWithPage(ctx context.Context, totalSupplier func() (filter interface{}), supplier func() (filter interface{}), page, perPage int64) future.IFuture
 
 	// return data bool, error

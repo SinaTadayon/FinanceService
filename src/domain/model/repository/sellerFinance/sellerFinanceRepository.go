@@ -1,4 +1,4 @@
-package sellerFinance
+package finance_repository
 
 import (
 	"context"

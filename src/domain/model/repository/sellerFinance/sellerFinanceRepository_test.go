@@ -1,4 +1,4 @@
-package sellerFinance
+package finance_repository
 
 import (
 	"context"
@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	financeRepository = NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.Collection)
+	financeRepository = NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
 
 	// Running Tests
 	code := m.Run()
@@ -275,7 +275,7 @@ func TestDeleteAllRepository(t *testing.T) {
 	require.Nil(t, iFuture.Error())
 }
 
-func TestRemoveOrderRepository(t *testing.T) {
+func TestRemoveFinanceRepository(t *testing.T) {
 	defer removeCollection()
 	finance := createFinance()
 	ctx, _ := context.WithCancel(context.Background())
@@ -308,7 +308,7 @@ func TestFindByFilterRepository(t *testing.T) {
 	require.Equal(t, "IN_PROGRESS", iFuture.Data().([]*entities.SellerFinance)[0].Status)
 }
 
-func TestFindByFilterWithSortOrderRepository(t *testing.T) {
+func TestFindByFilterWithSortFinanceRepository(t *testing.T) {
 	defer removeCollection()
 	finance := createFinance()
 	ctx, _ := context.WithCancel(context.Background())
@@ -633,8 +633,8 @@ func createFinance() *entities.SellerFinance {
 			UpdatedAt: time.Now(),
 		},
 		Status:    "CLOSED",
-		Start:     nil,
-		End:       nil,
+		StartAt:   nil,
+		EndAt:     nil,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		DeletedAt: nil,
