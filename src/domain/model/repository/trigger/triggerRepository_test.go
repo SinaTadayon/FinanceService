@@ -86,37 +86,16 @@ func TestUpdateTriggerRepository(t *testing.T) {
 	require.NotNil(t, trigger1.ID, "triggerRepository.Save failed, id not generated")
 
 	trigger1.Data = "IN_PROGRESS"
-	iFuture = triggerRepository.Save(ctx, *trigger1).Get()
+	iFuture = triggerRepository.Update(ctx, *trigger1).Get()
 	require.Nil(t, iFuture.Error(), "triggerRepository.Save failed")
 	require.Equal(t, "IN_PROGRESS", iFuture.Data().(*entities.SchedulerTrigger).Data.(string))
-}
-
-func TestInsertTriggerRepository_Success(t *testing.T) {
-	defer removeCollection()
-	trigger := createSchedulerTrigger()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := triggerRepository.Insert(ctx, *trigger).Get()
-	require.Nil(t, iFuture.Error(), "triggerRepository.Insert failed")
-	require.NotNil(t, iFuture.Data().(*entities.SchedulerTrigger).ID, "triggerRepository.Insert failed, id not generated")
-}
-
-func TestFindByIdTriggerRepository(t *testing.T) {
-	defer removeCollection()
-	trigger := createSchedulerTrigger()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := triggerRepository.Insert(ctx, *trigger).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = triggerRepository.FindById(ctx, iFuture.Data().(*entities.SchedulerTrigger).TId).Get()
-	require.Nil(t, iFuture.Error())
-	require.NotNil(t, iFuture.Data())
 }
 
 func TestExistsByNameRepository(t *testing.T) {
 	defer removeCollection()
 	trigger := createSchedulerTrigger()
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := triggerRepository.Insert(ctx, *trigger).Get()
+	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
 	iFuture = triggerRepository.FindByName(ctx, iFuture.Data().(*entities.SchedulerTrigger).Name).Get()
@@ -128,7 +107,7 @@ func TestDeleteTriggerRepository(t *testing.T) {
 	defer removeCollection()
 	trigger := createSchedulerTrigger()
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := triggerRepository.Insert(ctx, *trigger).Get()
+	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 	trigger1 := iFuture.Data().(*entities.SchedulerTrigger)
 
@@ -141,7 +120,7 @@ func TestRemoveTriggerRepository(t *testing.T) {
 	defer removeCollection()
 	trigger := createSchedulerTrigger()
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := triggerRepository.Insert(ctx, *trigger).Get()
+	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
 	iFuture = triggerRepository.Remove(ctx, *(iFuture.Data().(*entities.SchedulerTrigger))).Get()
@@ -152,14 +131,14 @@ func TestFindByFilterRepository(t *testing.T) {
 	defer removeCollection()
 	trigger := createSchedulerTrigger()
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := triggerRepository.Insert(ctx, *trigger).Get()
+	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
-	iFuture = triggerRepository.Insert(ctx, *trigger).Get()
+	iFuture = triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
-	trigger.Duration = 12
-	iFuture = triggerRepository.Insert(ctx, *trigger).Get()
+	trigger.Interval = 12
+	iFuture = triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
 	iFuture = triggerRepository.FindByFilter(ctx, func() interface{} {
@@ -167,7 +146,7 @@ func TestFindByFilterRepository(t *testing.T) {
 	}).Get()
 
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, int64(12), iFuture.Data().([]*entities.SchedulerTrigger)[0].Duration)
+	require.Equal(t, int64(12), iFuture.Data().([]*entities.SchedulerTrigger)[0].Interval)
 }
 
 func removeCollection() {
@@ -179,21 +158,22 @@ func removeCollection() {
 func createSchedulerTrigger() *entities.SchedulerTrigger {
 	timestamp := time.Now().UTC()
 	return &entities.SchedulerTrigger{
-		Version:         0,
-		DocVersion:      entities.TriggerDocumentVersion,
-		Name:            "Trigger-Test",
-		Group:           "Trigger-Group",
-		Cron:            "",
-		Duration:        24,
-		TimeUnit:        entities.HourUnit,
-		TriggerValue:    "23:59:59",
-		LatestTriggerAt: &timestamp,
-		TriggerAt:       &timestamp,
-		TriggerCount:    10,
-		Data:            nil,
-		IsEnabled:       true,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-		DeletedAt:       nil,
+		Version:          0,
+		DocVersion:       entities.TriggerDocumentVersion,
+		Name:             "Trigger-Test",
+		Group:            "Trigger-Group",
+		Cron:             "",
+		Interval:         24,
+		TimeUnit:         entities.HourUnit,
+		TriggerPoint:     "23:59:59",
+		TriggerPointType: entities.AbsoluteTrigger,
+		LatestTriggerAt:  &timestamp,
+		TriggerAt:        &timestamp,
+		TriggerCount:     10,
+		Data:             nil,
+		IsEnabled:        true,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+		DeletedAt:        nil,
 	}
 }

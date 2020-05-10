@@ -27,7 +27,7 @@ type iSellerOrderRepositoryImpl struct {
 	collection   string
 }
 
-func NewOrderFinanceRepository(mongoDriver *mongoadapter.Mongo, database, collection string) ISellerOrderRepository {
+func NewSellerOrderRepository(mongoDriver *mongoadapter.Mongo, database, collection string) ISellerOrderRepository {
 	return &iSellerOrderRepositoryImpl{mongoDriver, database, collection}
 }
 

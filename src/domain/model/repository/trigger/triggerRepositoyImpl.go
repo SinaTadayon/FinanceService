@@ -32,77 +32,49 @@ func NewSchedulerTriggerRepository(mongoDriver *mongoadapter.Mongo, database, co
 // (*entities.SellerFinance, error)
 func (repo iSchedulerTriggerRepositoryImpl) Save(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture {
 
-	if trigger.TId == 0 {
-		trigger.TId = time.Now().UTC().UnixNano()
-		var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, trigger)
-		if err != nil {
-			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Save SchedulerTrigger Failed")).
-				BuildAndSend()
-		}
-		trigger.ID = insertOneResult.InsertedID.(primitive.ObjectID)
+	var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, trigger)
+	if err != nil {
 		return future.FactorySync().
-			SetData(&trigger).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Save SchedulerTrigger Failed")).
 			BuildAndSend()
-	} else {
-		trigger.UpdatedAt = time.Now().UTC()
-		currentVersion := trigger.Version
-		trigger.Version += 1
-		//updateOptions := &options.UpdateOptions{}
-		//updateOptions.SetUpsert(true)
-		updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{{"tid", trigger.TId}, {"deletedAt", nil}, {"version", currentVersion}},
-			bson.D{{"$set", trigger}})
-		if e != nil {
-			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "SchedulerTrigger UpdateOne Failed")).
-				BuildAndSend()
-		}
-
-		if updateResult.MatchedCount != 1 || updateResult.ModifiedCount != 1 {
-			return future.FactorySync().
-				SetError(future.NotFound, "SchedulerTrigger Not Found", errors.Wrap(e, "SchedulerTrigger Not Found")).
-				BuildAndSend()
-		}
 	}
-
+	trigger.ID = insertOneResult.InsertedID.(primitive.ObjectID)
 	return future.FactorySync().
 		SetData(&trigger).
 		BuildAndSend()
 }
 
 // return (*entities.SchedulerTrigger, error)
-func (repo iSchedulerTriggerRepositoryImpl) Insert(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture {
+func (repo iSchedulerTriggerRepositoryImpl) Update(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture {
 
-	if trigger.TId == 0 {
-		trigger.TId = time.Now().UTC().UnixNano()
-		var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, trigger)
-		if err != nil {
-			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Insert SchedulerTrigger Failed")).
-				BuildAndSend()
-		}
-		trigger.ID = insertOneResult.InsertedID.(primitive.ObjectID)
+	trigger.UpdatedAt = time.Now().UTC()
+	currentVersion := trigger.Version
+	trigger.Version += 1
+	//updateOptions := &options.UpdateOptions{}
+	//updateOptions.SetUpsert(true)
+	updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{{"name", trigger.Name}, {"deletedAt", nil}, {"version", currentVersion}},
+		bson.D{{"$set", trigger}})
+	if e != nil {
 		return future.FactorySync().
-			SetData(&trigger).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "SchedulerTrigger UpdateOne Failed")).
 			BuildAndSend()
-	} else {
-		var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, &trigger)
-		if err != nil {
-			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Insert SchedulerTrigger Failed")).
-				BuildAndSend()
-		}
-		trigger.ID = insertOneResult.InsertedID.(primitive.ObjectID)
 	}
+
+	if updateResult.MatchedCount != 1 || updateResult.ModifiedCount != 1 {
+		return future.FactorySync().
+			SetError(future.NotFound, "SchedulerTrigger Not Found", errors.Wrap(e, "SchedulerTrigger Not Found")).
+			BuildAndSend()
+	}
+
 	return future.FactorySync().
 		SetData(&trigger).
 		BuildAndSend()
 }
 
 // (*entities.SchedulerTrigger, error)
-func (repo iSchedulerTriggerRepositoryImpl) FindById(ctx context.Context, tid int64) future.IFuture {
+func (repo iSchedulerTriggerRepositoryImpl) FindEnabled(ctx context.Context) future.IFuture {
 	var trigger *entities.SchedulerTrigger
-	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"tid", tid}, {"deletedAt", nil}})
+	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"isEnabled", true}, {"deletedAt", nil}})
 	if singleResult.Err() != nil {
 		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
 			return future.FactorySync().
@@ -195,9 +167,9 @@ func (repo iSchedulerTriggerRepositoryImpl) FindByFilter(ctx context.Context, su
 }
 
 // (*entities.SellerFinance, error)
-func (repo iSchedulerTriggerRepositoryImpl) DeleteById(ctx context.Context, tid int64) future.IFuture {
+func (repo iSchedulerTriggerRepositoryImpl) DeleteByName(ctx context.Context, name string) future.IFuture {
 
-	iFuture := repo.FindById(ctx, tid).Get()
+	iFuture := repo.FindByName(ctx, name).Get()
 	if iFuture.Error() != nil {
 		return future.FactorySyncDataOf(iFuture).BuildAndSend()
 	}
@@ -209,7 +181,7 @@ func (repo iSchedulerTriggerRepositoryImpl) DeleteById(ctx context.Context, tid 
 	trigger.Version += 1
 
 	updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection,
-		bson.D{{"tid", trigger.TId}, {"deletedAt", nil}, {"version", currentVersion}},
+		bson.D{{"name", trigger.Name}, {"deletedAt", nil}, {"version", currentVersion}},
 		bson.D{{"$set", trigger}})
 	if e != nil {
 		return future.FactorySync().
@@ -233,10 +205,11 @@ func (repo iSchedulerTriggerRepositoryImpl) Delete(ctx context.Context, trigger 
 	deletedAt := time.Now().UTC()
 	trigger.DeletedAt = &deletedAt
 	currentVersion := trigger.Version
+	trigger.IsEnabled = false
 	trigger.Version += 1
 
 	updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection,
-		bson.D{{"tid", trigger.TId}, {"deletedAt", nil}, {"version", currentVersion}},
+		bson.D{{"name", trigger.Name}, {"deletedAt", nil}, {"version", currentVersion}},
 		bson.D{{"$set", trigger}})
 	if e != nil {
 		return future.FactorySync().
@@ -256,8 +229,8 @@ func (repo iSchedulerTriggerRepositoryImpl) Delete(ctx context.Context, trigger 
 }
 
 // error
-func (repo iSchedulerTriggerRepositoryImpl) RemoveById(ctx context.Context, tid int64) future.IFuture {
-	result, err := repo.mongoAdapter.DeleteOne(repo.database, repo.collection, bson.M{"tid": tid})
+func (repo iSchedulerTriggerRepositoryImpl) RemoveByName(ctx context.Context, name string) future.IFuture {
+	result, err := repo.mongoAdapter.DeleteOne(repo.database, repo.collection, bson.M{"name": name})
 	if err != nil {
 		return future.FactorySync().
 			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "DeleteOne SchedulerTrigger Failed")).
@@ -277,7 +250,7 @@ func (repo iSchedulerTriggerRepositoryImpl) RemoveById(ctx context.Context, tid 
 
 // error
 func (repo iSchedulerTriggerRepositoryImpl) Remove(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture {
-	return repo.RemoveById(ctx, trigger.TId)
+	return repo.RemoveByName(ctx, trigger.Name)
 }
 
 // error
@@ -289,6 +262,19 @@ func (repo iSchedulerTriggerRepositoryImpl) RemoveAll(ctx context.Context) futur
 			BuildAndSend()
 	}
 	return nil
+}
+
+// (int64, error)
+func (repo iSchedulerTriggerRepositoryImpl) Count(ctx context.Context) future.IFuture {
+	total, err := repo.mongoAdapter.Count(repo.database, repo.collection, bson.D{{"deletedAt", nil}})
+	if err != nil {
+		return future.FactorySync().
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Count SchedulerTrigger Failed")).
+			BuildAndSend()
+	}
+	return future.FactorySync().
+		SetData(total).
+		BuildAndSend()
 }
 
 // (int64, error)

@@ -10,31 +10,35 @@ const (
 )
 
 type TriggerTimeUnit string
+type TriggerPointType string
 
 const (
-	MillisecondUnit TriggerTimeUnit = "MILLISECOND"
-	SecondUnit      TriggerTimeUnit = "SECOND"
-	MinuteUnit      TriggerTimeUnit = "MINUTE"
-	HourUnit        TriggerTimeUnit = "Hour"
+	MinuteUnit TriggerTimeUnit = "MINUTE"
+	HourUnit   TriggerTimeUnit = "HOUR"
+)
+
+const (
+	AbsoluteTrigger TriggerPointType = "ABSOLUTE"
+	RelativeTrigger TriggerPointType = "RELATIVE"
 )
 
 type SchedulerTrigger struct {
-	ID              primitive.ObjectID `bson:"-"`
-	TId             int64              `bson:"tid"`
-	Version         uint64             `bson:"version"`
-	DocVersion      string             `bson:"docVersion"`
-	Name            string             `bson:"name"`
-	Group           string             `bson:"group"`
-	Cron            string             `bson:"cron"`
-	Duration        int64              `bson:"duration"`
-	TimeUnit        TriggerTimeUnit    `bson:"timeUnit"`
-	TriggerValue    string             `bson:"triggerValue"`
-	LatestTriggerAt *time.Time         `bson:"latestTriggerAt"`
-	TriggerAt       *time.Time         `bson:"triggerAt"`
-	TriggerCount    int64              `bson:"triggerCount"`
-	Data            interface{}        `bson:"data"`
-	IsEnabled       bool               `bson:"isEnabled"`
-	CreatedAt       time.Time          `bson:"createdAt"`
-	UpdatedAt       time.Time          `bson:"updatedAt"`
-	DeletedAt       *time.Time         `bson:"deletedAt"`
+	ID               primitive.ObjectID `bson:"-"`
+	Version          uint64             `bson:"version"`
+	DocVersion       string             `bson:"docVersion"`
+	Name             string             `bson:"name"`
+	Group            string             `bson:"group"`
+	Cron             string             `bson:"cron"`
+	Interval         int64              `bson:"interval"`
+	TimeUnit         TriggerTimeUnit    `bson:"timeUnit"`
+	TriggerPoint     string             `bson:"triggerPoint"`
+	TriggerPointType TriggerPointType   `bson:"triggerPointType"`
+	LatestTriggerAt  *time.Time         `bson:"latestTriggerAt"`
+	TriggerAt        *time.Time         `bson:"triggerAt"`
+	TriggerCount     int64              `bson:"triggerCount"`
+	Data             interface{}        `bson:"data"`
+	IsEnabled        bool               `bson:"isEnabled"`
+	CreatedAt        time.Time          `bson:"createdAt"`
+	UpdatedAt        time.Time          `bson:"updatedAt"`
+	DeletedAt        *time.Time         `bson:"deletedAt"`
 }

@@ -12,6 +12,19 @@ type Config struct {
 	App struct {
 		ServiceMode    string `env:"FINANCE_SERVICE_MODE"`
 		PrometheusPort int    `env:"PROMETHEUS_PORT"`
+
+		FinanceOrderSchedulerTimeUint            string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
+		FinanceOrderSchedulerInterval            int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
+		FinanceOrderSchedulerParentWorkerTimeout int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerWorkerTimeout       int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
+
+		FinanceOrderSchedulerTriggerName      string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_NAME"`
+		FinanceOrderSchedulerTriggerTimeUnit  string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_TIME_UNIT"`
+		FinanceOrderSchedulerTriggerInterval  int    `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_INTERVAL"`
+		FinanceOrderSchedulerTriggerPoint     string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_POINT"`
+		FinanceOrderSchedulerTriggerPointType string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_POINT_TYPE"`
+		FinanceOrderSchedulerTriggerEnabled   bool   `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_ENABLED"`
+		FinanceOrderSchedulerTriggerTestMode  bool   `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_TEST_MODE"`
 	}
 
 	GRPCServer struct {

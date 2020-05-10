@@ -4,22 +4,30 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.faza.io/go-framework/mongoadapter"
 	"gitlab.faza.io/services/finance/configs"
+	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
+	order_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerOrder"
+	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
+	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	user_service "gitlab.faza.io/services/finance/infrastructure/services/user"
 	"time"
 )
 
-type CtxKey int
+type TimeUnit string
 
 const (
-	CtxUserID CtxKey = iota
-	CtxAuthToken
+	MinuteUnit TimeUnit = "MINUTE"
+	HourUnit   TimeUnit = "HOUR"
 )
 
 var Globals struct {
-	MongoDriver *mongoadapter.Mongo
-	Config      *configs.Config
-	UserService user_service.IUserService
+	MongoDriver             *mongoadapter.Mongo
+	Config                  *configs.Config
+	UserService             user_service.IUserService
+	SellerFinanceRepository finance_repository.ISellerFinanceRepository
+	SellerOrderRepository   order_repository.ISellerOrderRepository
+	TriggerRepository       trigger_repository.ISchedulerTriggerRepository
+	OrderScheduler          order_scheduler.OrderScheduler
 }
 
 func SetupMongoDriver(config configs.Config) (*mongoadapter.Mongo, error) {

@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	sellerOrderRepo = NewOrderFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
+	sellerOrderRepo = NewSellerOrderRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
 
 	// Running Tests
 	code := m.Run()
