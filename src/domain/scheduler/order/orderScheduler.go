@@ -8,6 +8,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,22 +22,27 @@ type OrderScheduler struct {
 	schedulerWorkerTimeout      time.Duration
 	schedulerTriggerPointOffset time.Duration
 	schedulerTriggerInterval    time.Duration
-	schedulerTimeUnit           app.TimeUnit
-	schedulerTriggerTimeUnit    app.TimeUnit
+	schedulerTriggerDuration    time.Duration
+	schedulerTriggerPointType   entities.TriggerPointType
+	schedulerTimeUnit           utils.TimeUnit
+	schedulerTriggerTimeUnit    utils.TimeUnit
 	waitGroup                   sync.WaitGroup
 	mux                         sync.Mutex
 }
 
 func NewOrderScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWorkerTimeout,
-	schedulerTriggerInterval, triggerPointOffset time.Duration,
-	schedulerTimeUnit, schedulerTriggerTimeUnit app.TimeUnit) OrderScheduler {
+	schedulerTriggerInterval, triggerPointOffset, schedulerTriggerDuration time.Duration,
+	schedulerTriggerPointType entities.TriggerPointType,
+	schedulerTimeUnit, schedulerTriggerTimeUnit utils.TimeUnit) OrderScheduler {
 
 	return OrderScheduler{
 		schedulerInterval:           schedulerInterval,
 		schedulerStewardTimeout:     schedulerStewardTimeout,
 		schedulerWorkerTimeout:      schedulerWorkerTimeout,
-		schedulerTriggerInterval:    schedulerTriggerInterval,
 		schedulerTriggerPointOffset: triggerPointOffset,
+		schedulerTriggerInterval:    schedulerTriggerInterval,
+		schedulerTriggerDuration:    schedulerTriggerDuration,
+		schedulerTriggerPointType:   schedulerTriggerPointType,
 		schedulerTimeUnit:           schedulerTimeUnit,
 		schedulerTriggerTimeUnit:    schedulerTriggerTimeUnit,
 	}
@@ -70,10 +76,10 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 	}
 
 	if isNotFoundFlag {
-		iFuture := app.Globals.TriggerRepository.FindEnabled(ctx).Get()
+		iFuture := app.Globals.TriggerRepository.FindActiveTrigger(ctx).Get()
 		if iFuture.Error() != nil {
 			if iFuture.Error().Code() != future.NotFound {
-				log.GLog.Logger.Error("TriggerRepository.FindEnabled failed",
+				log.GLog.Logger.Error("TriggerRepository.FindActiveTrigger failed",
 					"fn", "init",
 					"error", iFuture.Error().Reason())
 				return iFuture.Error()
@@ -94,17 +100,41 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 				"trigger", activeTrigger)
 		}
 
+		var triggerAt time.Time
+		dt := time.Now().UTC()
+		if scheduler.schedulerTriggerPointType == entities.AbsoluteTrigger {
+			dateTimeString := dt.Format("2006-01-02") + "T" + app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint + ":00-0000"
+			triggerPoint, err := time.Parse(utils.ISO8601, dateTimeString)
+			if err != nil {
+				log.GLog.Logger.FromContext(ctx).Error("current date time parse failed",
+					"fn", "init",
+					"timestamp", dateTimeString,
+					"error", err)
+				triggerPoint = dt
+			}
+
+			if dt.After(triggerPoint) {
+				triggerAt = triggerPoint.AddDate(0, 0, triggerPoint.Day()+1)
+			} else if dt.Before(triggerPoint) || dt.Equal(triggerPoint) {
+				triggerAt = triggerPoint
+			}
+		} else {
+			triggerAt = dt.Add(scheduler.schedulerTriggerInterval)
+		}
+
 		newTrigger := entities.SchedulerTrigger{
 			Version:          1,
 			DocVersion:       entities.TriggerDocumentVersion,
 			Name:             app.Globals.Config.App.FinanceOrderSchedulerTriggerName,
+			Duration:         int64(app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration),
 			Interval:         int64(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval),
-			TimeUnit:         entities.TriggerTimeUnit(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit),
+			TimeUnit:         utils.TimeUnit(strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)),
 			TriggerPoint:     app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint,
-			TriggerPointType: entities.TriggerPointType(app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType),
+			TriggerPointType: entities.TriggerPointType(strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType)),
+			TriggerAt:        &triggerAt,
 			IsEnabled:        app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled,
-			CreatedAt:        time.Now().UTC(),
-			UpdatedAt:        time.Now().UTC(),
+			CreatedAt:        dt,
+			UpdatedAt:        dt,
 		}
 
 		iFuture = app.Globals.TriggerRepository.Save(ctx, newTrigger).Get()
@@ -118,7 +148,7 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 
 	} else {
 		trigger := iFuture.Data().(*entities.SchedulerTrigger)
-		if trigger.TimeUnit != entities.TriggerTimeUnit(scheduler.schedulerTriggerTimeUnit) {
+		if trigger.TimeUnit != scheduler.schedulerTriggerTimeUnit {
 			log.GLog.Logger.Error("the trigger exist and FinanceOrderSchedulerTriggerTimeUnit modification is not allow, you must create new trigger with new name",
 				"fn", "init",
 				"name", trigger.Name,
@@ -141,26 +171,37 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 				"old triggerPoint", trigger.TriggerPoint,
 				"new triggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
 			return errors.New("triggerPoint change not acceptable")
+
+		} else if trigger.TriggerPointType != scheduler.schedulerTriggerPointType {
+			log.GLog.Logger.Error("the trigger exist and FinanceOrderSchedulerTriggerPointType modification is not allow, you must create new trigger with new name",
+				"fn", "init",
+				"name", trigger.Name,
+				"old triggerPointType", trigger.TriggerPointType,
+				"new triggerPointType", app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType)
+			return errors.New("triggerPoint change not acceptable")
 		}
 
 		if trigger.IsEnabled != app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled {
 			trigger.IsEnabled = app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled
+			iFuture = app.Globals.TriggerRepository.Update(ctx, *trigger).Get()
+			if iFuture.Error() != nil {
+				log.GLog.Logger.Error("TriggerRepository.Update failed",
+					"fn", "init",
+					"trigger", trigger,
+					"error", iFuture.Error().Reason())
+				return iFuture.Error()
+			}
 		}
 
-		iFuture = app.Globals.TriggerRepository.Update(ctx, *trigger).Get()
-		if iFuture.Error() != nil {
-			log.GLog.Logger.Error("TriggerRepository.Update failed",
-				"fn", "init",
-				"trigger", trigger,
-				"error", iFuture.Error().Reason())
-			return iFuture.Error()
-		}
 	}
 
 	return nil
 }
 
 func (scheduler OrderScheduler) scheduleProcess(ctx context.Context) {
+
+	// first run
+	scheduler.doProcess(ctx)
 
 	stewardCtx, stewardCtxCancel := context.WithCancel(context.Background())
 	stewardWorkerFn := scheduler.stewardFn(utils.ORContext(ctx, stewardCtx), scheduler.schedulerWorkerTimeout, scheduler.schedulerInterval, scheduler.worker)
@@ -298,5 +339,60 @@ func (scheduler OrderScheduler) worker(ctx context.Context, pulseInterval time.D
 func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 	log.GLog.Logger.Debug("scheduler doProcess",
 		"fn", "doProcess")
+
+	iFuture := app.Globals.TriggerRepository.FindByName(ctx, app.Globals.Config.App.FinanceOrderSchedulerTriggerName).Get()
+	if iFuture.Error() != nil {
+		log.GLog.Logger.Error("TriggerRepository.FindByName failed",
+			"fn", "doProcess",
+			"triggerName", app.Globals.Config.App.FinanceOrderSchedulerTriggerName,
+			"error", iFuture.Error().Reason())
+		return
+	}
+
+	trigger := iFuture.Data().(*entities.SchedulerTrigger)
+	if !trigger.IsEnabled {
+		return
+	}
+
+	timestamp := time.Now().UTC()
+
+	// if trigger greater than timestamp then wait for next scheduler
+	if trigger.TriggerAt.After(timestamp) {
+		return
+	}
+
+	trigger.LatestTriggerAt = &timestamp
+	trigger.TriggerCount += 1
+
+	if trigger.TriggerPointType == entities.AbsoluteTrigger {
+		dateTimeString := timestamp.Format("2006-01-02") + "T" + trigger.TriggerPoint + ":00-0000"
+		triggerPoint, err := time.Parse(utils.ISO8601, dateTimeString)
+		if err != nil {
+			log.GLog.Logger.FromContext(ctx).Error("current date time parse failed",
+				"fn", "doProcess",
+				"timestamp", dateTimeString,
+				"error", err)
+			triggerPoint = timestamp
+		}
+		temp := triggerPoint.Add(scheduler.schedulerTriggerInterval)
+		trigger.TriggerAt = &temp
+
+	} else {
+		temp := timestamp.Add(scheduler.schedulerTriggerInterval)
+		trigger.TriggerAt = &temp
+	}
+
+	iFuture = app.Globals.TriggerRepository.Update(ctx, *trigger).Get()
+	if iFuture.Error() != nil {
+		log.GLog.Logger.Error("TriggerRepository.Update failed",
+			"fn", "doProcess",
+			"trigger", trigger,
+			"error", iFuture.Error().Reason())
+		return
+	}
+
+	log.GLog.Logger.Debug("Current Trigger",
+		"fn", "doProcess",
+		"trigger", iFuture.Data().(*entities.SchedulerTrigger))
 
 }

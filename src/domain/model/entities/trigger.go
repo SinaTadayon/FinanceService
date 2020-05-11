@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
 )
@@ -11,11 +12,6 @@ const (
 
 type TriggerTimeUnit string
 type TriggerPointType string
-
-const (
-	MinuteUnit TriggerTimeUnit = "MINUTE"
-	HourUnit   TriggerTimeUnit = "HOUR"
-)
 
 const (
 	AbsoluteTrigger TriggerPointType = "ABSOLUTE"
@@ -29,8 +25,9 @@ type SchedulerTrigger struct {
 	Name             string             `bson:"name"`
 	Group            string             `bson:"group"`
 	Cron             string             `bson:"cron"`
+	Duration         int64              `bson:"duration"`
 	Interval         int64              `bson:"interval"`
-	TimeUnit         TriggerTimeUnit    `bson:"timeUnit"`
+	TimeUnit         utils.TimeUnit     `bson:"timeUnit"`
 	TriggerPoint     string             `bson:"triggerPoint"`
 	TriggerPointType TriggerPointType   `bson:"triggerPointType"`
 	LatestTriggerAt  *time.Time         `bson:"latestTriggerAt"`

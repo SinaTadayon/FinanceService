@@ -21,6 +21,7 @@ type Config struct {
 		FinanceOrderSchedulerTriggerName      string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_NAME"`
 		FinanceOrderSchedulerTriggerTimeUnit  string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_TIME_UNIT"`
 		FinanceOrderSchedulerTriggerInterval  int    `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_INTERVAL"`
+		FinanceOrderSchedulerTriggerDuration  int    `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_DURATION"`
 		FinanceOrderSchedulerTriggerPoint     string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_POINT"`
 		FinanceOrderSchedulerTriggerPointType string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_POINT_TYPE"`
 		FinanceOrderSchedulerTriggerEnabled   bool   `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_ENABLED"`

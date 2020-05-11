@@ -393,7 +393,7 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 		log.GLog.Logger.FromContext(ctx).Error("createdAt time parse failed",
 			"fn", "GetSellerProfile",
 			"pid", sellerId, "error", err)
-		timestamp = time.Now()
+		timestamp = time.Now().UTC()
 	}
 
 	sellerProfile.CreatedAt = timestamp
@@ -402,7 +402,7 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 		log.GLog.Logger.FromContext(ctx).Error("updatedAt time parse failed",
 			"fn", "GetSellerProfile",
 			"pid", sellerId, "error", err)
-		timestamp = time.Now()
+		timestamp = time.Now().UTC()
 	}
 	sellerProfile.UpdatedAt = timestamp
 	return future.Factory().SetCapacity(1).SetData(sellerProfile).BuildAndSend()

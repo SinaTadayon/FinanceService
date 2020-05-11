@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/services/finance/app"
@@ -11,8 +12,8 @@ import (
 	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
+	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -59,21 +60,22 @@ func main() {
 	if err != nil {
 		log.GLog.Logger.Error("main SetupMongoDriver failed", "fn", "main",
 			"configs", app.Globals.Config.Mongo, "error", err)
+		os.Exit(1)
 	}
 
 	app.Globals.SellerFinanceRepository = finance_repository.NewSellerFinanceRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.SellerOrderRepository = order_repository.NewSellerOrderRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerCollection)
 
-	var OrderSchedulerTimeUint app.TimeUnit
+	var OrderSchedulerTimeUnit utils.TimeUnit
 	if app.Globals.Config.App.FinanceOrderSchedulerTimeUint == "" {
-		app.Globals.Config.App.FinanceOrderSchedulerTimeUint = string(app.MinuteUnit)
-		OrderSchedulerTimeUint = app.MinuteUnit
+		app.Globals.Config.App.FinanceOrderSchedulerTimeUint = string(utils.MinuteUnit)
+		OrderSchedulerTimeUnit = utils.MinuteUnit
 	} else {
-		if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTimeUint) == string(app.HourUnit) {
-			OrderSchedulerTimeUint = app.HourUnit
-		} else if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTimeUint) == string(app.MinuteUnit) {
-			OrderSchedulerTimeUint = app.MinuteUnit
+		if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTimeUint) == string(utils.HourUnit) {
+			OrderSchedulerTimeUnit = utils.HourUnit
+		} else if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTimeUint) == string(utils.MinuteUnit) {
+			OrderSchedulerTimeUnit = utils.MinuteUnit
 		} else {
 			log.GLog.Logger.Error("FinanceOrderSchedulerTimeUint invalid",
 				"fn", "main",
@@ -89,7 +91,7 @@ func main() {
 			"FinanceOrderSchedulerInterval", app.Globals.Config.App.FinanceOrderSchedulerInterval)
 		os.Exit(1)
 	} else {
-		if OrderSchedulerTimeUint == app.HourUnit {
+		if OrderSchedulerTimeUnit == utils.HourUnit {
 			OrderSchedulerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerInterval) * time.Hour
 		} else {
 			OrderSchedulerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerInterval) * time.Minute
@@ -103,7 +105,7 @@ func main() {
 			"FinanceOrderSchedulerParentWorkerTimeout", app.Globals.Config.App.FinanceOrderSchedulerParentWorkerTimeout)
 		os.Exit(1)
 	} else {
-		if OrderSchedulerTimeUint == app.HourUnit {
+		if OrderSchedulerTimeUnit == utils.HourUnit {
 			OrderSchedulerParentWorkerTimeout = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerParentWorkerTimeout) * time.Hour
 		} else {
 			OrderSchedulerParentWorkerTimeout = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerParentWorkerTimeout) * time.Minute
@@ -117,47 +119,47 @@ func main() {
 			"FinanceOrderSchedulerWorkerTimeout", app.Globals.Config.App.FinanceOrderSchedulerWorkerTimeout)
 		os.Exit(1)
 	} else {
-		if OrderSchedulerTimeUint == app.HourUnit {
+		if OrderSchedulerTimeUnit == utils.HourUnit {
 			OrderSchedulerWorkerTimeout = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerWorkerTimeout) * time.Hour
 		} else {
 			OrderSchedulerWorkerTimeout = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerWorkerTimeout) * time.Minute
 		}
 	}
 
-	var OrderSchedulerTriggerTimeUnit app.TimeUnit
+	var OrderSchedulerTriggerTimeUnit utils.TimeUnit
 	if app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit == "" {
-		if OrderSchedulerTimeUint == app.HourUnit {
-			app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit = string(app.HourUnit)
-			OrderSchedulerTriggerTimeUnit = app.HourUnit
+		if OrderSchedulerTimeUnit == utils.HourUnit {
+			app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit = string(utils.HourUnit)
+			OrderSchedulerTriggerTimeUnit = utils.HourUnit
 		} else {
-			app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit = string(app.MinuteUnit)
-			OrderSchedulerTriggerTimeUnit = app.MinuteUnit
+			app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit = string(utils.MinuteUnit)
+			OrderSchedulerTriggerTimeUnit = utils.MinuteUnit
 		}
 	} else {
-		if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit) == string(app.HourUnit) {
-			OrderSchedulerTriggerTimeUnit = app.HourUnit
-		} else if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit) == string(app.MinuteUnit) {
-			OrderSchedulerTriggerTimeUnit = app.MinuteUnit
+		if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit) == string(utils.HourUnit) {
+			OrderSchedulerTriggerTimeUnit = utils.HourUnit
+		} else if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit) == string(utils.MinuteUnit) {
+			OrderSchedulerTriggerTimeUnit = utils.MinuteUnit
 		} else {
 			log.GLog.Logger.Error("FinanceOrderSchedulerTriggerTimeUnit invalid",
 				"fn", "main",
 				"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
 			os.Exit(1)
 		}
+	}
 
-		if !app.Globals.Config.App.FinanceOrderSchedulerTriggerTestMode && OrderSchedulerTriggerTimeUnit == app.MinuteUnit {
-			log.GLog.Logger.Error("Minute time unit of FinanceOrderSchedulerTriggerTimeUnit is valid in only Test mode",
-				"fn", "main",
-				"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
-			os.Exit(1)
-		}
+	if !app.Globals.Config.App.FinanceOrderSchedulerTriggerTestMode && OrderSchedulerTriggerTimeUnit == utils.MinuteUnit {
+		log.GLog.Logger.Error("Minute time unit of FinanceOrderSchedulerTriggerTimeUnit is valid in only Test mode",
+			"fn", "main",
+			"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
+		os.Exit(1)
+	}
 
-		if OrderSchedulerTimeUint == app.HourUnit && OrderSchedulerTriggerTimeUnit == app.MinuteUnit {
-			log.GLog.Logger.Error("FinanceOrderSchedulerTriggerTimeUnit must be hour time unit",
-				"fn", "main",
-				"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
-			os.Exit(1)
-		}
+	if OrderSchedulerTimeUnit == utils.HourUnit && OrderSchedulerTriggerTimeUnit == utils.MinuteUnit {
+		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerTimeUnit must be hour time unit",
+			"fn", "main",
+			"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
+		os.Exit(1)
 	}
 
 	var OrderSchedulerTriggerInterval time.Duration
@@ -167,39 +169,74 @@ func main() {
 			"FinanceOrderSchedulerInterval", app.Globals.Config.App.FinanceOrderSchedulerInterval)
 		os.Exit(1)
 	} else {
-		if OrderSchedulerTriggerTimeUnit == app.HourUnit {
-			if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
-				log.GLog.Logger.Error("FinanceOrderSchedulerInterval less than FinanceOrderSchedulerInterval",
-					"fn", "main",
-					"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
-				os.Exit(1)
+		if OrderSchedulerTriggerTimeUnit == utils.HourUnit {
+			if OrderSchedulerTimeUnit == utils.HourUnit {
+				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
+					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
+						"fn", "main",
+						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+					os.Exit(1)
+				}
+			} else {
+				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval/60 {
+					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
+						"fn", "main",
+						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+					os.Exit(1)
+				}
 			}
 
 			if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval%24 != 0 {
-				log.GLog.Logger.Error("FinanceOrderSchedulerInterval is not factor 24",
+				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval is not factor 24",
 					"fn", "main",
 					"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
 				os.Exit(1)
 			}
 			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) * time.Hour
-
 		} else {
-			if OrderSchedulerTimeUint == app.HourUnit {
+			if OrderSchedulerTimeUnit == utils.HourUnit {
 				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval*60 {
-					log.GLog.Logger.Error("FinanceOrderSchedulerInterval less than FinanceOrderSchedulerInterval",
+					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
 						"fn", "main",
 						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
 					os.Exit(1)
 				}
 			} else {
 				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
-					log.GLog.Logger.Error("FinanceOrderSchedulerInterval less than FinanceOrderSchedulerInterval",
+					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
 						"fn", "main",
 						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
 					os.Exit(1)
 				}
 			}
 
+			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) * time.Minute
+		}
+	}
+
+	var OrderSchedulerTriggerDuration time.Duration
+	if app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration <= 0 {
+		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerDuration invalid",
+			"fn", "main",
+			"FinanceOrderSchedulerTriggerDuration", app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration)
+		os.Exit(1)
+	} else {
+		if app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration < app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval {
+			log.GLog.Logger.Error("FinanceOrderSchedulerTriggerDuration less than FinanceOrderSchedulerTriggerInterval",
+				"fn", "main",
+				"FinanceOrderSchedulerTriggerDuration", app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration)
+			os.Exit(1)
+		}
+
+		if OrderSchedulerTriggerTimeUnit == utils.HourUnit {
+			if app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration%24 != 0 {
+				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerDuration is not factor 24",
+					"fn", "main",
+					"FinanceOrderSchedulerTriggerDuration", app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration)
+				os.Exit(1)
+			}
+			OrderSchedulerTriggerDuration = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration) * time.Hour
+		} else {
 			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) * time.Minute
 		}
 	}
@@ -246,41 +283,50 @@ func main() {
 				os.Exit(1)
 			}
 
-			triggerPointOffset = time.Duration(offset) * time.Second
+			triggerPointOffset = time.Duration(offset) * time.Minute
 		} else {
-			offset, err := strconv.Atoi(app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
-			if err != nil {
-				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint invalid",
-					"fn", "main",
-					"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
-				os.Exit(1)
-			}
-
-			if offset > app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval {
-				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint is greater than FinanceOrderSchedulerTriggerInterval",
-					"fn", "main",
-					"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
-				os.Exit(1)
-			}
-
-			triggerPointOffset = time.Duration(offset) * time.Second
+			//offset, err := strconv.Atoi(app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			//if err != nil {
+			//	log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint invalid",
+			//		"fn", "main",
+			//		"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			//	os.Exit(1)
+			//}
+			//
+			//if offset > app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval {
+			//	log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint is greater than FinanceOrderSchedulerTriggerInterval",
+			//		"fn", "main",
+			//		"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			//	os.Exit(1)
+			//}
+			//
+			//triggerPointOffset = time.Duration(offset) * time.Second
+			app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint = "0"
+			triggerPointOffset = 0
 		}
 	}
 
-	app.Globals.OrderScheduler = order_scheduler.NewOrderScheduler(OrderSchedulerInterval, OrderSchedulerParentWorkerTimeout,
-		OrderSchedulerWorkerTimeout, OrderSchedulerTriggerInterval, triggerPointOffset,
-		OrderSchedulerTimeUint, OrderSchedulerTriggerTimeUnit)
+	orderScheduler := order_scheduler.NewOrderScheduler(OrderSchedulerInterval, OrderSchedulerParentWorkerTimeout,
+		OrderSchedulerWorkerTimeout, OrderSchedulerTriggerInterval, triggerPointOffset, OrderSchedulerTriggerDuration, triggerPointType,
+		OrderSchedulerTimeUnit, OrderSchedulerTriggerTimeUnit)
 
-	app.Globals.OrderScheduler.SchedulerStart(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := orderScheduler.SchedulerStart(ctx); err != nil {
+		log.GLog.Logger.Error("OrderScheduler.SchedulerStart failed",
+			"fn", "main",
+			"error", err)
+		os.Exit(1)
+	}
 
+	cancel()
 }
 
 func ParseTime(st string) (int64, error) {
-	var h, m, s int
-	n, err := fmt.Sscanf(st, "%d:%d:%d", &h, &m, &s)
+	var h, m int
+	n, err := fmt.Sscanf(st, "%d:%d", &h, &m)
 	fmt.Print(n, err)
 	if err != nil || n != 3 {
 		return 0, err
 	}
-	return int64(h*3600 + m*60 + s), nil
+	return int64(h*60 + m), nil
 }

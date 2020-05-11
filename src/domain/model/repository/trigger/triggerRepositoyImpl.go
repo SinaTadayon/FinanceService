@@ -72,9 +72,9 @@ func (repo iSchedulerTriggerRepositoryImpl) Update(ctx context.Context, trigger 
 }
 
 // (*entities.SchedulerTrigger, error)
-func (repo iSchedulerTriggerRepositoryImpl) FindEnabled(ctx context.Context) future.IFuture {
+func (repo iSchedulerTriggerRepositoryImpl) FindActiveTrigger(ctx context.Context) future.IFuture {
 	var trigger *entities.SchedulerTrigger
-	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"isEnabled", true}, {"deletedAt", nil}})
+	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"deletedAt", nil}})
 	if singleResult.Err() != nil {
 		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
 			return future.FactorySync().
@@ -90,6 +90,12 @@ func (repo iSchedulerTriggerRepositoryImpl) FindEnabled(ctx context.Context) fut
 	if err := singleResult.Decode(&trigger); err != nil {
 		return future.FactorySync().
 			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SchedulerTrigger Failed")).
+			BuildAndSend()
+	}
+
+	if trigger.Name == "" {
+		return future.FactorySync().
+			SetError(future.NotFound, "SchedulerTrigger Not Found", errors.Wrap(singleResult.Err(), "SchedulerTrigger Not Found")).
 			BuildAndSend()
 	}
 

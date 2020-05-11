@@ -8,6 +8,7 @@ import (
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
+	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"os"
 	"testing"
@@ -163,8 +164,9 @@ func createSchedulerTrigger() *entities.SchedulerTrigger {
 		Name:             "Trigger-Test",
 		Group:            "Trigger-Group",
 		Cron:             "",
+		Duration:         24,
 		Interval:         24,
-		TimeUnit:         entities.HourUnit,
+		TimeUnit:         utils.HourUnit,
 		TriggerPoint:     "23:59:59",
 		TriggerPointType: entities.AbsoluteTrigger,
 		LatestTriggerAt:  &timestamp,
