@@ -9,5 +9,5 @@ const (
 
 const (
 	// ISO8601 standard time format
-	ISO8601 = "2006-01-02T15:04:05-0000"
+	ISO8601 = "2006-01-02T15:04:05-0700"
 )

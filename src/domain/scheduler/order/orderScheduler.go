@@ -297,8 +297,8 @@ func (scheduler OrderScheduler) stewardFn(ctx context.Context, wardPulseInterval
 func (scheduler OrderScheduler) worker(ctx context.Context, pulseInterval time.Duration,
 	scheduleInterval time.Duration) <-chan interface{} {
 
-	log.GLog.Logger.Debug("scheduler start worker . . .",
-		"fn", "worker",
+	log.GLog.Logger.Debug("scheduler start workers . . .",
+		"fn", "workers",
 		"pulse", pulseInterval,
 		"schedule", scheduleInterval)
 	var heartbeat = make(chan interface{}, 1)
@@ -319,15 +319,15 @@ func (scheduler OrderScheduler) worker(ctx context.Context, pulseInterval time.D
 				pulseTimer.Stop()
 				scheduleTimer.Stop()
 				log.GLog.Logger.Debug("context down",
-					"fn", "worker",
+					"fn", "workers",
 					"error", ctx.Err())
 				return
 			case <-pulseTimer.C:
-				//logger.Audit("worker() => send pulse, state: %s", state.StateName())
+				//logger.Audit("workers() => send pulse, state: %s", state.StateName())
 				sendPulse()
 				pulseTimer.Reset(pulseInterval)
 			case <-scheduleTimer.C:
-				//logger.Audit("worker() => schedule, state: %s", state.StateName())
+				//logger.Audit("workers() => schedule, state: %s", state.StateName())
 				scheduler.doProcess(ctx)
 				scheduleTimer.Reset(scheduleInterval)
 			}
