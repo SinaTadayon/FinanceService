@@ -32,6 +32,8 @@ func NewSchedulerTriggerRepository(mongoDriver *mongoadapter.Mongo, database, co
 // (*entities.SellerFinance, error)
 func (repo iSchedulerTriggerRepositoryImpl) Save(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture {
 
+	trigger.Version = 1
+	trigger.DocVersion = entities.TriggerDocumentVersion
 	var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, trigger)
 	if err != nil {
 		return future.FactorySync().

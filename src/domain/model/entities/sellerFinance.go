@@ -9,20 +9,20 @@ type FinanceState string
 type TransferState string
 
 const (
-	DocumentVersion string = "1.0.0"
+	FinanceDocumentVersion string = "1.0.0"
 )
 
 const (
-	FinanceNewStatus        FinanceState = "NEW"
-	FinanceInProgressStatus FinanceState = "IN_PROGRESS"
-	FinanceClosedStatus     FinanceState = "CLOSED"
+	FinanceCollectOrderStatus      FinanceState = "COLLECT_ORDER"
+	FinancePaymentInProgressStatus FinanceState = "PAYMENT_IN_PROGRESS"
+	FinanceClosedStatus            FinanceState = "CLOSED"
 )
 
 const (
 	TransferSuccessState TransferState = "SUCCESS"
-	TransferFAILEDState  TransferState = "FAILED"
-	TransferPENDINGState TransferState = "PENDING"
-	TransferPARTIALState TransferState = "PARTIAL_PAYED"
+	TransferFailedState  TransferState = "FAILED"
+	TransferPendingState TransferState = "PENDING"
+	TransferPartialState TransferState = "PARTIAL_PAYED"
 )
 
 type SellerFinance struct {
@@ -31,11 +31,12 @@ type SellerFinance struct {
 	SellerId   uint64             `bson:"sellerId"`
 	Version    uint64             `bson:"version"`
 	DocVersion string             `bson:"docVersion"`
+	Trigger    string             `bson:"trigger"`
 	SellerInfo *SellerProfile     `bson:"sellerInfo"`
 	Invoice    Invoice            `bson:"invoice"`
 	Orders     []*SellerOrder     `bson:"orders"`
 	Payment    *FinancePayment    `bson:"payment"`
-	Status     string             `bson:"status"`
+	Status     FinanceState       `bson:"status"`
 	StartAt    *time.Time         `bson:"startAt"`
 	EndAt      *time.Time         `bson:"endAt"`
 	CreatedAt  time.Time          `bson:"createdAt"`
@@ -47,7 +48,7 @@ type FinancePayment struct {
 	TransferRequest  *TransferRequest  `bson:"transferRequest"`
 	TransferResponse *TransferResponse `bson:"transferResponse"`
 	TransferResult   *TransferResult   `bson:"transferResult"`
-	Status           string            `bson:"status"`
+	Status           TransferState     `bson:"status"`
 	CreatedAt        time.Time         `bson:"createdAt"`
 	UpdatedAt        time.Time         `bson:"updatedAt"`
 }

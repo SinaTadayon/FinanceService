@@ -150,6 +150,12 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 			"page", page,
 			"perPage", perPage)
 
+		if response.Meta.Total == 0 {
+			return future.FactorySync().
+				SetError(future.NotFound, "Orders Not Found", errors.New("Orders Not Found")).
+				BuildAndSend()
+		}
+
 		var financeOrderItemDetailList orderProto.FinanceOrderItemDetailList
 		if err := ptypes.UnmarshalAny(response.Data, &financeOrderItemDetailList); err != nil {
 			log.GLog.Logger.Error("Could not unmarshal FinanceOrderItemDetailList from request anything field",
@@ -182,8 +188,10 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 			}
 
 			return future.FactorySync().
-				SetData(sellerOrders).
-				BuildAndSend()
+				SetData(&OrderServiceResult{
+					SellerOrders: sellerOrders,
+					TotalCount:   int64(response.Meta.Total),
+				}).BuildAndSend()
 		}
 	}
 

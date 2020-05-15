@@ -85,10 +85,10 @@ func TestUpdateFinanceRepository(t *testing.T) {
 	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
 	require.NotEmpty(t, finance1.FId, "financeRepository.Save failed, fid not generated")
 
-	finance1.Status = "IN_PROGRESS"
+	finance1.Status = "PAYMENT_IN_PROGRESS"
 	iFuture = financeRepository.Save(ctx, *finance1).Get()
 	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
-	require.Equal(t, iFuture.Data().(*entities.SellerFinance).Status, "IN_PROGRESS")
+	require.Equal(t, iFuture.Data().(*entities.SellerFinance).Status, "PAYMENT_IN_PROGRESS")
 }
 
 func TestUpdateFinanceRepository_Failed(t *testing.T) {
@@ -103,7 +103,7 @@ func TestUpdateFinanceRepository_Failed(t *testing.T) {
 	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
 	require.NotEmpty(t, finance1.FId, "financeRepository.Save failed, fid not generated")
 
-	finance1.Status = "IN_PROGRESS"
+	finance1.Status = "PAYMENT_IN_PROGRESS"
 	iFuture = financeRepository.Save(ctx, *finance1).Get()
 	require.Error(t, iFuture.Error())
 }
@@ -296,16 +296,16 @@ func TestFindByFilterRepository(t *testing.T) {
 	iFuture = financeRepository.Insert(ctx, *finance).Get()
 	require.Nil(t, iFuture.Error())
 
-	finance.Status = "IN_PROGRESS"
+	finance.Status = "PAYMENT_IN_PROGRESS"
 	iFuture = financeRepository.Insert(ctx, *finance).Get()
 	require.Nil(t, iFuture.Error())
 
 	iFuture = financeRepository.FindByFilter(ctx, func() interface{} {
-		return bson.D{{"status", "IN_PROGRESS"}, {"deletedAt", nil}}
+		return bson.D{{"status", "PAYMENT_IN_PROGRESS"}, {"deletedAt", nil}}
 	}).Get()
 
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, "IN_PROGRESS", iFuture.Data().([]*entities.SellerFinance)[0].Status)
+	require.Equal(t, "PAYMENT_IN_PROGRESS", iFuture.Data().([]*entities.SellerFinance)[0].Status)
 }
 
 func TestFindByFilterWithSortFinanceRepository(t *testing.T) {
@@ -315,17 +315,17 @@ func TestFindByFilterWithSortFinanceRepository(t *testing.T) {
 	iFuture := financeRepository.Insert(ctx, *finance).Get()
 	require.Nil(t, iFuture.Error())
 
-	finance.Status = "IN_PROGRESS"
+	finance.Status = "PAYMENT_IN_PROGRESS"
 	iFuture = financeRepository.Insert(ctx, *finance).Get()
 	require.Nil(t, iFuture.Error())
 	fid := iFuture.Data().(*entities.SellerFinance).FId
 
-	finance.Status = "IN_PROGRESS"
+	finance.Status = "PAYMENT_IN_PROGRESS"
 	iFuture = financeRepository.Insert(ctx, *finance).Get()
 	require.Nil(t, iFuture.Error())
 
 	iFuture = financeRepository.FindByFilterWithSort(ctx, func() (interface{}, string, int) {
-		return bson.D{{"status", "IN_PROGRESS"}, {"deletedAt", nil}}, "fid", 1
+		return bson.D{{"status", "PAYMENT_IN_PROGRESS"}, {"deletedAt", nil}}, "fid", 1
 	}).Get()
 
 	require.Nil(t, iFuture.Error())

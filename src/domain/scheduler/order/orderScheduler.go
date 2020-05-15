@@ -17,17 +17,19 @@ type startWardFn func(ctx context.Context, pulseInterval time.Duration, schedule
 type startStewardFn func(ctx context.Context, pulseInterval time.Duration) (heartbeat <-chan interface{})
 
 type OrderScheduler struct {
-	schedulerInterval           time.Duration
-	schedulerStewardTimeout     time.Duration
-	schedulerWorkerTimeout      time.Duration
-	schedulerTriggerPointOffset time.Duration
+	schedulerInterval       time.Duration
+	schedulerStewardTimeout time.Duration
+	schedulerWorkerTimeout  time.Duration
+
+	schedulerTriggerOffsetPoint time.Duration
 	schedulerTriggerInterval    time.Duration
 	schedulerTriggerDuration    time.Duration
 	schedulerTriggerPointType   entities.TriggerPointType
-	schedulerTimeUnit           utils.TimeUnit
-	schedulerTriggerTimeUnit    utils.TimeUnit
-	waitGroup                   sync.WaitGroup
-	mux                         sync.Mutex
+
+	schedulerTimeUnit        utils.TimeUnit
+	schedulerTriggerTimeUnit utils.TimeUnit
+	waitGroup                sync.WaitGroup
+	mux                      sync.Mutex
 }
 
 func NewOrderScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWorkerTimeout,
@@ -39,7 +41,7 @@ func NewOrderScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWork
 		schedulerInterval:           schedulerInterval,
 		schedulerStewardTimeout:     schedulerStewardTimeout,
 		schedulerWorkerTimeout:      schedulerWorkerTimeout,
-		schedulerTriggerPointOffset: triggerPointOffset,
+		schedulerTriggerOffsetPoint: triggerPointOffset,
 		schedulerTriggerInterval:    schedulerTriggerInterval,
 		schedulerTriggerDuration:    schedulerTriggerDuration,
 		schedulerTriggerPointType:   schedulerTriggerPointType,
@@ -382,6 +384,15 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		trigger.TriggerAt = &temp
 	}
 
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerDuration), scheduler.schedulerTriggerDuration)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerInterval), scheduler.schedulerTriggerInterval)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerOffsetPoint), scheduler.schedulerTriggerOffsetPoint)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerPointType), scheduler.schedulerTriggerPointType)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerTimeUnit), scheduler.schedulerTriggerTimeUnit)
+
+	// concurrent or sequential
+	OrderSchedulerTask(ctx, *trigger).Get()
+
 	iFuture = app.Globals.TriggerRepository.Update(ctx, *trigger).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("TriggerRepository.Update failed",
@@ -391,8 +402,9 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		return
 	}
 
+	updatedTrigger := iFuture.Data().(*entities.SchedulerTrigger)
+
 	log.GLog.Logger.Debug("Current Trigger",
 		"fn", "doProcess",
-		"trigger", iFuture.Data().(*entities.SchedulerTrigger))
-
+		"trigger", updatedTrigger)
 }

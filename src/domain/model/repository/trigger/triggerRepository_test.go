@@ -86,10 +86,10 @@ func TestUpdateTriggerRepository(t *testing.T) {
 	require.Nil(t, iFuture.Error(), "triggerRepository.Save failed")
 	require.NotNil(t, trigger1.ID, "triggerRepository.Save failed, id not generated")
 
-	trigger1.Data = "IN_PROGRESS"
+	trigger1.Data = "PAYMENT_IN_PROGRESS"
 	iFuture = triggerRepository.Update(ctx, *trigger1).Get()
 	require.Nil(t, iFuture.Error(), "triggerRepository.Save failed")
-	require.Equal(t, "IN_PROGRESS", iFuture.Data().(*entities.SchedulerTrigger).Data.(string))
+	require.Equal(t, "PAYMENT_IN_PROGRESS", iFuture.Data().(*entities.SchedulerTrigger).Data.(string))
 }
 
 func TestExistsByNameRepository(t *testing.T) {

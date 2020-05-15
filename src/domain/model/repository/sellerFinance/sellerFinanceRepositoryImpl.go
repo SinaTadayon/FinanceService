@@ -43,6 +43,8 @@ func (repo iSellerFinanceRepositoryImpl) Save(ctx context.Context, finance entit
 		for i := 0; i < len(finance.Orders); i++ {
 			finance.Orders[i].FId = finance.FId
 		}
+		finance.Version = 1
+		finance.DocVersion = entities.FinanceDocumentVersion
 
 		var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, finance)
 		if err != nil {
@@ -122,6 +124,8 @@ func (repo iSellerFinanceRepositoryImpl) Insert(ctx context.Context, finance ent
 		for i := 0; i < len(finance.Orders); i++ {
 			finance.Orders[i].FId = finance.FId
 		}
+		finance.Version = 1
+		finance.DocVersion = entities.FinanceDocumentVersion
 
 		var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, finance)
 		if err != nil {
@@ -162,7 +166,9 @@ func (repo iSellerFinanceRepositoryImpl) FindAll(ctx context.Context) future.IFu
 
 	total := iFuture.Data().(int64)
 	if total == 0 {
-		return future.FactorySync().SetData(struct{}{}).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, bson.D{{"deletedAt", nil}})
@@ -202,7 +208,9 @@ func (repo iSellerFinanceRepositoryImpl) FindAllWithSort(ctx context.Context, fi
 
 	total := iFuture.Data().(int64)
 	if total == 0 {
-		return future.FactorySync().SetData(total).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	sortMap := make(map[string]int)
@@ -253,7 +261,9 @@ func (repo iSellerFinanceRepositoryImpl) FindAllWithPage(ctx context.Context, pa
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30
@@ -335,7 +345,9 @@ func (repo iSellerFinanceRepositoryImpl) FindAllWithPageAndSort(ctx context.Cont
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30
@@ -450,7 +462,9 @@ func (repo iSellerFinanceRepositoryImpl) FindByFilter(ctx context.Context, suppl
 
 	total := iFuture.Data().(int64)
 	if total == 0 {
-		return future.FactorySync().SetData(total).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, filter)
@@ -491,7 +505,9 @@ func (repo iSellerFinanceRepositoryImpl) FindByFilterWithSort(ctx context.Contex
 
 	total := iFuture.Data().(int64)
 	if total == 0 {
-		return future.FactorySync().SetData(total).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	sortMap := make(map[string]int)
@@ -545,7 +561,9 @@ func (repo iSellerFinanceRepositoryImpl) FindByFilterWithPage(ctx context.Contex
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30
@@ -627,7 +645,9 @@ func (repo iSellerFinanceRepositoryImpl) FindByFilterWithPageAndSort(ctx context
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerFinance Not Found", errors.New("SellerFinance Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30

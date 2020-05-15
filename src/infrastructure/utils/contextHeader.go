@@ -10,4 +10,11 @@ const (
 	CtxUserAgent     ContextKey = "user-agent"
 	CtxForwardedHost ContextKey = "forwarded-host"
 	CtxTrackingId    ContextKey = "tracking-id"
+
+	CtxTrigger            ContextKey = "trigger"
+	CtxTriggerOffsetPoint ContextKey = "triggerOffsetPoint"
+	CtxTriggerInterval    ContextKey = "triggerInterval"
+	CtxTriggerDuration    ContextKey = "triggerDuration"
+	CtxTriggerPointType   ContextKey = "triggerPointType"
+	CtxTriggerTimeUnit    ContextKey = "triggerTimeUnit"
 )

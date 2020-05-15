@@ -8,6 +8,8 @@ import (
 	order_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerOrder"
 	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
+	"gitlab.faza.io/services/finance/infrastructure/pool"
+	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
 	user_service "gitlab.faza.io/services/finance/infrastructure/services/user"
 	"time"
 )
@@ -16,9 +18,11 @@ var Globals struct {
 	MongoDriver             *mongoadapter.Mongo
 	Config                  *configs.Config
 	UserService             user_service.IUserService
+	OrderService            order_service.IOrderService
 	SellerFinanceRepository finance_repository.ISellerFinanceRepository
 	SellerOrderRepository   order_repository.ISellerOrderRepository
 	TriggerRepository       trigger_repository.ISchedulerTriggerRepository
+	WorkerPool              pool.IWorkerPool
 }
 
 func SetupMongoDriver(config configs.Config) (*mongoadapter.Mongo, error) {
