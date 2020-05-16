@@ -53,22 +53,23 @@ type Config struct {
 	}
 
 	Mongo struct {
-		User              string `env:"FINANCE_SERVICE_MONGO_USER"`
-		Pass              string `env:"FINANCE_SERVICE_MONGO_PASS"`
-		Host              string `env:"FINANCE_SERVICE_MONGO_HOST"`
-		Port              int    `env:"FINANCE_SERVICE_MONGO_PORT"`
-		Database          string `env:"FINANCE_SERVICE_MONGO_DB_NAME"`
-		SellerCollection  string `env:"FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME"`
-		TriggerCollection string `env:"FINANCE_SERVICE_MONGO_TRIGGER_COLLECTION_NAME"`
-		ConnectionTimeout int    `env:"FINANCE_SERVICE_MONGO_CONN_TIMEOUT"`
-		ReadTimeout       int    `env:"FINANCE_SERVICE_MONGO_READ_TIMEOUT"`
-		WriteTimeout      int    `env:"FINANCE_SERVICE_MONGO_WRITE_TIMEOUT"`
-		MaxConnIdleTime   int    `env:"FINANCE_SERVICE_MONGO_MAX_CONN_IDLE_TIME"`
-		MaxPoolSize       int    `env:"FINANCE_SERVICE_MONGO_MAX_POOL_SIZE"`
-		MinPoolSize       int    `env:"FINANCE_SERVICE_MONGO_MIN_POOL_SIZE"`
-		WriteConcernW     string `env:"FINANCE_SERVICE_MONGO_WRITE_CONCERN_W"`
-		WriteConcernJ     string `env:"FINANCE_SERVICE_MONGO_WRITE_CONCERN_J"`
-		RetryWrite        bool   `env:"FINANCE_SERVICE_MONGO_RETRY_WRITE"`
+		User                     string `env:"FINANCE_SERVICE_MONGO_USER"`
+		Pass                     string `env:"FINANCE_SERVICE_MONGO_PASS"`
+		Host                     string `env:"FINANCE_SERVICE_MONGO_HOST"`
+		Port                     int    `env:"FINANCE_SERVICE_MONGO_PORT"`
+		Database                 string `env:"FINANCE_SERVICE_MONGO_DB_NAME"`
+		SellerCollection         string `env:"FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME"`
+		TriggerCollection        string `env:"FINANCE_SERVICE_MONGO_TRIGGER_COLLECTION_NAME"`
+		TriggerHistoryCollection string `env:"FINANCE_SERVICE_MONGO_TRIGGER_HISTORY_COLLECTION_NAME"`
+		ConnectionTimeout        int    `env:"FINANCE_SERVICE_MONGO_CONN_TIMEOUT"`
+		ReadTimeout              int    `env:"FINANCE_SERVICE_MONGO_READ_TIMEOUT"`
+		WriteTimeout             int    `env:"FINANCE_SERVICE_MONGO_WRITE_TIMEOUT"`
+		MaxConnIdleTime          int    `env:"FINANCE_SERVICE_MONGO_MAX_CONN_IDLE_TIME"`
+		MaxPoolSize              int    `env:"FINANCE_SERVICE_MONGO_MAX_POOL_SIZE"`
+		MinPoolSize              int    `env:"FINANCE_SERVICE_MONGO_MIN_POOL_SIZE"`
+		WriteConcernW            string `env:"FINANCE_SERVICE_MONGO_WRITE_CONCERN_W"`
+		WriteConcernJ            string `env:"FINANCE_SERVICE_MONGO_WRITE_CONCERN_J"`
+		RetryWrite               bool   `env:"FINANCE_SERVICE_MONGO_RETRY_WRITE"`
 	}
 }
 

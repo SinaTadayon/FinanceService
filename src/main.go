@@ -10,9 +10,11 @@ import (
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
 	order_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerOrder"
 	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
+	trigger_history_repository "gitlab.faza.io/services/finance/domain/model/repository/triggerHistory"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"os"
 	"strings"
 	"time"
@@ -66,6 +68,12 @@ func main() {
 	app.Globals.SellerFinanceRepository = finance_repository.NewSellerFinanceRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.SellerOrderRepository = order_repository.NewSellerOrderRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerCollection)
+	app.Globals.TriggerHistoryRepository = trigger_history_repository.NewTriggerHistoryRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerHistoryCollection)
+	app.Globals.WorkerPool, err = worker_pool.Factory()
+	if err != nil {
+		log.GLog.Logger.Error("factory of worker pool failed", "fn", "main", "error", err)
+		os.Exit(1)
+	}
 
 	var OrderSchedulerTimeUnit utils.TimeUnit
 	if app.Globals.Config.App.FinanceOrderSchedulerTimeUint == "" {

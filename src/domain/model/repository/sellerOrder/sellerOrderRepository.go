@@ -4,6 +4,7 @@ import (
 	"context"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	"gitlab.faza.io/services/finance/infrastructure/future"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type SellerOrderPageableResult struct {
@@ -12,8 +13,11 @@ type SellerOrderPageableResult struct {
 }
 
 type ISellerOrderRepository interface {
+	// return data *entities.OrderInfo , error
+	SaveOrderInfo(ctx context.Context, fid string, orderInfo entities.OrderInfo) future.IFuture
+
 	// return data *entities.SellerOrder , error
-	Save(ctx context.Context, order entities.SellerOrder) future.IFuture
+	SaveOrder(ctx context.Context, triggerHistoryId primitive.ObjectID, order entities.SellerOrder) future.IFuture
 
 	// return data []*entities.SellerOrder , error
 	SaveAll(ctx context.Context, orders []entities.SellerOrder) future.IFuture

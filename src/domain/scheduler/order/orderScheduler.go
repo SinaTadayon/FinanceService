@@ -363,7 +363,7 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		return
 	}
 
-	trigger.LatestTriggerAt = &timestamp
+	trigger.LatestTriggerAt = trigger.TriggerAt
 	trigger.TriggerCount += 1
 
 	if trigger.TriggerPointType == entities.AbsoluteTrigger {
@@ -384,15 +384,6 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		trigger.TriggerAt = &temp
 	}
 
-	ctx = context.WithValue(ctx, string(utils.CtxTriggerDuration), scheduler.schedulerTriggerDuration)
-	ctx = context.WithValue(ctx, string(utils.CtxTriggerInterval), scheduler.schedulerTriggerInterval)
-	ctx = context.WithValue(ctx, string(utils.CtxTriggerOffsetPoint), scheduler.schedulerTriggerOffsetPoint)
-	ctx = context.WithValue(ctx, string(utils.CtxTriggerPointType), scheduler.schedulerTriggerPointType)
-	ctx = context.WithValue(ctx, string(utils.CtxTriggerTimeUnit), scheduler.schedulerTriggerTimeUnit)
-
-	// concurrent or sequential
-	OrderSchedulerTask(ctx, *trigger).Get()
-
 	iFuture = app.Globals.TriggerRepository.Update(ctx, *trigger).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("TriggerRepository.Update failed",
@@ -403,6 +394,34 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 	}
 
 	updatedTrigger := iFuture.Data().(*entities.SchedulerTrigger)
+
+	triggerHistory := entities.TriggerHistory{
+		TriggerName:  updatedTrigger.Name,
+		ExecResult:   entities.TriggerExecResultNone,
+		TriggeredAt:  trigger.LatestTriggerAt,
+		IsMissedFire: false,
+		CreatedAt:    timestamp,
+		UpdatedAt:    timestamp,
+		DeletedAt:    nil,
+	}
+
+	iFuture = app.Globals.TriggerHistoryRepository.Save(ctx, triggerHistory).Get()
+	if iFuture.Error() != nil {
+		log.GLog.Logger.Error("TriggerHistoryRepository.Update failed",
+			"fn", "doProcess",
+			"trigger", triggerHistory,
+			"error", iFuture.Error().Reason())
+		return
+	}
+
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerDuration), scheduler.schedulerTriggerDuration)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerInterval), scheduler.schedulerTriggerInterval)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerOffsetPoint), scheduler.schedulerTriggerOffsetPoint)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerPointType), scheduler.schedulerTriggerPointType)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerTimeUnit), scheduler.schedulerTriggerTimeUnit)
+
+	// concurrent or sequential
+	OrderSchedulerTask(ctx, triggerHistory).Get()
 
 	log.GLog.Logger.Debug("Current Trigger",
 		"fn", "doProcess",

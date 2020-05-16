@@ -70,20 +70,38 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestSave(t *testing.T) {
+func TestSaveOrder(t *testing.T) {
 	defer removeCollection()
 	finance, err := createFinanceAndSave()
 	require.Nil(t, err, "createFinanceAndSave failed")
 	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerFinance fid not generated")
 	ctx, _ := context.WithCancel(context.Background())
-	orderFinance := createFinance().Orders[0]
+	finance1 := createFinance()
+	orderFinance := finance1.OrdersInfo[0].Orders[0]
 	orderFinance.OId = 999999999
 	orderFinance.FId = finance.FId
-	iFuture := sellerOrderRepo.Save(ctx, *orderFinance).Get()
+	iFuture := sellerOrderRepo.SaveOrder(ctx, finance.OrdersInfo[0].TriggerHistory, *orderFinance).Get()
 	require.Nil(t, iFuture.Error())
 	updateFinance, err := getSellerFinance(finance.FId)
 	require.Nil(t, err)
-	require.Equal(t, 3, len(updateFinance.Orders))
+	require.Equal(t, 3, len(updateFinance.OrdersInfo[0].Orders))
+}
+
+func TestSaveOrderInfo(t *testing.T) {
+	defer removeCollection()
+	finance, err := createFinanceAndSave()
+	require.Nil(t, err, "createFinanceAndSave failed")
+	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerFinance fid not generated")
+	ctx, _ := context.WithCancel(context.Background())
+	finance1 := createFinance()
+	orderInfo := finance1.OrdersInfo[0]
+	orderInfo.TriggerHistory = primitive.NewObjectID()
+	iFuture := sellerOrderRepo.SaveOrderInfo(ctx, finance.FId, *orderInfo).Get()
+	require.Nil(t, iFuture.Error())
+	updateFinance, err := getSellerFinance(finance.FId)
+	require.Nil(t, err)
+	require.Equal(t, 2, len(updateFinance.OrdersInfo))
+	require.Equal(t, orderInfo.TriggerHistory, updateFinance.OrdersInfo[1].TriggerHistory)
 }
 
 func TestFindByFIdAndOId(t *testing.T) {
@@ -92,9 +110,9 @@ func TestFindByFIdAndOId(t *testing.T) {
 	require.Nil(t, err, "createFinanceAndSave failed")
 	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerFinance fid not generated")
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindByFIdAndOId(ctx, finance.FId, finance.Orders[1].OId).Get()
+	iFuture := sellerOrderRepo.FindByFIdAndOId(ctx, finance.FId, finance.OrdersInfo[0].Orders[1].OId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[1].OId, iFuture.Data().(*entities.SellerOrder).OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[1].OId, iFuture.Data().(*entities.SellerOrder).OId)
 }
 
 func TestFindBySellerIdAndOId(t *testing.T) {
@@ -104,9 +122,9 @@ func TestFindBySellerIdAndOId(t *testing.T) {
 	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
 	defer removeCollection()
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindBySellerIdAndOId(ctx, finance.SellerId, finance.Orders[0].OId).Get()
+	iFuture := sellerOrderRepo.FindBySellerIdAndOId(ctx, finance.SellerId, finance.OrdersInfo[0].Orders[0].OId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
 }
 
 func TestFindById(t *testing.T) {
@@ -116,9 +134,9 @@ func TestFindById(t *testing.T) {
 	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
 	defer removeCollection()
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindById(ctx, finance.Orders[0].OId).Get()
+	iFuture := sellerOrderRepo.FindById(ctx, finance.OrdersInfo[0].Orders[0].OId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
 }
 
 func TestFindAll(t *testing.T) {
@@ -134,8 +152,8 @@ func TestFindAll(t *testing.T) {
 
 	iFuture := sellerOrderRepo.FindAll(ctx, finance.FId).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
-	require.Equal(t, finance.Orders[1].OId, iFuture.Data().([]*entities.SellerOrder)[1].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[1].OId, iFuture.Data().([]*entities.SellerOrder)[1].OId)
 }
 
 func TestFindAllWithSort(t *testing.T) {
@@ -147,7 +165,7 @@ func TestFindAllWithSort(t *testing.T) {
 	iFuture := sellerOrderRepo.FindAllWithSort(ctx, finance.FId, "orders.oid", -1).Get()
 
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
 }
 
 func TestFindAllWithPage(t *testing.T) {
@@ -159,7 +177,7 @@ func TestFindAllWithPage(t *testing.T) {
 
 	iFuture := sellerOrderRepo.FindAllWithPage(ctx, finance.FId, 1, 1).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
 	require.Equal(t, 1, len(iFuture.Data().(SellerOrderPageableResult).SellerOrders))
 	require.Equal(t, int64(2), iFuture.Data().(SellerOrderPageableResult).TotalCount)
 }
@@ -175,7 +193,7 @@ func TestFindAllWithPageAndSort(t *testing.T) {
 	require.Nil(t, iFuture.Error())
 	require.Equal(t, 1, len(iFuture.Data().(SellerOrderPageableResult).SellerOrders))
 	require.Equal(t, int64(2), iFuture.Data().(SellerOrderPageableResult).TotalCount)
-	require.Equal(t, finance.Orders[0].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
 }
 
 func TestFindByFilter(t *testing.T) {
@@ -190,15 +208,20 @@ func TestFindByFilter(t *testing.T) {
 
 	ctx, _ := context.WithCancel(context.Background())
 	totalPipeline := []bson.M{
-		{"$match": bson.M{"orders.oid": finance.Orders[1].OId, "orders.deletedAt": nil}},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
 		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
 		{"$project": bson.M{"_id": 0, "count": 1}},
 	}
 	pipeline := []bson.M{
-		{"$match": bson.M{"orders.oid": finance.Orders[1].OId, "orders.deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$match": bson.M{"orders.oid": finance.Orders[1].OId, "orders.deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -219,25 +242,30 @@ func TestFindByFilterWithPage(t *testing.T) {
 
 	ctx, _ := context.WithCancel(context.Background())
 	totalPipeline := []bson.M{
-		{"$match": bson.M{"orders.oid": finance.Orders[1].OId, "orders.deletedAt": nil}},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
 		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
 		{"$project": bson.M{"_id": 0, "count": 1}},
 	}
 
 	pipeline := []bson.M{
-		{"$match": bson.M{"orders.oid": finance.Orders[1].OId, "orders.deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$match": bson.M{"orders.oid": finance.Orders[1].OId, "orders.deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
 		{"$skip": 0},
 		{"$limit": 1},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 	iFuture := sellerOrderRepo.FindByFilterWithPage(ctx, func() (filter interface{}) { return totalPipeline }, func() (filter interface{}) { return pipeline }, 1, 2).Get()
 	require.Nil(t, iFuture.Error())
 	require.Equal(t, 1, len(iFuture.Data().(SellerOrderPageableResult).SellerOrders))
 	require.Equal(t, int64(2), iFuture.Data().(SellerOrderPageableResult).TotalCount)
-	require.Equal(t, finance.Orders[1].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
+	require.Equal(t, finance.OrdersInfo[0].Orders[1].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
 }
 
 func TestExitsById_Success(t *testing.T) {
@@ -246,15 +274,17 @@ func TestExitsById_Success(t *testing.T) {
 	require.Nil(t, err, "createFinanceAndSave failed")
 	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.ExistsById(ctx, finance.Orders[0].OId).Get()
+	iFuture := sellerOrderRepo.ExistsById(ctx, finance.OrdersInfo[0].Orders[0].OId).Get()
 	require.Nil(t, iFuture.Error())
 	require.True(t, iFuture.Data().(bool))
 }
 
 func insert(finance *entities.SellerFinance) (*entities.SellerFinance, error) {
 	finance.FId = strconv.Itoa(int(finance.SellerId)) + strconv.Itoa(int(time.Now().UnixNano()/1000))
-	for i := 0; i < len(finance.Orders); i++ {
-		finance.Orders[i].FId = finance.FId
+	for j := 0; j < len(finance.OrdersInfo); j++ {
+		for i := 0; i < len(finance.OrdersInfo[j].Orders); i++ {
+			finance.OrdersInfo[j].Orders[i].FId = finance.FId
+		}
 	}
 	var insertOneResult, err = mongoAdapter.InsertOne(config.Mongo.Database, config.Mongo.SellerCollection, finance)
 	if err != nil {
@@ -277,8 +307,9 @@ func createFinance() *entities.SellerFinance {
 	return &entities.SellerFinance{
 		FId:        "",
 		SellerId:   100002,
-		Version:    0,
-		DocVersion: "1.0.0",
+		Version:    1,
+		DocVersion: entities.FinanceDocumentVersion,
+		Trigger:    "SCH4",
 		SellerInfo: &entities.SellerProfile{
 			SellerId: 100002,
 			GeneralInfo: &entities.GeneralSellerInfo{
@@ -346,303 +377,307 @@ func createFinance() *entities.SellerFinance {
 				Currency: "IRR",
 			},
 		},
-		Orders: []*entities.SellerOrder{
+		OrdersInfo: []*entities.OrderInfo{
 			{
-				OId:      1111111111,
-				FId:      "",
-				SellerId: 100002,
-				RawShippingNet: &entities.Money{
-					Amount:   "1650000",
-					Currency: "IRR",
-				},
-				RoundupShippingNet: &entities.Money{
-					Amount:   "1650000",
-					Currency: "IRR",
-				},
-				Items: []*entities.SellerItem{
+				TriggerHistory: primitive.NewObjectID(),
+				Orders: []*entities.SellerOrder{
 					{
-						SId:         1111111111222,
-						SKU:         "yt545-34",
-						InventoryId: "666777888999",
-						Title:       "Mobile",
-						Brand:       "Nokia",
-						Guaranty:    "Sazegar",
-						Category:    "Electronic",
-						Image:       "",
-						Returnable:  false,
-						Quantity:    5,
-						Attributes: map[string]*entities.Attribute{
-							"Color": {
-								KeyTranslate: map[string]string{
-									"en": "رنگ",
-									"fa": "رنگ",
+						OId:      1111111111,
+						FId:      "",
+						SellerId: 100002,
+						RawShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						RoundupShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						Items: []*entities.SellerItem{
+							{
+								SId:         1111111111222,
+								SKU:         "yt545-34",
+								InventoryId: "666777888999",
+								Title:       "Mobile",
+								Brand:       "Nokia",
+								Guaranty:    "Sazegar",
+								Category:    "Electronic",
+								Image:       "",
+								Returnable:  false,
+								Quantity:    5,
+								Attributes: map[string]*entities.Attribute{
+									"Color": {
+										KeyTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+										ValueTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+									},
+									"dial_color": {
+										KeyTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+										ValueTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+									},
 								},
-								ValueTranslate: map[string]string{
-									"en": "رنگ",
-									"fa": "رنگ",
-								},
-							},
-							"dial_color": {
-								KeyTranslate: map[string]string{
-									"fa": "رنگ صفحه",
-									"en": "رنگ صفحه",
-								},
-								ValueTranslate: map[string]string{
-									"fa": "رنگ صفحه",
-									"en": "رنگ صفحه",
+								Invoice: &entities.ItemInvoice{
+									Commission: &entities.ItemCommission{
+										ItemCommission: 9,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									Share: &entities.ItemShare{
+										RawItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									SSO: &entities.ItemSSO{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									VAT: &entities.ItemVAT{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
 								},
 							},
 						},
-						Invoice: &entities.ItemInvoice{
-							Commission: &entities.ItemCommission{
-								ItemCommission: 9,
-								RawUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
+						SubPkgCreatedAt: time.Now(),
+						SubPkgUpdatedAt: time.Now(),
+						DeletedAt:       nil,
+					},
+					{
+						OId:      3333333333,
+						FId:      "",
+						SellerId: 100002,
+						RawShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						RoundupShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						Items: []*entities.SellerItem{
+							{
+								SId:         3333333333444,
+								SKU:         "yt545-34",
+								InventoryId: "666777888999",
+								Title:       "Mobile",
+								Brand:       "Nokia",
+								Guaranty:    "Sazegar",
+								Category:    "Electronic",
+								Image:       "",
+								Returnable:  false,
+								Quantity:    5,
+								Attributes: map[string]*entities.Attribute{
+									"Color": {
+										KeyTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+										ValueTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+									},
+									"dial_color": {
+										KeyTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+										ValueTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+									},
 								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-							},
-							Share: &entities.ItemShare{
-								RawItemNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupItemNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawUnitSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupUnitSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-							},
-							SSO: &entities.ItemSSO{
-								Rate:      8,
-								IsObliged: true,
-								RawUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-							},
-							VAT: &entities.ItemVAT{
-								Rate:      8,
-								IsObliged: true,
-								RawUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
+								Invoice: &entities.ItemInvoice{
+									Commission: &entities.ItemCommission{
+										ItemCommission: 9,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									Share: &entities.ItemShare{
+										RawItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									SSO: &entities.ItemSSO{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									VAT: &entities.ItemVAT{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
 								},
 							},
 						},
+						SubPkgCreatedAt: time.Now(),
+						SubPkgUpdatedAt: time.Now(),
+						DeletedAt:       nil,
 					},
 				},
-				SubPkgUpdatedAt: time.Now(),
-				SubPkgCreatedAt: time.Now(),
-				DeletedAt:       nil,
-			},
-			{
-				OId:      2222222222,
-				FId:      "",
-				SellerId: 100002,
-				RawShippingNet: &entities.Money{
-					Amount:   "2850000",
-					Currency: "IRR",
-				},
-				RoundupShippingNet: &entities.Money{
-					Amount:   "2850000",
-					Currency: "IRR",
-				},
-				Items: []*entities.SellerItem{
-					{
-						SId:         2222222222333,
-						SKU:         "ut543-99",
-						InventoryId: "111000222333",
-						Title:       "TV",
-						Brand:       "Samsung",
-						Guaranty:    "Madiran",
-						Category:    "Electronic",
-						Image:       "",
-						Returnable:  false,
-						Quantity:    5,
-						Attributes: map[string]*entities.Attribute{
-							"Color": {
-								KeyTranslate: map[string]string{
-									"en": "رنگ",
-									"fa": "رنگ",
-								},
-								ValueTranslate: map[string]string{
-									"en": "رنگ",
-									"fa": "رنگ",
-								},
-							},
-							"dial_color": {
-								KeyTranslate: map[string]string{
-									"fa": "رنگ صفحه",
-									"en": "رنگ صفحه",
-								},
-								ValueTranslate: map[string]string{
-									"fa": "رنگ صفحه",
-									"en": "رنگ صفحه",
-								},
-							},
-						},
-						Invoice: &entities.ItemInvoice{
-							Commission: &entities.ItemCommission{
-								ItemCommission: 9,
-								RawUnitPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-							},
-							Share: &entities.ItemShare{
-								RawItemNet: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupItemNet: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RawTotalNet: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupTotalNet: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RawUnitSellerShare: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupUnitSellerShare: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RawTotalSellerShare: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupTotalSellerShare: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-							},
-							SSO: &entities.ItemSSO{
-								Rate:      8,
-								IsObliged: true,
-								RawUnitPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-							},
-							VAT: &entities.ItemVAT{
-								Rate:      8,
-								IsObliged: true,
-								RawUnitPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "2850000",
-									Currency: "IRR",
-								},
-							},
-						},
-					},
-				},
-				SubPkgUpdatedAt: time.Now(),
-				SubPkgCreatedAt: time.Now(),
-				DeletedAt:       nil,
 			},
 		},
-
 		Payment: &entities.FinancePayment{
 			TransferRequest: &entities.TransferRequest{
 				TotalPrice: entities.Money{
@@ -672,7 +707,7 @@ func createFinance() *entities.SellerFinance {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		Status:    "CLOSED",
+		Status:    entities.FinanceClosedStatus,
 		StartAt:   nil,
 		EndAt:     nil,
 		CreatedAt: time.Now(),

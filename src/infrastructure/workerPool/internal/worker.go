@@ -27,18 +27,18 @@ import (
 	"time"
 )
 
-// goWorkerWithFunc is the actual executor who runs the tasks,
+// goWorker is the actual executor who runs the tasks,
 // it starts a goroutine that accepts tasks and
 // performs function calls.
-type goWorkerWithFunc struct {
+type goWorker struct {
 	// identity
 	name string
 
-	// pool who owns this worker.
-	pool *PoolWithFunc
+	// workerPool who owns this worker.
+	pool *Pool
 
-	// args is a job should be done.
-	args chan interface{}
+	// task is a job should be done.
+	task chan func()
 
 	// recycleTime will be update when putting a worker back into queue.
 	recycleTime time.Time
@@ -46,7 +46,7 @@ type goWorkerWithFunc struct {
 
 // run starts a goroutine to repeat the process
 // that performs the function calls.
-func (w *goWorkerWithFunc) run() {
+func (w *goWorker) run() {
 	w.pool.incRunning()
 	go func() {
 		defer func() {
@@ -68,11 +68,11 @@ func (w *goWorkerWithFunc) run() {
 			}
 		}()
 
-		for args := range w.args {
-			if args == nil {
+		for f := range w.task {
+			if f == nil {
 				return
 			}
-			w.pool.poolFunc(args)
+			f()
 			if ok := w.pool.revertWorker(w); !ok {
 				return
 			}

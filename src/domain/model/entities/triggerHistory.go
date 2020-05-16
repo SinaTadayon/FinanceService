@@ -5,29 +5,28 @@ import (
 	"time"
 )
 
-type TriggerResult string
+const (
+	TriggerHistoryDocumentVersion string = "1.0.0"
+)
+
+type TriggerExecResult string
 
 const (
-	TriggerSuccess TriggerResult = "SUCCESS"
-	TriggerFail    TriggerResult = "FAIL"
-	TriggerPartial TriggerResult = "PARTIAL"
+	TriggerExecResultNone    TriggerExecResult = "NONE"
+	TriggerExecResultSuccess TriggerExecResult = "SUCCESS"
+	TriggerExecResultFail    TriggerExecResult = "FAIL"
+	TriggerExecResultPartial TriggerExecResult = "PARTIAL"
 )
 
 type TriggerHistory struct {
-	ID         primitive.ObjectID `bson:"-"`
-	Trigger    string             `bson:"trigger"`
-	Version    uint64             `bson:"version"`
-	DocVersion string             `bson:"docVersion"`
-	Index      int64              `bson:"index"`
-	OrderCount int64              `bson:"orderCount"`
-	Sellers    []*SellerMissed    `bson:"sellers"`
-	Result     TriggerResult      `bson:"result"`
-	CreatedAt  time.Time          `bson:"createdAt"`
-	UpdatedAt  time.Time          `bson:"updatedAt"`
-	DeletedAt  *time.Time         `bson:"deletedAt"`
-}
-
-type SellerMissed struct {
-	SellerId uint64
-	SIds     []uint64
+	ID           primitive.ObjectID `bson:"-"`
+	TriggerName  string             `bson:"triggerName"`
+	Version      uint64             `bson:"version"`
+	DocVersion   string             `bson:"docVersion"`
+	ExecResult   TriggerExecResult  `bson:"execResult"`
+	TriggeredAt  *time.Time         `bson:"triggeredAt"`
+	IsMissedFire bool               `bson:"isMissedFire"`
+	CreatedAt    time.Time          `bson:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt"`
+	DeletedAt    *time.Time         `bson:"deletedAt"`
 }

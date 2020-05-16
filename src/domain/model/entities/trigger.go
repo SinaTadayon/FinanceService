@@ -12,6 +12,18 @@ const (
 
 type TriggerTimeUnit string
 type TriggerPointType string
+type TriggerExecMode string
+type TriggerJobExecType string
+
+const (
+	TriggerAsyncJob TriggerJobExecType = "ASYNC"
+	TriggerSyncJob  TriggerJobExecType = "SYNC"
+)
+
+const (
+	ConcurrentTrigger TriggerExecMode = "CONCURRENT"
+	SequentialTrigger TriggerExecMode = "SEQUENTIAL"
+)
 
 const (
 	AbsoluteTrigger TriggerPointType = "ABSOLUTE"
@@ -35,6 +47,8 @@ type SchedulerTrigger struct {
 	TriggerCount     int64              `bson:"triggerCount"`
 	Data             interface{}        `bson:"data"`
 	IsEnabled        bool               `bson:"isEnabled"`
+	ExecMode         TriggerExecMode    `bson:"execMode"`
+	JobExecType      TriggerJobExecType `bson:"jobExecType"`
 	CreatedAt        time.Time          `bson:"createdAt"`
 	UpdatedAt        time.Time          `bson:"updatedAt"`
 	DeletedAt        *time.Time         `bson:"deletedAt"`

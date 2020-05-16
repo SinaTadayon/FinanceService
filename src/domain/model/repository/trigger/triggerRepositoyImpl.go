@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	defaultTotalSize = 1024
+)
+
 type iSchedulerTriggerRepositoryImpl struct {
 	mongoAdapter *mongoadapter.Mongo
 	database     string
@@ -137,16 +141,6 @@ func (repo iSchedulerTriggerRepositoryImpl) FindByName(ctx context.Context, name
 func (repo iSchedulerTriggerRepositoryImpl) FindByFilter(ctx context.Context, supplier func() interface{}) future.IFuture {
 	filter := supplier()
 
-	iFuture := repo.CountWithFilter(ctx, supplier).Get()
-	if iFuture.Error() != nil {
-		return future.FactorySyncDataOf(iFuture).BuildAndSend()
-	}
-
-	total := iFuture.Data().(int64)
-	if total == 0 {
-		return future.FactorySync().SetData(total).BuildAndSend()
-	}
-
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, filter)
 	if e != nil {
 		return future.FactorySync().
@@ -155,7 +149,7 @@ func (repo iSchedulerTriggerRepositoryImpl) FindByFilter(ctx context.Context, su
 	}
 
 	defer closeCursor(ctx, cursor)
-	triggers := make([]*entities.SchedulerTrigger, 0, total)
+	triggers := make([]*entities.SchedulerTrigger, 0, defaultTotalSize)
 
 	// iterate through all documents
 	for cursor.Next(ctx) {
@@ -167,6 +161,12 @@ func (repo iSchedulerTriggerRepositoryImpl) FindByFilter(ctx context.Context, su
 				BuildAndSend()
 		}
 		triggers = append(triggers, &trigger)
+	}
+
+	if len(triggers) == 0 {
+		return future.FactorySync().
+			SetError(future.NotFound, "SchedulerTrigger Not Found", errors.Wrap(e, "SchedulerTrigger Not Found")).
+			BuildAndSend()
 	}
 
 	return future.FactorySync().
@@ -186,6 +186,7 @@ func (repo iSchedulerTriggerRepositoryImpl) DeleteByName(ctx context.Context, na
 	deletedAt := time.Now().UTC()
 	trigger.DeletedAt = &deletedAt
 	currentVersion := trigger.Version
+	trigger.IsEnabled = false
 	trigger.Version += 1
 
 	updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection,

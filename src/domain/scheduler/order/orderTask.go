@@ -7,9 +7,9 @@ import (
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
-	"gitlab.faza.io/services/finance/infrastructure/pool"
 	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"go.mongodb.org/mongo-driver/bson"
 	"strconv"
 	"sync"
@@ -20,7 +20,6 @@ const (
 	DefaultOrderStreamSize   = 8192
 	DefaultSellerSize        = 2048
 	DefaultSellerOrderSize   = 4096
-	DefaultResultStreamSize  = 1024
 	DefaultFetchOrderPerPage = 128
 )
 
@@ -36,7 +35,6 @@ const (
 
 const (
 	NoError ErrorType = iota
-	//GeneralError
 	DatabaseError
 	OrderServiceError
 	WorkerPoolError
@@ -45,7 +43,6 @@ const (
 type ProcessResult struct {
 	Function      FuncType
 	SellerFinance *entities.SellerFinance
-	Sids          []uint64
 	ErrType       ErrorType
 	Result        bool
 }
@@ -64,17 +61,16 @@ type ResultReaderStream <-chan *ProcessResult
 type OrderReduceFunc func(ctx context.Context, orderChannel OrderReaderStream)
 type CreateUpdateFinanceFunc func(ctx context.Context, financeChannel FinanceReaderStream)
 
-func OrderSchedulerTask(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture {
+func OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHistory) future.IFuture {
 
 	triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
-	startAt := trigger.LatestTriggerAt.Add(-triggerInterval)
-	ctx = context.WithValue(ctx, string(utils.CtxTrigger), trigger)
+	startAt := triggerHistory.TriggeredAt.Add(-triggerInterval)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerHistory), triggerHistory)
 	ctx, cancel := context.WithCancel(ctx)
 	var iFuture = future.FactorySync().Build()
-	sellersOrdersMissed := make([]*entities.SellerMissed, 0, DefaultSellerSize)
 
 	task := func() {
-		orderStream, fetchOrderResultStream, fetchOrderTask := FetchOrders(ctx, startAt, *trigger.LatestTriggerAt)
+		orderStream, fetchOrderResultStream, fetchOrderTask := FetchOrders(ctx, startAt, *triggerHistory.TriggeredAt)
 		orderChannelStream, fanOutOrderTask := FanOutOrders(ctx, orderStream)
 		financeStream, fanInOrderResultStream, fanInOrderTask := FanInOrderStreams(ctx, orderChannelStream)
 		financeChannelStream, fanOutFinanceTask := FanOutFinances(ctx, financeStream)
@@ -82,36 +78,54 @@ func OrderSchedulerTask(ctx context.Context, trigger entities.SchedulerTrigger) 
 
 		resultStream, err := fanInResultStream(ctx, fetchOrderResultStream, fanInOrderResultStream, fanInFinanceResultStream)
 		if err != nil {
+			cancel()
 			future.FactoryOf(iFuture).
 				SetError(future.InternalError, "OrderSchedulerTask failed", errors.Wrap(err, "fanInResultStream failed")).
 				BuildAndSend()
 			return
 		}
 
-		err = launcherTask(fanInFinanceTask, fanOutFinanceTask, fanInOrderTask, fanOutOrderTask, fetchOrderTask)
+		err = taskLauncher(fanInFinanceTask, fanOutFinanceTask, fanInOrderTask, fanOutOrderTask, fetchOrderTask)
 		if err != nil {
 			cancel()
 			future.FactoryOf(iFuture).
-				SetError(future.InternalError, "OrderSchedulerTask failed", errors.Wrap(err, "launcherTask failed")).
+				SetError(future.InternalError, "OrderSchedulerTask failed", errors.Wrap(err, "taskLauncher failed")).
 				BuildAndSend()
 			return
 		}
 
-		// TODO implement trigger history
+		isSuccessFlag := true
 		for processResult := range resultStream {
 			if !processResult.Result {
-				if processResult.ErrType == OrderServiceError || processResult.ErrType == WorkerPoolError {
+				if processResult.ErrType != NoError {
 					cancel()
+					isSuccessFlag = false
 					break
-				} else if processResult.ErrType == DatabaseError {
-					sellerMissed := &entities.SellerMissed{
-						SellerId: processResult.SellerFinance.SellerId,
-						SIds:     processResult.Sids,
-					}
-					sellersOrdersMissed = append(sellersOrdersMissed, sellerMissed)
 				}
 			}
 		}
+
+		if !isSuccessFlag {
+			triggerHistory.ExecResult = entities.TriggerExecResultFail
+		} else {
+			triggerHistory.ExecResult = entities.TriggerExecResultSuccess
+		}
+
+		iTriggerFuture := app.Globals.TriggerHistoryRepository.Update(ctx, triggerHistory).Get()
+		if iTriggerFuture.Error() != nil {
+			log.GLog.Logger.Error("TriggerHistoryRepository.Update failed",
+				"fn", "OrderSchedulerTask",
+				"trigger", triggerHistory,
+				"error", iTriggerFuture.Error().Reason())
+			future.FactoryOf(iFuture).
+				SetError(iTriggerFuture.Error().Code(), "OrderSchedulerTask failed", iTriggerFuture.Error().Reason()).
+				BuildAndSend()
+			return
+		}
+
+		future.FactoryOf(iFuture).
+			SetData(struct{}{}).
+			BuildAndSend()
 	}
 
 	if err := app.Globals.WorkerPool.SubmitTask(task); err != nil {
@@ -152,7 +166,7 @@ func fanInResultStream(ctx context.Context, channels ...ResultReaderStream) (Res
 	return multiplexedStream, nil
 }
 
-func launcherTask(tasks ...pool.Task) error {
+func taskLauncher(tasks ...worker_pool.Task) error {
 	for _, task := range tasks {
 		if err := app.Globals.WorkerPool.SubmitTask(task); err != nil {
 			return err
@@ -161,7 +175,7 @@ func launcherTask(tasks ...pool.Task) error {
 	return nil
 }
 
-func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, pool.Task) {
+func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, worker_pool.Task) {
 	orderStream := make(chan *entities.SellerOrder, DefaultOrderStreamSize)
 	resultStream := make(chan *ProcessResult)
 	//fetchOrderTask := func() {
@@ -193,7 +207,6 @@ func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStre
 					resultStream <- &ProcessResult{
 						Function:      FetchOrderFn,
 						SellerFinance: nil,
-						Sids:          nil,
 						ErrType:       OrderServiceError,
 						Result:        false,
 					}
@@ -203,7 +216,6 @@ func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStre
 				resultStream <- &ProcessResult{
 					Function:      FetchOrderFn,
 					SellerFinance: nil,
-					Sids:          nil,
 					ErrType:       NoError,
 					Result:        true,
 				}
@@ -235,7 +247,7 @@ func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStre
 	return orderStream, resultStream, fetchOrderTask
 }
 
-func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStream, pool.Task) {
+func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStream, worker_pool.Task) {
 
 	sellerStreamMap := make(map[uint64]OrderWriterStream, DefaultSellerSize)
 	orderChannelStream := make(chan OrderReaderStream)
@@ -275,7 +287,7 @@ func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStrea
 	return orderChannelStream, fanOutTask
 }
 
-func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceReaderStream, ResultReaderStream, pool.Task) {
+func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceReaderStream, ResultReaderStream, worker_pool.Task) {
 	multiplexedFinanceStream := make(chan *entities.SellerFinance)
 	resultStream := make(chan *ProcessResult)
 	var wg sync.WaitGroup
@@ -303,7 +315,6 @@ func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceR
 				resultStream <- &ProcessResult{
 					Function:      FanInOrderStreamsFn,
 					SellerFinance: nil,
-					Sids:          nil,
 					ErrType:       WorkerPoolError,
 					Result:        false,
 				}
@@ -328,7 +339,6 @@ func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceR
 				resultStream <- &ProcessResult{
 					Function:      FanInOrderStreamsFn,
 					SellerFinance: nil,
-					Sids:          nil,
 					ErrType:       WorkerPoolError,
 					Result:        false,
 				}
@@ -346,8 +356,16 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 	financeStream := make(chan *entities.SellerFinance)
 
 	return financeStream, func(ctx context.Context, orderStream OrderReaderStream) {
-		sellerFinance := &entities.SellerFinance{}
-		sellerFinance.Orders = make([]*entities.SellerOrder, 0, DefaultSellerOrderSize)
+		triggerHistory := ctx.Value(utils.CtxTriggerHistory).(entities.TriggerHistory)
+		sellerFinance := &entities.SellerFinance{
+			OrdersInfo: []*entities.OrderInfo{
+				{
+					TriggerHistory: triggerHistory.ID,
+					Orders:         nil,
+				},
+			},
+		}
+		sellerFinance.OrdersInfo[0].Orders = make([]*entities.SellerOrder, 0, DefaultSellerOrderSize)
 		defer close(financeStream)
 		for sellerOrder := range orderStream {
 			select {
@@ -366,14 +384,14 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 					"sellerOrder", sellerOrder)
 				continue
 			}
-			sellerFinance.Orders = append(sellerFinance.Orders, sellerOrder)
+			sellerFinance.OrdersInfo[0].Orders = append(sellerFinance.OrdersInfo[0].Orders, sellerOrder)
 		}
 
 		financeStream <- sellerFinance
 	}
 }
 
-func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FRSStream, pool.Task) {
+func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FRSStream, worker_pool.Task) {
 	financeChannels := make([]chan *entities.SellerFinance, 0, app.Globals.Config.Mongo.MinPoolSize)
 	financeChannelStream := make(chan FinanceReaderStream)
 
@@ -431,23 +449,13 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 
 			iFuture := app.Globals.SellerFinanceRepository.FindByFilter(ctx, func() interface{} {
 				return bson.D{{"sellerId", sellerFinance.SellerId},
-					{"status", entities.FinanceCollectOrderStatus},
+					{"status", entities.FinanceOrderCollectionStatus},
 					{"deletedAt", nil}}
 			}).Get()
 
-			newSids := make([]uint64, 0, len(sellerFinance.Orders)*2)
-			for _, newOrder := range sellerFinance.Orders {
-				for _, newItem := range newOrder.Items {
-					newSids = append(newSids, newItem.SId)
-				}
-			}
-
-			trigger := ctx.Value(utils.CtxTrigger).(entities.SchedulerTrigger)
+			triggerHistory := ctx.Value(utils.CtxTriggerHistory).(entities.TriggerHistory)
 			triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
 			triggerDuration := ctx.Value(utils.CtxTriggerDuration).(time.Duration)
-			//triggerOffsetPoint := ctx.Value(utils.CtxTriggerOffsetPoint).(time.Duration)
-			//triggerPointType := ctx.Value(utils.CtxTriggerPointType).(entities.TriggerPointType)
-			//triggerTimeUnit := ctx.Value(utils.CtxTriggerTimeUnit).(entities.TriggerTimeUnit)
 
 			timestamp := time.Now().UTC()
 			isNotFoundFlag := false
@@ -461,7 +469,6 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					resultStream <- &ProcessResult{
 						Function:      CreateUpdateFinanceFn,
 						SellerFinance: sellerFinance,
-						Sids:          newSids,
 						ErrType:       DatabaseError,
 						Result:        false,
 					}
@@ -479,7 +486,7 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					log.GLog.Logger.Debug("many sellers found in collect order state",
 						"fn", "CreateUpdateFinance",
 						"sellerId", sellerFinance.SellerId,
-						"state", entities.FinanceCollectOrderStatus,
+						"state", entities.FinanceOrderCollectionStatus,
 						"founds", len(sellerFinances))
 				}
 
@@ -493,7 +500,7 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 								"fn", "CreateUpdateFinance",
 								"fid", finance.FId,
 								"sellerId", sellerFinance.SellerId,
-								"state", entities.FinanceCollectOrderStatus)
+								"state", entities.FinanceOrderCollectionStatus)
 						}
 					}
 				}
@@ -503,36 +510,50 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 						"fn", "CreateUpdateFinance",
 						"fid", foundSellerFinance.FId,
 						"sellerId", sellerFinance.SellerId,
-						"state", entities.FinanceCollectOrderStatus)
+						"state", entities.FinanceOrderCollectionStatus)
 
-					diffSids := make([]uint64, 0, len(sellerFinance.Orders)*2)
+					newOrderInfo := &entities.OrderInfo{
+						TriggerHistory: triggerHistory.ID,
+						Orders:         nil,
+					}
 
-					var findOrderFlag bool
-					for _, newOrder := range sellerFinance.Orders {
-						findOrderFlag = false
-						for _, order := range foundSellerFinance.Orders {
-							if order.OId == newOrder.OId {
-								findOrderFlag = true
-								for _, newItem := range newOrder.Items {
-									for _, item := range order.Items {
-										if newItem.SId != item.SId {
-											order.Items = append(order.Items, newItem)
-											diffSids = append(diffSids, newItem.SId)
+					newOrderInfo.Orders = make([]*entities.SellerOrder, 0, len(sellerFinance.OrdersInfo[0].Orders))
+
+					for _, newOrder := range sellerFinance.OrdersInfo[0].Orders {
+						for _, orderInfo := range foundSellerFinance.OrdersInfo {
+							for _, order := range orderInfo.Orders {
+								if order.OId == newOrder.OId {
+									diffItems := make([]*entities.SellerItem, 0, len(newOrder.Items))
+									for _, newItem := range newOrder.Items {
+										for _, item := range order.Items {
+											if newItem.SId != item.SId {
+												diffItems = append(diffItems, newItem)
+											} else {
+												log.GLog.Logger.Warn("duplicate order subpackage found",
+													"fn", "CreateUpdateFinance",
+													"sellerId", sellerFinance.SellerId,
+													"oid", order.OId,
+													"sid", item.SId)
+											}
 										}
 									}
-								}
-							}
-						}
-
-						if !findOrderFlag {
-							foundSellerFinance.Orders = append(foundSellerFinance.Orders, newOrder)
-							for _, newOrder := range sellerFinance.Orders {
-								for _, newItem := range newOrder.Items {
-									diffSids = append(diffSids, newItem.SId)
+									if len(diffItems) > 0 {
+										newOrder.Items = diffItems
+										orderInfo.Orders = append(orderInfo.Orders, newOrder)
+									} else {
+										log.GLog.Logger.Warn("duplicate order found",
+											"fn", "CreateUpdateFinance",
+											"sellerId", sellerFinance.SellerId,
+											"oid", newOrder.OId)
+									}
+								} else {
+									orderInfo.Orders = append(orderInfo.Orders, newOrder)
 								}
 							}
 						}
 					}
+
+					foundSellerFinance.OrdersInfo = append(foundSellerFinance.OrdersInfo, newOrderInfo)
 
 					iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *foundSellerFinance).Get()
 					if iFuture.Error() != nil {
@@ -545,7 +566,6 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 						resultStream <- &ProcessResult{
 							Function:      CreateUpdateFinanceFn,
 							SellerFinance: foundSellerFinance,
-							Sids:          diffSids,
 							ErrType:       DatabaseError,
 							Result:        false,
 						}
@@ -555,29 +575,33 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					resultStream <- &ProcessResult{
 						Function:      CreateUpdateFinanceFn,
 						SellerFinance: foundSellerFinance,
-						Sids:          diffSids,
 						ErrType:       NoError,
 						Result:        true,
 					}
 
 					// create new seller finance
 				} else {
-					startAt := trigger.LatestTriggerAt.Add(-triggerInterval)
-					endAt := trigger.LatestTriggerAt.Add(triggerDuration)
+					startAt := triggerHistory.TriggeredAt.Add(-triggerInterval)
+					endAt := startAt.Add(triggerDuration)
 
 					newSellerFinance := &entities.SellerFinance{
 						SellerId:   sellerFinance.SellerId,
-						Trigger:    trigger.Name,
+						Trigger:    triggerHistory.TriggerName,
 						SellerInfo: nil,
 						Invoice:    nil,
-						Orders:     sellerFinance.Orders,
-						Payment:    nil,
-						Status:     entities.FinanceCollectOrderStatus,
-						StartAt:    &startAt,
-						EndAt:      &endAt,
-						CreatedAt:  timestamp,
-						UpdatedAt:  timestamp,
-						DeletedAt:  nil,
+						OrdersInfo: []*entities.OrderInfo{
+							{
+								TriggerHistory: triggerHistory.ID,
+								Orders:         sellerFinance.OrdersInfo[0].Orders,
+							},
+						},
+						Payment:   nil,
+						Status:    entities.FinanceOrderCollectionStatus,
+						StartAt:   &startAt,
+						EndAt:     &endAt,
+						CreatedAt: timestamp,
+						UpdatedAt: timestamp,
+						DeletedAt: nil,
 					}
 
 					iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
@@ -602,7 +626,6 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 						resultStream <- &ProcessResult{
 							Function:      CreateUpdateFinanceFn,
 							SellerFinance: newSellerFinance,
-							Sids:          newSids,
 							ErrType:       DatabaseError,
 							Result:        false,
 						}
@@ -612,29 +635,33 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					resultStream <- &ProcessResult{
 						Function:      CreateUpdateFinanceFn,
 						SellerFinance: newSellerFinance,
-						Sids:          newSids,
 						ErrType:       NoError,
 						Result:        true,
 					}
 				}
 				// create new seller finance
 			} else {
-				startAt := trigger.LatestTriggerAt.Add(-triggerInterval)
-				endAt := trigger.LatestTriggerAt.Add(triggerDuration)
+				startAt := triggerHistory.TriggeredAt.Add(-triggerInterval)
+				endAt := startAt.Add(triggerDuration)
 
 				newSellerFinance := &entities.SellerFinance{
 					SellerId:   sellerFinance.SellerId,
-					Trigger:    trigger.Name,
+					Trigger:    triggerHistory.TriggerName,
 					SellerInfo: nil,
 					Invoice:    nil,
-					Orders:     sellerFinance.Orders,
-					Payment:    nil,
-					Status:     entities.FinanceCollectOrderStatus,
-					StartAt:    &startAt,
-					EndAt:      &endAt,
-					CreatedAt:  timestamp,
-					UpdatedAt:  timestamp,
-					DeletedAt:  nil,
+					OrdersInfo: []*entities.OrderInfo{
+						{
+							TriggerHistory: triggerHistory.ID,
+							Orders:         sellerFinance.OrdersInfo[0].Orders,
+						},
+					},
+					Payment:   nil,
+					Status:    entities.FinanceOrderCollectionStatus,
+					StartAt:   &startAt,
+					EndAt:     &endAt,
+					CreatedAt: timestamp,
+					UpdatedAt: timestamp,
+					DeletedAt: nil,
 				}
 
 				iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
@@ -659,7 +686,6 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					resultStream <- &ProcessResult{
 						Function:      CreateUpdateFinanceFn,
 						SellerFinance: newSellerFinance,
-						Sids:          newSids,
 						ErrType:       DatabaseError,
 						Result:        false,
 					}
@@ -669,7 +695,6 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 				resultStream <- &ProcessResult{
 					Function:      CreateUpdateFinanceFn,
 					SellerFinance: newSellerFinance,
-					Sids:          newSids,
 					ErrType:       NoError,
 					Result:        true,
 				}
@@ -678,7 +703,7 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 	}
 }
 
-func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (ResultReaderStream, pool.Task) {
+func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (ResultReaderStream, worker_pool.Task) {
 	multiplexedResultStream := make(chan *ProcessResult)
 	var wg sync.WaitGroup
 	fanInCoreTask := func() {
@@ -702,7 +727,6 @@ func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (R
 				multiplexedResultStream <- &ProcessResult{
 					Function:      FanInFinanceStreamsFn,
 					SellerFinance: nil,
-					Sids:          nil,
 					ErrType:       WorkerPoolError,
 					Result:        false,
 				}
@@ -727,7 +751,6 @@ func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (R
 				multiplexedResultStream <- &ProcessResult{
 					Function:      FanInFinanceStreamsFn,
 					SellerFinance: nil,
-					Sids:          nil,
 					ErrType:       WorkerPoolError,
 					Result:        false,
 				}

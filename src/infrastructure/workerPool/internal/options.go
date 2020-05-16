@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// DefaultPoolSize is the default capacity for a default goroutine pool.
+	// DefaultPoolSize is the default capacity for a default goroutine workerPool.
 	DefaultPoolSize = math.MaxInt32
 
 	// DefaultCleanIntervalTime is the interval time to clean up goroutines.
@@ -17,10 +17,10 @@ const (
 )
 
 const (
-	// OPENED represents that the pool is opened.
+	// OPENED represents that the workerPool is opened.
 	OPENED = iota
 
-	// CLOSED represents that the pool is closed.
+	// CLOSED represents that the workerPool is closed.
 	CLOSED
 )
 
@@ -28,19 +28,19 @@ var (
 	// Error types for the Ants API.
 	//---------------------------------------------------------------------------
 
-	// ErrInvalidPoolSize will be returned when setting a negative number as pool capacity.
-	ErrInvalidPoolSize = errors.New("invalid size for pool")
+	// ErrInvalidPoolSize will be returned when setting a negative number as workerPool capacity.
+	ErrInvalidPoolSize = errors.New("invalid size for workerPool")
 
-	// ErrLackPoolFunc will be returned when invokers don't provide function for pool.
-	ErrLackPoolFunc = errors.New("must provide function for pool")
+	// ErrLackPoolFunc will be returned when invokers don't provide function for workerPool.
+	ErrLackPoolFunc = errors.New("must provide function for workerPool")
 
 	// ErrInvalidPoolExpiry will be returned when setting a negative number as the periodic duration to purge goroutines.
-	ErrInvalidPoolExpiry = errors.New("invalid expiry for pool")
+	ErrInvalidPoolExpiry = errors.New("invalid expiry for workerPool")
 
-	// ErrPoolClosed will be returned when submitting task to a closed pool.
-	ErrPoolClosed = errors.New("this pool has been closed")
+	// ErrPoolClosed will be returned when submitting task to a closed workerPool.
+	ErrPoolClosed = errors.New("this workerPool has been closed")
 
-	// ErrPoolOverload will be returned when the pool is full and no workers available.
+	// ErrPoolOverload will be returned when the workerPool is full and no workers available.
 	ErrPoolOverload = errors.New("too many goroutines blocked on submit or Nonblocking is set")
 	//---------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ var (
 		return 1
 	}()
 
-	//// Init a instance pool when importing ants.
+	//// Init a instance workerPool when importing ants.
 	//defaultAntsPool, _ = NewPool(DefaultPoolSize)
 )
 
@@ -76,7 +76,7 @@ func loadOptions(options ...Option) *Options {
 	return opts
 }
 
-// Options contains all options which will be applied when instantiating a ants pool.
+// Options contains all options which will be applied when instantiating a ants workerPool.
 type Options struct {
 	// ExpiryDuration sets the expired time of every worker.
 	ExpiryDuration time.Duration
@@ -84,7 +84,7 @@ type Options struct {
 	// PreAlloc indicates whether to make memory pre-allocation when initializing Pool.
 	PreAlloc bool
 
-	// Max number of goroutine blocking on pool.Submit.
+	// Max number of goroutine blocking on workerPool.Submit.
 	// 0 (default value) means no such limit.
 	MaxBlockingTasks int
 
@@ -123,14 +123,14 @@ func WithPreAlloc(preAlloc bool) Option {
 	}
 }
 
-// WithMaxBlockingTasks sets up the maximum number of goroutines that are blocked when it reaches the capacity of pool.
+// WithMaxBlockingTasks sets up the maximum number of goroutines that are blocked when it reaches the capacity of workerPool.
 func WithMaxBlockingTasks(maxBlockingTasks int) Option {
 	return func(opts *Options) {
 		opts.MaxBlockingTasks = maxBlockingTasks
 	}
 }
 
-// WithNonblocking indicates that pool will return nil when there is no available workers.
+// WithNonblocking indicates that workerPool will return nil when there is no available workers.
 func WithNonblocking(nonblocking bool) Option {
 	return func(opts *Options) {
 		opts.Nonblocking = nonblocking

@@ -5,7 +5,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/services/finance/domain/model/entities"
-	"gitlab.faza.io/services/finance/infrastructure/pool"
+	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	//"gitlab.faza.io/go-framework/mongoadapter"
 	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/configs"
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 	app.Globals.SellerOrderRepository = order_repository.NewSellerOrderRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerCollection)
 
-	workerPool, err := pool.Factory()
+	workerPool, err := worker_pool.Factory()
 	if err != nil {
 		os.Exit(1)
 	}
@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 
 func TestOrderSchedulerTask(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
-	iFuture := OrderSchedulerTask(ctx, entities.SchedulerTrigger{})
+	iFuture := OrderSchedulerTask(ctx, entities.TriggerHistory{})
 	//time.Sleep(time.Second)
 	//cancel()
 	//time.Sleep(time.Second)

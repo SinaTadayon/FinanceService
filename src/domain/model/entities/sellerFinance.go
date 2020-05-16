@@ -13,9 +13,9 @@ const (
 )
 
 const (
-	FinanceCollectOrderStatus      FinanceState = "COLLECT_ORDER"
-	FinancePaymentInProgressStatus FinanceState = "PAYMENT_IN_PROGRESS"
-	FinanceClosedStatus            FinanceState = "CLOSED"
+	FinanceOrderCollectionStatus FinanceState = "ORDER_COLLECTION"
+	FinancePaymentProcessStatus  FinanceState = "PAYMENT_PROCESS"
+	FinanceClosedStatus          FinanceState = "CLOSED"
 )
 
 const (
@@ -34,7 +34,7 @@ type SellerFinance struct {
 	Trigger    string             `bson:"trigger"`
 	SellerInfo *SellerProfile     `bson:"sellerInfo"`
 	Invoice    Invoice            `bson:"invoice"`
-	Orders     []*SellerOrder     `bson:"orders"`
+	OrdersInfo []*OrderInfo       `bson:"ordersInfo"`
 	Payment    *FinancePayment    `bson:"payment"`
 	Status     FinanceState       `bson:"status"`
 	StartAt    *time.Time         `bson:"startAt"`
@@ -85,6 +85,11 @@ type Invoice struct {
 	ShareRoundupTotal      *Money `bson:"shareRoundupTotal"`
 	ShipmentRawTotal       *Money `bson:"shipmentRawTotal"`
 	ShipmentRoundupTotal   *Money `bson:"shipmentRoundupTotal"`
+}
+
+type OrderInfo struct {
+	TriggerHistory primitive.ObjectID `bson:"triggerHistory"`
+	Orders         []*SellerOrder     `bson:"orders"`
 }
 
 type SellerOrder struct {

@@ -8,6 +8,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -32,11 +33,36 @@ func NewSellerOrderRepository(mongoDriver *mongoadapter.Mongo, database, collect
 }
 
 // return data *entities.SellerOrder , error
-func (repo iSellerOrderRepositoryImpl) Save(ctx context.Context, order entities.SellerOrder) future.IFuture {
+func (repo iSellerOrderRepositoryImpl) SaveOrderInfo(ctx context.Context, fid string, orderInfo entities.OrderInfo) future.IFuture {
 	updateResult, err := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{
 		{"deletedAt", nil},
-		{"fid", order.FId}},
-		bson.D{{"$push", bson.D{{"orders", order}}}})
+		{"fid", fid}},
+		bson.D{{"$push", bson.D{{"ordersInfo", orderInfo}}}})
+
+	if err != nil {
+		return future.FactorySync().
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "UpdateOne SellerOrder Failed")).
+			BuildAndSend()
+	}
+
+	if updateResult.ModifiedCount != 1 {
+		return future.FactorySync().
+			SetError(future.InternalError, "Request Operation Failed", ErrorUpdateFailed).
+			BuildAndSend()
+	}
+
+	return future.FactorySync().
+		SetData(&orderInfo).
+		BuildAndSend()
+}
+
+// return data *entities.SellerOrder , error
+func (repo iSellerOrderRepositoryImpl) SaveOrder(ctx context.Context, triggerHistoryId primitive.ObjectID, order entities.SellerOrder) future.IFuture {
+	updateResult, err := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{
+		{"deletedAt", nil},
+		{"fid", order.FId},
+		{"ordersInfo.triggerHistory", triggerHistoryId}},
+		bson.D{{"$push", bson.D{{"ordersInfo.$.orders", order}}}})
 
 	if err != nil {
 		return future.FactorySync().
@@ -64,10 +90,12 @@ func (repo iSellerOrderRepositoryImpl) SaveAll(ctx context.Context, orders []ent
 func (repo iSellerOrderRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid string, oid uint64) future.IFuture {
 	var order entities.SellerOrder
 	pipeline := []bson.M{
-		{"$match": bson.M{"fid": fid, "deletedAt": nil, "orders.oid": oid}},
-		{"$unwind": "$orders"},
-		{"$match": bson.M{"orders.oid": oid, "deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$match": bson.M{"fid": fid, "deletedAt": nil, "ordersInfo.orders.oid": oid}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": oid, "deletedAt": nil}},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -97,10 +125,12 @@ func (repo iSellerOrderRepositoryImpl) FindByFIdAndOId(ctx context.Context, fid 
 func (repo iSellerOrderRepositoryImpl) FindBySellerIdAndOId(ctx context.Context, sellerId, oid uint64) future.IFuture {
 
 	pipeline := []bson.M{
-		{"$match": bson.M{"sellerId": sellerId, "orders.oid": oid, "deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$match": bson.M{"orders.oid": oid, "deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$match": bson.M{"sellerId": sellerId, "ordersInfo.orders.oid": oid, "deletedAt": nil}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": oid, "deletedAt": nil}},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -113,7 +143,7 @@ func (repo iSellerOrderRepositoryImpl) FindBySellerIdAndOId(ctx context.Context,
 
 	defer closeCursor(ctx, cursor)
 
-	orders := make([]*entities.SellerOrder, 0, 16)
+	orders := make([]*entities.SellerOrder, 0, defaultDocCount)
 
 	for cursor.Next(ctx) {
 		var order entities.SellerOrder
@@ -124,6 +154,12 @@ func (repo iSellerOrderRepositoryImpl) FindBySellerIdAndOId(ctx context.Context,
 		}
 
 		orders = append(orders, &order)
+	}
+
+	if len(orders) == 0 {
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	return future.FactorySync().
@@ -135,10 +171,12 @@ func (repo iSellerOrderRepositoryImpl) FindBySellerIdAndOId(ctx context.Context,
 func (repo iSellerOrderRepositoryImpl) FindById(ctx context.Context, oid uint64) future.IFuture {
 
 	pipeline := []bson.M{
-		{"$match": bson.M{"orders.oid": oid, "deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$match": bson.M{"orders.oid": oid, "deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$match": bson.M{"ordersInfo.orders.oid": oid, "deletedAt": nil}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$match": bson.M{"ordersInfo.orders.oid": oid, "deletedAt": nil}},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -151,7 +189,7 @@ func (repo iSellerOrderRepositoryImpl) FindById(ctx context.Context, oid uint64)
 
 	defer closeCursor(ctx, cursor)
 
-	orders := make([]*entities.SellerOrder, 0, 16)
+	orders := make([]*entities.SellerOrder, 0, defaultDocCount)
 
 	for cursor.Next(ctx) {
 		var order entities.SellerOrder
@@ -164,6 +202,12 @@ func (repo iSellerOrderRepositoryImpl) FindById(ctx context.Context, oid uint64)
 		orders = append(orders, &order)
 	}
 
+	if len(orders) == 0 {
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
+	}
+
 	return future.FactorySync().
 		SetData(orders).
 		BuildAndSend()
@@ -173,8 +217,10 @@ func (repo iSellerOrderRepositoryImpl) FindById(ctx context.Context, oid uint64)
 func (repo iSellerOrderRepositoryImpl) FindAll(ctx context.Context, fid string) future.IFuture {
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -187,7 +233,7 @@ func (repo iSellerOrderRepositoryImpl) FindAll(ctx context.Context, fid string) 
 
 	defer closeCursor(ctx, cursor)
 
-	orders := make([]*entities.SellerOrder, 0, 1024)
+	orders := make([]*entities.SellerOrder, 0, defaultDocCount)
 
 	for cursor.Next(ctx) {
 		var subpackage entities.SellerOrder
@@ -198,6 +244,12 @@ func (repo iSellerOrderRepositoryImpl) FindAll(ctx context.Context, fid string) 
 		}
 
 		orders = append(orders, &subpackage)
+	}
+
+	if len(orders) == 0 {
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	return future.FactorySync().
@@ -209,9 +261,11 @@ func (repo iSellerOrderRepositoryImpl) FindAll(ctx context.Context, fid string) 
 func (repo iSellerOrderRepositoryImpl) FindAllWithSort(ctx context.Context, fid string, fieldName string, direction int) future.IFuture {
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
 		{"$sort": bson.M{"orders." + fieldName: direction}},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -223,7 +277,7 @@ func (repo iSellerOrderRepositoryImpl) FindAllWithSort(ctx context.Context, fid 
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*entities.SellerOrder, 0, 1024)
+	orders := make([]*entities.SellerOrder, 0, defaultDocCount)
 	for cursor.Next(ctx) {
 		var subpackage entities.SellerOrder
 		if err := cursor.Decode(&subpackage); err != nil {
@@ -233,6 +287,12 @@ func (repo iSellerOrderRepositoryImpl) FindAllWithSort(ctx context.Context, fid 
 		}
 
 		orders = append(orders, &subpackage)
+	}
+
+	if len(orders) == 0 {
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	return future.FactorySync().
@@ -257,7 +317,9 @@ func (repo iSellerOrderRepositoryImpl) FindAllWithPage(ctx context.Context, fid 
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30
@@ -288,10 +350,12 @@ func (repo iSellerOrderRepositoryImpl) FindAllWithPage(ctx context.Context, fid 
 
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
 		{"$skip": offset},
 		{"$limit": perPage},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -339,7 +403,9 @@ func (repo iSellerOrderRepositoryImpl) FindAllWithPageAndSort(ctx context.Contex
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30
@@ -370,11 +436,13 @@ func (repo iSellerOrderRepositoryImpl) FindAllWithPageAndSort(ctx context.Contex
 
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
-		{"$unwind": "$orders"},
-		{"$project": bson.M{"_id": 0, "orders": 1}},
-		{"$sort": bson.M{"orders." + fieldName: direction}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
+		{"$sort": bson.M{"ordersInfo.orders." + fieldName: direction}},
 		{"$skip": offset},
 		{"$limit": perPage},
+		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
 		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
 	}
 
@@ -415,7 +483,9 @@ func (repo iSellerOrderRepositoryImpl) FindByFilter(ctx context.Context, totalSu
 
 	total := iFuture.Data().(int64)
 	if total == 0 {
-		return future.FactorySync().SetData(total).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	cursor, e := repo.mongoAdapter.Aggregate(repo.database, repo.collection, filter)
@@ -462,7 +532,9 @@ func (repo iSellerOrderRepositoryImpl) FindByFilterWithPage(ctx context.Context,
 
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
-		return future.FactorySync().SetData(totalCount).BuildAndSend()
+		return future.FactorySync().
+			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			BuildAndSend()
 	}
 
 	// total 160 page=6 perPage=30
@@ -526,7 +598,7 @@ func (repo iSellerOrderRepositoryImpl) FindByFilterWithPage(ctx context.Context,
 
 // return data bool, error
 func (repo iSellerOrderRepositoryImpl) ExistsById(ctx context.Context, oid uint64) future.IFuture {
-	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"orders.oid", oid}, {"deletedAt", nil}})
+	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"ordersInfo.orders.oid", oid}, {"deletedAt", nil}})
 	if err := singleResult.Err(); err != nil {
 		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
 			return future.FactorySync().
@@ -550,7 +622,9 @@ func (repo iSellerOrderRepositoryImpl) Count(ctx context.Context, fid string) fu
 
 	pipeline := []bson.M{
 		{"$match": bson.M{"fid": fid, "deletedAt": nil}},
-		{"$project": bson.M{"count": bson.M{"$size": "$orders"}}},
+		{"$unwind": "$ordersInfo"},
+		{"$project": bson.M{"subSize": bson.M{"$size": "$ordersInfo.orders"}}},
+		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": "$subSize"}}},
 		{"$project": bson.M{"_id": 0, "count": 1}},
 	}
 

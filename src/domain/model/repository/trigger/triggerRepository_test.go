@@ -159,7 +159,7 @@ func removeCollection() {
 func createSchedulerTrigger() *entities.SchedulerTrigger {
 	timestamp := time.Now().UTC()
 	return &entities.SchedulerTrigger{
-		Version:          0,
+		Version:          1,
 		DocVersion:       entities.TriggerDocumentVersion,
 		Name:             "Trigger-Test",
 		Group:            "Trigger-Group",
@@ -167,13 +167,15 @@ func createSchedulerTrigger() *entities.SchedulerTrigger {
 		Duration:         24,
 		Interval:         24,
 		TimeUnit:         utils.HourUnit,
-		TriggerPoint:     "23:59:59",
+		TriggerPoint:     "23:59",
 		TriggerPointType: entities.AbsoluteTrigger,
 		LatestTriggerAt:  &timestamp,
 		TriggerAt:        &timestamp,
 		TriggerCount:     10,
 		Data:             nil,
 		IsEnabled:        true,
+		ExecMode:         entities.SequentialTrigger,
+		JobExecType:      entities.TriggerSyncJob,
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),
 		DeletedAt:        nil,

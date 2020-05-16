@@ -40,8 +40,10 @@ func (repo iSellerFinanceRepositoryImpl) Save(ctx context.Context, finance entit
 
 	if finance.FId == "" {
 		finance.FId = repo.generateId(finance.SellerId)
-		for i := 0; i < len(finance.Orders); i++ {
-			finance.Orders[i].FId = finance.FId
+		for i := 0; i < len(finance.OrdersInfo); i++ {
+			for j := 0; j < len(finance.OrdersInfo[i].Orders); j++ {
+				finance.OrdersInfo[i].Orders[j].FId = finance.FId
+			}
 		}
 		finance.Version = 1
 		finance.DocVersion = entities.FinanceDocumentVersion
@@ -121,9 +123,12 @@ func (repo iSellerFinanceRepositoryImpl) Insert(ctx context.Context, finance ent
 
 	if finance.FId == "" {
 		finance.FId = repo.generateId(finance.SellerId)
-		for i := 0; i < len(finance.Orders); i++ {
-			finance.Orders[i].FId = finance.FId
+		for i := 0; i < len(finance.OrdersInfo); i++ {
+			for j := 0; j < len(finance.OrdersInfo[i].Orders); j++ {
+				finance.OrdersInfo[i].Orders[j].FId = finance.FId
+			}
 		}
+
 		finance.Version = 1
 		finance.DocVersion = entities.FinanceDocumentVersion
 

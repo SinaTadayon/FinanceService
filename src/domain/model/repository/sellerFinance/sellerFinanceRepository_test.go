@@ -9,6 +9,7 @@ import (
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"os"
 	"testing"
 	"time"
@@ -384,8 +385,9 @@ func createFinance() *entities.SellerFinance {
 	return &entities.SellerFinance{
 		FId:        "",
 		SellerId:   100002,
-		Version:    0,
-		DocVersion: "1.0.0",
+		Version:    1,
+		DocVersion: entities.FinanceDocumentVersion,
+		Trigger:    "SCH4",
 		SellerInfo: &entities.SellerProfile{
 			SellerId: 100002,
 			GeneralInfo: &entities.GeneralSellerInfo{
@@ -453,156 +455,307 @@ func createFinance() *entities.SellerFinance {
 				Currency: "IRR",
 			},
 		},
-		Orders: []*entities.SellerOrder{
+		OrdersInfo: []*entities.OrderInfo{
 			{
-				OId:      1111111111,
-				FId:      "",
-				SellerId: 100002,
-				RawShippingNet: &entities.Money{
-					Amount:   "1650000",
-					Currency: "IRR",
-				},
-				RoundupShippingNet: &entities.Money{
-					Amount:   "1650000",
-					Currency: "IRR",
-				},
-				Items: []*entities.SellerItem{
+				TriggerHistory: primitive.NewObjectID(),
+				Orders: []*entities.SellerOrder{
 					{
-						SId:         1111111111222,
-						SKU:         "yt545-34",
-						InventoryId: "666777888999",
-						Title:       "Mobile",
-						Brand:       "Nokia",
-						Guaranty:    "Sazegar",
-						Category:    "Electronic",
-						Image:       "",
-						Returnable:  false,
-						Quantity:    5,
-						Attributes: map[string]*entities.Attribute{
-							"Color": {
-								KeyTranslate: map[string]string{
-									"en": "رنگ",
-									"fa": "رنگ",
+						OId:      1111111111,
+						FId:      "",
+						SellerId: 100002,
+						RawShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						RoundupShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						Items: []*entities.SellerItem{
+							{
+								SId:         1111111111222,
+								SKU:         "yt545-34",
+								InventoryId: "666777888999",
+								Title:       "Mobile",
+								Brand:       "Nokia",
+								Guaranty:    "Sazegar",
+								Category:    "Electronic",
+								Image:       "",
+								Returnable:  false,
+								Quantity:    5,
+								Attributes: map[string]*entities.Attribute{
+									"Color": {
+										KeyTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+										ValueTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+									},
+									"dial_color": {
+										KeyTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+										ValueTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+									},
 								},
-								ValueTranslate: map[string]string{
-									"en": "رنگ",
-									"fa": "رنگ",
-								},
-							},
-							"dial_color": {
-								KeyTranslate: map[string]string{
-									"fa": "رنگ صفحه",
-									"en": "رنگ صفحه",
-								},
-								ValueTranslate: map[string]string{
-									"fa": "رنگ صفحه",
-									"en": "رنگ صفحه",
+								Invoice: &entities.ItemInvoice{
+									Commission: &entities.ItemCommission{
+										ItemCommission: 9,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									Share: &entities.ItemShare{
+										RawItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									SSO: &entities.ItemSSO{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									VAT: &entities.ItemVAT{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
 								},
 							},
 						},
-						Invoice: &entities.ItemInvoice{
-							Commission: &entities.ItemCommission{
-								ItemCommission: 9,
-								RawUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
+						SubPkgCreatedAt: time.Now(),
+						SubPkgUpdatedAt: time.Now(),
+						DeletedAt:       nil,
+					},
+					{
+						OId:      3333333333,
+						FId:      "",
+						SellerId: 100002,
+						RawShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						RoundupShippingNet: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
+						Items: []*entities.SellerItem{
+							{
+								SId:         3333333333444,
+								SKU:         "yt545-34",
+								InventoryId: "666777888999",
+								Title:       "Mobile",
+								Brand:       "Nokia",
+								Guaranty:    "Sazegar",
+								Category:    "Electronic",
+								Image:       "",
+								Returnable:  false,
+								Quantity:    5,
+								Attributes: map[string]*entities.Attribute{
+									"Color": {
+										KeyTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+										ValueTranslate: map[string]string{
+											"en": "رنگ",
+											"fa": "رنگ",
+										},
+									},
+									"dial_color": {
+										KeyTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+										ValueTranslate: map[string]string{
+											"fa": "رنگ صفحه",
+											"en": "رنگ صفحه",
+										},
+									},
 								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-							},
-							Share: &entities.ItemShare{
-								RawItemNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupItemNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalNet: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawUnitSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupUnitSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalSellerShare: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-							},
-							SSO: &entities.ItemSSO{
-								Rate:      8,
-								IsObliged: true,
-								RawUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-							},
-							VAT: &entities.ItemVAT{
-								Rate:      8,
-								IsObliged: true,
-								RawUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupUnitPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RawTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
-								},
-								RoundupTotalPrice: &entities.Money{
-									Amount:   "1650000",
-									Currency: "IRR",
+								Invoice: &entities.ItemInvoice{
+									Commission: &entities.ItemCommission{
+										ItemCommission: 9,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									Share: &entities.ItemShare{
+										RawItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupItemNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalNet: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalSellerShare: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									SSO: &entities.ItemSSO{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
+									VAT: &entities.ItemVAT{
+										Rate:      8,
+										IsObliged: true,
+										RawUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupUnitPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RawTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+										RoundupTotalPrice: &entities.Money{
+											Amount:   "1650000",
+											Currency: "IRR",
+										},
+									},
 								},
 							},
 						},
+						SubPkgCreatedAt: time.Now(),
+						SubPkgUpdatedAt: time.Now(),
+						DeletedAt:       nil,
 					},
 				},
-				SubPkgCreatedAt: time.Now(),
-				SubPkgUpdatedAt: time.Now(),
-				DeletedAt:       nil,
 			},
 		},
-
 		Payment: &entities.FinancePayment{
 			TransferRequest: &entities.TransferRequest{
 				TotalPrice: entities.Money{
@@ -632,7 +785,7 @@ func createFinance() *entities.SellerFinance {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		Status:    "CLOSED",
+		Status:    entities.FinanceClosedStatus,
 		StartAt:   nil,
 		EndAt:     nil,
 		CreatedAt: time.Now(),

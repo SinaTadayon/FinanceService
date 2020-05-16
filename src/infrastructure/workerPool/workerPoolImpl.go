@@ -1,12 +1,12 @@
-package pool
+package worker_pool
 
 import (
-	"gitlab.faza.io/services/finance/infrastructure/pool/internal"
+	"gitlab.faza.io/services/finance/infrastructure/workerPool/internal"
 	"time"
 )
 
 const (
-	DefaultWorkerPoolSize int = 131072
+	defaultWorkerPoolSize int = 524288
 )
 
 type iWorkerPoolImpl struct {
@@ -14,7 +14,7 @@ type iWorkerPoolImpl struct {
 }
 
 func Factory() (IWorkerPool, error) {
-	workerPool, err := internal.NewPool(DefaultWorkerPoolSize)
+	workerPool, err := internal.NewPool(defaultWorkerPoolSize)
 	if err != nil {
 		return nil, err
 	}
