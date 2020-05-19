@@ -10,6 +10,7 @@ import (
 	trigger_history_repository "gitlab.faza.io/services/finance/domain/model/repository/triggerHistory"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
+	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
 	user_service "gitlab.faza.io/services/finance/infrastructure/services/user"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"time"
@@ -20,6 +21,7 @@ var Globals struct {
 	Config                   *configs.Config
 	UserService              user_service.IUserService
 	OrderService             order_service.IOrderService
+	PaymentService           payment_service.IPaymentService
 	SellerFinanceRepository  finance_repository.ISellerFinanceRepository
 	SellerOrderRepository    order_repository.ISellerOrderRepository
 	TriggerRepository        trigger_repository.ISchedulerTriggerRepository

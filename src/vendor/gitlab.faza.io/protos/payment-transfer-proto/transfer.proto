@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package payment_transfer;
+
+service PaymentTransfer{
+  rpc TransferMany(TransferManyRequest) returns (TransferManyResponse) {};
+  rpc TransferOne(TransferOneRequest) returns (TransferOneResponse) {};
+  rpc TransfersListFullDetail(TransfersListFullDetailRequest) returns (TransfersListFullDetailResponse) {};
+}
+
+message Filter {
+  string key    = 1;
+  string value  = 2;
+  enum Type {
+    EQ  = 0;
+    LT  = 1;
+    LTE = 2;
+    GT  = 3;
+    GTE = 4;
+    IN  = 5;
+  }
+  Type type     = 3;
+}
+
+message Sort {
+  string field      = 1;
+  int64  direction  = 2; 
+}
+
+message ListingParams {
+  repeated Filter filters = 1;
+  repeated Sort   sorting = 2;
+  int64           page    = 3;
+  int64           perPage = 4;
+}
+
+message ListingMeta {
+  int64           page    = 1;
+  int64           perPage = 2;
+  int64           total   = 3;
+}
+
+message TransfersListFullDetailRequest{
+  ListingParams params  = 1;
+}
+
+message TransfersListFullDetailResponse {
+  repeated TransferFullDetail transfers = 1;
+           ListingMeta        meta    = 2;
+}
+
+message BankData {
+  string  id               = 1;
+  string  accountId        = 2;
+  int32   amount           = 3;
+  string  currency         = 4;
+  string  receiverName     = 5;
+  string  receiverAccount  = 6;
+  string  paymentReference = 7;
+  string  description      = 8;
+  string  transferMode     = 9;
+  string  traceNo          = 10;
+  string  status           = 11;
+  string  failReason       = 12;
+}
+
+message BankHistory  {
+  string  bankName    = 1;
+  string  url         = 2;
+  string  reqBody     = 3;
+  string  resBody     = 4;
+  string  statusCode  = 5;
+  int64   durationms  = 6;
+  int64   timestamp   = 7;
+}
+
+message StatusHistory {
+  string status = 1;
+  string time   = 2;
+}
+
+
+message TransferFullDetail {
+            string          id            = 1;
+            string          corelationId  = 2;
+            TransferRequest request       = 3;
+  repeated  ChunkInfo       chunks        = 4;
+            string          createdAt     = 5;
+            string          updatedAt     = 6;
+            string          transferMode  = 7;
+            string          batchId       = 8;
+            TotalState      TotalState    = 9;
+            string          StateString   = 10;
+            string          SourceBank    = 11;
+            string          DestBank      = 12;
+}
+
+message ChunkInfo {
+            string          id            = 1;
+            int64           index         = 2;
+            int64           amount        = 3;
+            string          bankName      = 4;
+            BankData        bankData      = 5;
+  repeated  BankHistory     bankHistory   = 6;
+  repeated  StatusHistory   statusHistory = 7;
+            StatusHistory   currentStatus = 8;
+}
+
+message TotalState {
+  int64 totalAmount = 1;
+  int64 pending     = 2;
+  int64 failed      = 3;
+}
+
+message TransferOneRequest{
+  TransferRequest  req = 1;
+}
+
+message TransferOneResponse{
+  TransferResult res = 1;
+}
+
+message TransferManyRequest{
+  repeated TransferRequest transfers        = 1;
+}
+
+message TransferManyResponse{
+    map<string,string> ids = 1;
+}
+
+message TransferRequest {
+    string corelationId         = 1;
+    int64  amount               = 2;
+    string currency             = 3;
+    string receiverName         = 4;
+    string receiverAccountId    = 5;
+    string paymentDescription   = 6;
+    enum TransferType {
+      PayToSeller = 0;
+      RefundByer  = 1;
+    }
+    TransferType type           = 7;
+}
+
+message TransferResult{
+   string id            = 1;
+   string corelationId  = 2;
+}

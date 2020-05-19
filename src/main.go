@@ -13,6 +13,8 @@ import (
 	trigger_history_repository "gitlab.faza.io/services/finance/domain/model/repository/triggerHistory"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
+	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
+	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"os"
@@ -69,6 +71,22 @@ func main() {
 	app.Globals.SellerOrderRepository = order_repository.NewSellerOrderRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerCollection)
 	app.Globals.TriggerHistoryRepository = trigger_history_repository.NewTriggerHistoryRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerHistoryCollection)
+
+	if app.Globals.Config.OrderService.Address == "" ||
+		app.Globals.Config.OrderService.Port == 0 {
+		log.GLog.Logger.Error("order service address or port invalid", "fn", "main")
+		os.Exit(1)
+	}
+
+	if app.Globals.Config.PaymentTransferService.Address == "" ||
+		app.Globals.Config.PaymentTransferService.Port == 0 {
+		log.GLog.Logger.Error("PaymentTransfer service address or port invalid", "fn", "main")
+		os.Exit(1)
+	}
+
+	app.Globals.OrderService = order_service.NewOrderService(app.Globals.Config.OrderService.Address, app.Globals.Config.OrderService.Port, app.Globals.Config.OrderService.Timeout)
+	app.Globals.PaymentService = payment_service.NewPaymentService(app.Globals.Config.PaymentTransferService.Address, app.Globals.Config.PaymentTransferService.Port, app.Globals.Config.PaymentTransferService.Timeout)
+
 	app.Globals.WorkerPool, err = worker_pool.Factory()
 	if err != nil {
 		log.GLog.Logger.Error("factory of worker pool failed", "fn", "main", "error", err)
