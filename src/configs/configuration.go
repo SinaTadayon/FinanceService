@@ -13,6 +13,12 @@ type Config struct {
 		ServiceMode    string `env:"FINANCE_SERVICE_MODE"`
 		PrometheusPort int    `env:"PROMETHEUS_PORT"`
 
+		FinancePaymentSchedulerTimeUint            string `env:"FINANCE_PAYMENT_SCHEDULER_TIME_UNIT"`
+		FinancePaymentSchedulerInterval            int    `env:"FINANCE_PAYMENT_SCHEDULER_INTERVAL"`
+		FinancePaymentSchedulerParentWorkerTimeout int    `env:"FINANCE_PAYMENT_SCHEDULER_PARENT_WORKER_TIMEOUT"`
+		FinancePaymentSchedulerWorkerTimeout       int    `env:"FINANCE_PAYMENT_SCHEDULER_WORKER_TIMEOUT"`
+		FinancePaymentSchedulerStates              string `env:"FINANCE_PAYMENT_SCHEDULER_STATES"`
+
 		FinanceOrderSchedulerTimeUint                string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
 		FinanceOrderSchedulerInterval                int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
 		FinanceOrderSchedulerParentWorkerTimeout     int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`

@@ -12,12 +12,14 @@ import (
 	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
 	trigger_history_repository "gitlab.faza.io/services/finance/domain/model/repository/triggerHistory"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
+	payment_scheduler "gitlab.faza.io/services/finance/domain/scheduler/payment"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
 	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -344,7 +346,139 @@ func main() {
 		os.Exit(1)
 	}
 
-	cancel()
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	var PaymentSchedulerTimeUnit utils.TimeUnit
+	if app.Globals.Config.App.FinancePaymentSchedulerTimeUint == "" {
+		app.Globals.Config.App.FinancePaymentSchedulerTimeUint = string(utils.MinuteUnit)
+		PaymentSchedulerTimeUnit = utils.MinuteUnit
+	} else {
+		if strings.ToUpper(app.Globals.Config.App.FinancePaymentSchedulerTimeUint) == string(utils.HourUnit) {
+			PaymentSchedulerTimeUnit = utils.HourUnit
+		} else if strings.ToUpper(app.Globals.Config.App.FinancePaymentSchedulerTimeUint) == string(utils.MinuteUnit) {
+			PaymentSchedulerTimeUnit = utils.MinuteUnit
+		} else {
+			log.GLog.Logger.Error("FinancePaymentSchedulerTimeUint invalid",
+				"fn", "main",
+				"FinancePaymentSchedulerTimeUint", app.Globals.Config.App.FinancePaymentSchedulerTimeUint)
+			os.Exit(1)
+		}
+	}
+
+	var PaymentSchedulerInterval time.Duration
+	if app.Globals.Config.App.FinancePaymentSchedulerInterval <= 0 {
+		log.GLog.Logger.Error("FinancePaymentSchedulerInterval invalid",
+			"fn", "main",
+			"FinancePaymentSchedulerInterval", app.Globals.Config.App.FinancePaymentSchedulerInterval)
+		os.Exit(1)
+	} else {
+		if PaymentSchedulerTimeUnit == utils.HourUnit {
+			PaymentSchedulerInterval = time.Duration(app.Globals.Config.App.FinancePaymentSchedulerInterval) * time.Hour
+		} else {
+			PaymentSchedulerInterval = time.Duration(app.Globals.Config.App.FinancePaymentSchedulerInterval) * time.Minute
+		}
+	}
+
+	var PaymentSchedulerParentWorkerTimeout time.Duration
+	if app.Globals.Config.App.FinancePaymentSchedulerParentWorkerTimeout <= 0 {
+		log.GLog.Logger.Error("FinancePaymentSchedulerParentWorkerTimeout invalid",
+			"fn", "main",
+			"FinancePaymentSchedulerParentWorkerTimeout", app.Globals.Config.App.FinancePaymentSchedulerParentWorkerTimeout)
+		os.Exit(1)
+	} else {
+		if PaymentSchedulerTimeUnit == utils.HourUnit {
+			PaymentSchedulerParentWorkerTimeout = time.Duration(app.Globals.Config.App.FinancePaymentSchedulerParentWorkerTimeout) * time.Hour
+		} else {
+			PaymentSchedulerParentWorkerTimeout = time.Duration(app.Globals.Config.App.FinancePaymentSchedulerParentWorkerTimeout) * time.Minute
+		}
+	}
+
+	var PaymentSchedulerWorkerTimeout time.Duration
+	if app.Globals.Config.App.FinancePaymentSchedulerWorkerTimeout <= 0 {
+		log.GLog.Logger.Error("FinancePaymentSchedulerWorkerTimeout invalid",
+			"fn", "main",
+			"FinancePaymentSchedulerWorkerTimeout", app.Globals.Config.App.FinancePaymentSchedulerWorkerTimeout)
+		os.Exit(1)
+	} else {
+		if PaymentSchedulerTimeUnit == utils.HourUnit {
+			PaymentSchedulerWorkerTimeout = time.Duration(app.Globals.Config.App.FinancePaymentSchedulerWorkerTimeout) * time.Hour
+		} else {
+			PaymentSchedulerWorkerTimeout = time.Duration(app.Globals.Config.App.FinancePaymentSchedulerWorkerTimeout) * time.Minute
+		}
+	}
+
+	var stateList = make([]payment_scheduler.StateConfig, 0, 16)
+	for _, stateConfig := range strings.Split(app.Globals.Config.App.FinancePaymentSchedulerStates, ";") {
+		values := strings.Split(stateConfig, ":")
+		if len(values) == 1 {
+
+			var paymentState payment_scheduler.PaymentState
+			if values[0] == string(payment_scheduler.PaymentProcessState) {
+				paymentState = payment_scheduler.PaymentProcessState
+			} else if values[0] == string(payment_scheduler.PaymentTrackingState) {
+				paymentState = payment_scheduler.PaymentTrackingState
+			} else {
+				log.GLog.Logger.Error("FinancePaymentSchedulerStates invalid",
+					"fn", "main",
+					"FinancePaymentSchedulerStates", app.Globals.Config.App.FinancePaymentSchedulerStates)
+				os.Exit(1)
+			}
+
+			config := payment_scheduler.StateConfig{
+				State:            paymentState,
+				ScheduleInterval: 0,
+			}
+			stateList = append(stateList, config)
+
+		} else if len(values) == 2 {
+
+			temp, err := strconv.Atoi(values[1])
+			var scheduleInterval time.Duration
+			if err != nil {
+				log.GLog.Logger.Error("scheduleInterval of SchedulerStates env is invalid", "fn", "main",
+					"state", stateConfig, "error", err)
+				os.Exit(1)
+			}
+			if PaymentSchedulerTimeUnit == utils.HourUnit {
+				scheduleInterval = time.Duration(temp) * time.Hour
+			} else {
+				scheduleInterval = time.Duration(temp) * time.Minute
+			}
+
+			var paymentState payment_scheduler.PaymentState
+			if values[0] == string(payment_scheduler.PaymentProcessState) {
+				paymentState = payment_scheduler.PaymentProcessState
+			} else if values[0] == string(payment_scheduler.PaymentTrackingState) {
+				paymentState = payment_scheduler.PaymentTrackingState
+			} else {
+				log.GLog.Logger.Error("FinancePaymentSchedulerStates invalid",
+					"fn", "main",
+					"FinancePaymentSchedulerStates", app.Globals.Config.App.FinancePaymentSchedulerStates)
+				os.Exit(1)
+			}
+
+			config := payment_scheduler.StateConfig{
+				State:            paymentState,
+				ScheduleInterval: scheduleInterval,
+			}
+			stateList = append(stateList, config)
+		} else {
+			log.GLog.Logger.Error("state string SchedulerStates env is invalid", "fn", "main",
+				"state", stateConfig)
+			os.Exit(1)
+		}
+	}
+
+	paymentScheduler := payment_scheduler.NewPaymentScheduler(
+		app.Globals.Config.Mongo.Database,
+		app.Globals.Config.Mongo.SellerCollection,
+		PaymentSchedulerInterval,
+		PaymentSchedulerParentWorkerTimeout,
+		PaymentSchedulerWorkerTimeout,
+		stateList...)
+
+	paymentScheduler.Scheduler(context.Background())
+
 }
 
 func ParseTime(st string) (int64, error) {
