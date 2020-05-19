@@ -13,10 +13,12 @@ type Config struct {
 		ServiceMode    string `env:"FINANCE_SERVICE_MODE"`
 		PrometheusPort int    `env:"PROMETHEUS_PORT"`
 
-		FinanceOrderSchedulerTimeUint            string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
-		FinanceOrderSchedulerInterval            int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
-		FinanceOrderSchedulerParentWorkerTimeout int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
-		FinanceOrderSchedulerWorkerTimeout       int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerTimeUint                string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
+		FinanceOrderSchedulerInterval                int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
+		FinanceOrderSchedulerParentWorkerTimeout     int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerWorkerTimeout           int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerUpdateFinanceDuration   bool   `env:"FINANCE_ORDER_SCHEDULER_UPDATE_FINANCE_DURATION"`
+		FinanceOrderSchedulerHandleMissedFireTrigger bool   `env:"FINANCE_ORDER_SCHEDULER_HANDLE_MISSED_FIRE_TRIGGER"`
 
 		FinanceOrderSchedulerTriggerName      string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_NAME"`
 		FinanceOrderSchedulerTriggerTimeUnit  string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_TIME_UNIT"`

@@ -1,10 +1,7 @@
 package order_scheduler
 
 import (
-	"context"
-	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
-	"gitlab.faza.io/services/finance/domain/model/entities"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	//"gitlab.faza.io/go-framework/mongoadapter"
 	"gitlab.faza.io/services/finance/app"
@@ -56,12 +53,12 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestOrderSchedulerTask(t *testing.T) {
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := OrderSchedulerTask(ctx, entities.TriggerHistory{})
-	//time.Sleep(time.Second)
-	//cancel()
-	//time.Sleep(time.Second)
-	iFutureData := iFuture.Get()
-	require.Nil(t, iFutureData.Error())
-}
+//func TestOrderSchedulerTask(t *testing.T) {
+//	ctx, _ := context.WithCancel(context.Background())
+//	iFuture := OrderSchedulerTask(ctx, entities.TriggerHistory{})
+//	//time.Sleep(time.Second)
+//	//cancel()
+//	//time.Sleep(time.Second)
+//	iFutureData := iFuture.Get()
+//	require.Nil(t, iFutureData.Error())
+//}

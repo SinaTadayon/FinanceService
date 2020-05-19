@@ -5,6 +5,7 @@ import (
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 )
 
 type HistoryPageableResult struct {
@@ -36,6 +37,9 @@ type ITriggerHistoryRepository interface {
 
 	// return data TriggerHistoryPageableResult and error
 	FindByFilterWithPageAndSort(ctx context.Context, supplier func() (filter interface{}, fieldName string, direction int), page, perPage int64) future.IFuture
+
+	// return data bool and error
+	ExistsByTriggeredAt(ctx context.Context, triggeredAt time.Time) future.IFuture
 
 	// only set DeletedAt field
 	// return data *entities.TriggerHistory and error

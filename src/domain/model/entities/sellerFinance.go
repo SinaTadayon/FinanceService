@@ -31,7 +31,6 @@ type SellerFinance struct {
 	SellerId   uint64             `bson:"sellerId"`
 	Version    uint64             `bson:"version"`
 	DocVersion string             `bson:"docVersion"`
-	Trigger    string             `bson:"trigger"`
 	SellerInfo *SellerProfile     `bson:"sellerInfo"`
 	Invoice    Invoice            `bson:"invoice"`
 	OrdersInfo []*OrderInfo       `bson:"ordersInfo"`
@@ -88,6 +87,7 @@ type Invoice struct {
 }
 
 type OrderInfo struct {
+	TriggerName    string             `bson:"triggerName"`
 	TriggerHistory primitive.ObjectID `bson:"triggerHistory"`
 	Orders         []*SellerOrder     `bson:"orders"`
 }

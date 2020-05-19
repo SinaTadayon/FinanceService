@@ -44,9 +44,10 @@ type SchedulerTrigger struct {
 	TriggerPointType TriggerPointType   `bson:"triggerPointType"`
 	LatestTriggerAt  *time.Time         `bson:"latestTriggerAt"`
 	TriggerAt        *time.Time         `bson:"triggerAt"`
-	TriggerCount     int64              `bson:"triggerCount"`
 	Data             interface{}        `bson:"data"`
-	IsEnabled        bool               `bson:"isEnabled"`
+	IsActive         bool               `bson:"isActive"`
+	IsEnable         bool               `bson:"isEnable"`
+	TestMode         bool               `bson:"testMode"`
 	ExecMode         TriggerExecMode    `bson:"execMode"`
 	JobExecType      TriggerJobExecType `bson:"jobExecType"`
 	CreatedAt        time.Time          `bson:"createdAt"`

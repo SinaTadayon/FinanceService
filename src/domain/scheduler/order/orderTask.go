@@ -446,18 +446,19 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 				return
 			default:
 			}
-
+			timestamp := time.Now().UTC()
 			iFuture := app.Globals.SellerFinanceRepository.FindByFilter(ctx, func() interface{} {
 				return bson.D{{"sellerId", sellerFinance.SellerId},
 					{"status", entities.FinanceOrderCollectionStatus},
-					{"deletedAt", nil}}
+					{"deletedAt", nil},
+					{"endAt", bson.D{{"$gte", timestamp}}},
+				}
 			}).Get()
 
 			triggerHistory := ctx.Value(utils.CtxTriggerHistory).(entities.TriggerHistory)
 			triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
 			triggerDuration := ctx.Value(utils.CtxTriggerDuration).(time.Duration)
 
-			timestamp := time.Now().UTC()
 			isNotFoundFlag := false
 			if iFuture.Error() != nil {
 				if iFuture.Error().Code() != future.NotFound {
@@ -586,11 +587,11 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 
 					newSellerFinance := &entities.SellerFinance{
 						SellerId:   sellerFinance.SellerId,
-						Trigger:    triggerHistory.TriggerName,
 						SellerInfo: nil,
 						Invoice:    nil,
 						OrdersInfo: []*entities.OrderInfo{
 							{
+								TriggerName:    triggerHistory.TriggerName,
 								TriggerHistory: triggerHistory.ID,
 								Orders:         sellerFinance.OrdersInfo[0].Orders,
 							},
@@ -646,11 +647,11 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 
 				newSellerFinance := &entities.SellerFinance{
 					SellerId:   sellerFinance.SellerId,
-					Trigger:    triggerHistory.TriggerName,
 					SellerInfo: nil,
 					Invoice:    nil,
 					OrdersInfo: []*entities.OrderInfo{
 						{
+							TriggerName:    triggerHistory.TriggerName,
 							TriggerHistory: triggerHistory.ID,
 							Orders:         sellerFinance.OrdersInfo[0].Orders,
 						},

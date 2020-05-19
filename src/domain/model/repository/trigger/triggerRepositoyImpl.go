@@ -78,9 +78,9 @@ func (repo iSchedulerTriggerRepositoryImpl) Update(ctx context.Context, trigger 
 }
 
 // (*entities.SchedulerTrigger, error)
-func (repo iSchedulerTriggerRepositoryImpl) FindActiveTrigger(ctx context.Context) future.IFuture {
+func (repo iSchedulerTriggerRepositoryImpl) FindActiveTrigger(ctx context.Context, testMode bool) future.IFuture {
 	var trigger *entities.SchedulerTrigger
-	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"deletedAt", nil}})
+	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"isActive", true}, {"testMode", testMode}, {"deletedAt", nil}})
 	if singleResult.Err() != nil {
 		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
 			return future.FactorySync().
@@ -186,7 +186,8 @@ func (repo iSchedulerTriggerRepositoryImpl) DeleteByName(ctx context.Context, na
 	deletedAt := time.Now().UTC()
 	trigger.DeletedAt = &deletedAt
 	currentVersion := trigger.Version
-	trigger.IsEnabled = false
+	trigger.IsEnable = false
+	trigger.IsActive = false
 	trigger.Version += 1
 
 	updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection,
@@ -214,7 +215,8 @@ func (repo iSchedulerTriggerRepositoryImpl) Delete(ctx context.Context, trigger 
 	deletedAt := time.Now().UTC()
 	trigger.DeletedAt = &deletedAt
 	currentVersion := trigger.Version
-	trigger.IsEnabled = false
+	trigger.IsEnable = false
+	trigger.IsActive = false
 	trigger.Version += 1
 
 	updateResult, e := repo.mongoAdapter.UpdateOne(repo.database, repo.collection,

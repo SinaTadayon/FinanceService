@@ -5,9 +5,11 @@ import (
 	"errors"
 	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/domain/model/entities"
+	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"go.mongodb.org/mongo-driver/bson"
 	"strings"
 	"sync"
 	"time"
@@ -65,6 +67,7 @@ func (scheduler OrderScheduler) SchedulerStart(ctx context.Context) error {
 func (scheduler OrderScheduler) init(ctx context.Context) error {
 
 	var isNotFoundFlag = false
+	var activeTrigger *entities.SchedulerTrigger = nil
 	iFuture := app.Globals.TriggerRepository.FindByName(ctx, app.Globals.Config.App.FinanceOrderSchedulerTriggerName).Get()
 	if iFuture.Error() != nil {
 		if iFuture.Error().Code() != future.NotFound {
@@ -78,7 +81,7 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 	}
 
 	if isNotFoundFlag {
-		iFuture := app.Globals.TriggerRepository.FindActiveTrigger(ctx).Get()
+		iFuture := app.Globals.TriggerRepository.FindActiveTrigger(ctx, app.Globals.Config.App.FinanceOrderSchedulerTriggerTestMode).Get()
 		if iFuture.Error() != nil {
 			if iFuture.Error().Code() != future.NotFound {
 				log.GLog.Logger.Error("TriggerRepository.FindActiveTrigger failed",
@@ -87,10 +90,12 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 				return iFuture.Error()
 			}
 		} else {
-			activeTrigger := iFuture.Data().(*entities.SchedulerTrigger)
-			iFuture = app.Globals.TriggerRepository.Delete(ctx, *activeTrigger).Get()
+			activeTrigger = iFuture.Data().(*entities.SchedulerTrigger)
+			activeTrigger.IsActive = false
+			activeTrigger.IsEnable = false
+			iFuture = app.Globals.TriggerRepository.Update(ctx, *activeTrigger).Get()
 			if iFuture.Error() != nil {
-				log.GLog.Logger.Error("TriggerRepository.Delete active trigger failed",
+				log.GLog.Logger.Error("TriggerRepository.Update active trigger failed",
 					"fn", "init",
 					"trigger", activeTrigger,
 					"error", iFuture.Error().Reason())
@@ -124,9 +129,7 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 			triggerAt = dt.Add(scheduler.schedulerTriggerInterval)
 		}
 
-		newTrigger := entities.SchedulerTrigger{
-			Version:          1,
-			DocVersion:       entities.TriggerDocumentVersion,
+		newTrigger := &entities.SchedulerTrigger{
 			Name:             app.Globals.Config.App.FinanceOrderSchedulerTriggerName,
 			Duration:         int64(app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration),
 			Interval:         int64(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval),
@@ -134,12 +137,14 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 			TriggerPoint:     app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint,
 			TriggerPointType: entities.TriggerPointType(strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType)),
 			TriggerAt:        &triggerAt,
-			IsEnabled:        app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled,
+			IsActive:         true,
+			IsEnable:         app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled,
+			TestMode:         app.Globals.Config.App.FinanceOrderSchedulerTriggerTestMode,
 			CreatedAt:        dt,
 			UpdatedAt:        dt,
 		}
 
-		iFuture = app.Globals.TriggerRepository.Save(ctx, newTrigger).Get()
+		iFuture = app.Globals.TriggerRepository.Save(ctx, *newTrigger).Get()
 		if iFuture.Error() != nil {
 			log.GLog.Logger.Error("TriggerRepository.Save new trigger failed",
 				"fn", "init",
@@ -148,48 +153,80 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 			return iFuture.Error()
 		}
 
+		newTrigger = iFuture.Data().(*entities.SchedulerTrigger)
+		if app.Globals.Config.App.FinanceOrderSchedulerUpdateFinanceDuration && activeTrigger != nil {
+			if err := scheduler.updateSellerFinanceWithNewTriggerConfig(ctx, activeTrigger, newTrigger); err != nil {
+				log.GLog.Logger.Error("updateSellerFinance With NewTriggerConfig failed",
+					"fn", "init",
+					"activeTrigger", activeTrigger,
+					"trigger", newTrigger,
+					"error", iFuture.Error().Reason())
+				return err
+			} else {
+				log.GLog.Logger.Info("updateSellerFinance With NewTriggerConfig success",
+					"fn", "init",
+					"activeTrigger", activeTrigger,
+					"trigger", newTrigger)
+			}
+		}
+
+		if app.Globals.Config.App.FinanceOrderSchedulerHandleMissedFireTrigger {
+			if missedCount, err := scheduler.missedFireTriggerHandler(ctx, activeTrigger); err != nil {
+				log.GLog.Logger.Error("missedFireTriggerHandler failed",
+					"fn", "init",
+					"activeTrigger", activeTrigger,
+					"error", iFuture.Error().Reason())
+				return err
+			} else {
+				log.GLog.Logger.Info("missedFireTriggerHandler success",
+					"fn", "init",
+					"activeTrigger", activeTrigger,
+					"missedCount", missedCount)
+			}
+		}
+
 	} else {
-		trigger := iFuture.Data().(*entities.SchedulerTrigger)
-		if trigger.TimeUnit != scheduler.schedulerTriggerTimeUnit {
-			log.GLog.Logger.Error("the trigger exist and FinanceOrderSchedulerTriggerTimeUnit modification is not allow, you must create new trigger with new name",
+		activeTrigger := iFuture.Data().(*entities.SchedulerTrigger)
+		if activeTrigger.TimeUnit != scheduler.schedulerTriggerTimeUnit {
+			log.GLog.Logger.Error("the activeTrigger exist and FinanceOrderSchedulerTriggerTimeUnit modification is not allow, you must create new activeTrigger with new name",
 				"fn", "init",
-				"name", trigger.Name,
-				"old timeUnit", trigger.TimeUnit,
+				"name", activeTrigger.Name,
+				"old timeUnit", activeTrigger.TimeUnit,
 				"new timeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
 			return errors.New("unit time change not acceptable")
 
-		} else if trigger.Interval != int64(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) {
-			log.GLog.Logger.Error("the trigger exist and FinanceOrderSchedulerTriggerInterval modification is not allow, you must create new trigger with new name",
+		} else if activeTrigger.Interval != int64(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) {
+			log.GLog.Logger.Error("the activeTrigger exist and FinanceOrderSchedulerTriggerInterval modification is not allow, you must create new activeTrigger with new name",
 				"fn", "init",
-				"name", trigger.Name,
-				"old interval", trigger.Interval,
+				"name", activeTrigger.Name,
+				"old interval", activeTrigger.Interval,
 				"new interval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
 			return errors.New("interval change not acceptable")
 
-		} else if trigger.TriggerPoint != app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint {
-			log.GLog.Logger.Error("the trigger exist and FinanceOrderSchedulerTriggerPoint modification is not allow, you must create new trigger with new name",
+		} else if activeTrigger.TriggerPoint != app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint {
+			log.GLog.Logger.Error("the activeTrigger exist and FinanceOrderSchedulerTriggerPoint modification is not allow, you must create new activeTrigger with new name",
 				"fn", "init",
-				"name", trigger.Name,
-				"old triggerPoint", trigger.TriggerPoint,
+				"name", activeTrigger.Name,
+				"old triggerPoint", activeTrigger.TriggerPoint,
 				"new triggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
 			return errors.New("triggerPoint change not acceptable")
 
-		} else if trigger.TriggerPointType != scheduler.schedulerTriggerPointType {
-			log.GLog.Logger.Error("the trigger exist and FinanceOrderSchedulerTriggerPointType modification is not allow, you must create new trigger with new name",
+		} else if activeTrigger.TriggerPointType != scheduler.schedulerTriggerPointType {
+			log.GLog.Logger.Error("the activeTrigger exist and FinanceOrderSchedulerTriggerPointType modification is not allow, you must create new activeTrigger with new name",
 				"fn", "init",
-				"name", trigger.Name,
-				"old triggerPointType", trigger.TriggerPointType,
+				"name", activeTrigger.Name,
+				"old triggerPointType", activeTrigger.TriggerPointType,
 				"new triggerPointType", app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType)
 			return errors.New("triggerPoint change not acceptable")
 		}
 
-		if trigger.IsEnabled != app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled {
-			trigger.IsEnabled = app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled
-			iFuture = app.Globals.TriggerRepository.Update(ctx, *trigger).Get()
+		if activeTrigger.IsEnable != app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled {
+			activeTrigger.IsEnable = app.Globals.Config.App.FinanceOrderSchedulerTriggerEnabled
+			iFuture = app.Globals.TriggerRepository.Update(ctx, *activeTrigger).Get()
 			if iFuture.Error() != nil {
 				log.GLog.Logger.Error("TriggerRepository.Update failed",
 					"fn", "init",
-					"trigger", trigger,
+					"activeTrigger", activeTrigger,
 					"error", iFuture.Error().Reason())
 				return iFuture.Error()
 			}
@@ -198,6 +235,242 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// TODO performance optimization required
+func (scheduler OrderScheduler) updateSellerFinanceWithNewTriggerConfig(ctx context.Context, activeTrigger, newTrigger *entities.SchedulerTrigger) error {
+
+	timestamp := time.Now().UTC()
+	var activeDuration, newTriggerDuration time.Duration
+	if activeTrigger.TimeUnit == utils.HourUnit {
+		activeDuration = time.Duration(activeTrigger.Duration) * time.Hour
+	} else {
+		activeDuration = time.Duration(activeTrigger.Duration) * time.Minute
+	}
+
+	if newTrigger.TimeUnit == utils.HourUnit {
+		newTriggerDuration = time.Duration(newTrigger.Duration) * time.Hour
+	} else {
+		newTriggerDuration = time.Duration(newTrigger.Duration) * time.Minute
+	}
+
+	newDuration := activeDuration - newTriggerDuration
+	if newDuration < 0 {
+		newDuration = -newDuration
+		log.GLog.Logger.Info("finance Duration must be shrink according to new trigger",
+			"oldDuration", activeTrigger.Duration,
+			"newDuration", newTrigger.Duration,
+			"diffDuration", newDuration)
+
+		var availablePages = 1
+		for i := 0; i < availablePages; i++ {
+			iFuture := app.Globals.SellerFinanceRepository.FindByFilterWithPage(ctx, func() interface{} {
+				return bson.D{{"ordersInfo.triggerName", activeTrigger.Name},
+					{"deletedAt", nil}}
+			}, int64(i+1), DefaultFetchOrderPerPage).Get()
+
+			if iFuture.Error() != nil {
+				if iFuture.Error().Code() != future.NotFound {
+					log.GLog.Logger.Error("SellerFinanceRepository.FindByFilterWithPage failed",
+						"fn", "updateSellerFinanceWithNewTriggerConfig",
+						"activeTrigger", activeTrigger,
+						"error", iFuture.Error().Reason())
+					return iFuture.Error()
+				}
+				log.GLog.Logger.Info("seller finance not found for active trigger",
+					"fn", "updateSellerFinanceWithNewTriggerConfig",
+					"activeTrigger", activeTrigger)
+				return nil
+			}
+
+			financeResult := iFuture.Data().(finance_repository.FinancePageableResult)
+
+			if financeResult.TotalCount%DefaultFetchOrderPerPage != 0 {
+				availablePages = (int(financeResult.TotalCount) / DefaultFetchOrderPerPage) + 1
+			} else {
+				availablePages = int(financeResult.TotalCount) / DefaultFetchOrderPerPage
+			}
+
+			if financeResult.TotalCount < DefaultFetchOrderPerPage {
+				availablePages = 1
+			}
+
+			for _, finance := range financeResult.SellerFinances {
+				offset := timestamp.Sub(*finance.StartAt)
+				if offset > newDuration {
+					newEndAt := finance.StartAt.Add(offset)
+					finance.EndAt = &newEndAt
+				} else {
+					newEndAt := finance.StartAt.Add(newDuration)
+					finance.EndAt = &newEndAt
+				}
+
+				iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *finance).Get()
+				if iFuture.Error() != nil {
+					log.GLog.Logger.Error("update of finance's endAt failed",
+						"fn", "updateSellerFinanceWithNewTriggerConfig",
+						"fid", finance.FId,
+						"startAt", finance.StartAt,
+						"endAt", finance.EndAt,
+						"error", iFuture.Error().Reason())
+					return iFuture.Error()
+				}
+
+				log.GLog.Logger.Debug("update of finance's endAt success",
+					"fn", "updateSellerFinanceWithNewTriggerConfig",
+					"fid", finance.FId,
+					"startAt", finance.StartAt,
+					"endAt", finance.EndAt)
+			}
+		}
+	} else {
+		log.GLog.Logger.Info("finance Duration should be gross in next duration according to new trigger",
+			"oldDuration", activeTrigger.Duration,
+			"newDuration", newTrigger.Duration,
+			"diffDuration", newDuration)
+	}
+
+	return nil
+}
+
+func (scheduler OrderScheduler) missedFireTriggerHandler(ctx context.Context, activeTrigger *entities.SchedulerTrigger) (int, error) {
+
+	var missedFireCount = 0
+	timestamp := time.Now().UTC()
+	var activeInterval time.Duration
+	if activeTrigger.TimeUnit == utils.HourUnit {
+		activeInterval = time.Duration(activeTrigger.Interval) * time.Hour
+	} else {
+		activeInterval = time.Duration(activeTrigger.Interval) * time.Minute
+	}
+
+	timeOffset := timestamp.Sub(activeTrigger.CreatedAt)
+
+	if timeOffset > activeInterval {
+		intervalCount := timeOffset / activeInterval
+
+		iFuture := app.Globals.TriggerHistoryRepository.CountWithFilter(ctx, func() interface{} {
+			return bson.D{{"triggerName", activeTrigger.Name}}
+		}).Get()
+		if iFuture.Error() != nil {
+			log.GLog.Logger.Error("TriggerHistoryRepository.CountWithFilter failed",
+				"fn", "missedFireTriggerHandler",
+				"activeTrigger", activeTrigger,
+				"error", iFuture.Error().Reason())
+			return missedFireCount, iFuture.Error()
+		}
+
+		triggersCount := iFuture.Data().(int64)
+		if int64(intervalCount) > triggersCount {
+			log.GLog.Logger.Info("missed fire trigger history detected",
+				"fn", "missedFireTriggerHandler",
+				"triggerHistoryCount", triggersCount,
+				"totalIntervalCount", intervalCount)
+
+			var newTriggeredAt time.Time
+			for {
+				newTriggeredAt = activeTrigger.CreatedAt.Add(activeInterval)
+				if timestamp.Before(newTriggeredAt) {
+					break
+				}
+
+				iFuture := app.Globals.TriggerHistoryRepository.ExistsByTriggeredAt(ctx, newTriggeredAt).Get()
+				if iFuture.Error() != nil {
+					log.GLog.Logger.Error("TriggerHistoryRepository.ExistsByTriggeredAt failed",
+						"fn", "missedFireTriggerHandler",
+						"activeTrigger", activeTrigger,
+						"error", iFuture.Error().Reason())
+					return missedFireCount, iFuture.Error()
+				}
+
+				if !iFuture.Data().(bool) {
+					log.GLog.Logger.Info("missed fire trigger found",
+						"fn", "missedFireTriggerHandler",
+						"triggerName", activeTrigger.Name,
+						"missedTriggeredAt", newTriggeredAt)
+
+					missedFireCount++
+
+					missedTrigger := entities.TriggerHistory{
+						TriggerName:  activeTrigger.Name,
+						ExecResult:   entities.TriggerExecResultNone,
+						TriggeredAt:  &newTriggeredAt,
+						IsMissedFire: true,
+						CreatedAt:    timestamp,
+						UpdatedAt:    timestamp,
+						DeletedAt:    nil,
+					}
+
+					iFuture := app.Globals.TriggerHistoryRepository.Save(ctx, missedTrigger).Get()
+					if iFuture.Error() != nil {
+						log.GLog.Logger.Error("TriggerHistoryRepository.Save failed",
+							"fn", "missedFireTriggerHandler",
+							"activeTrigger", activeTrigger,
+							"missedTrigger", missedTrigger,
+							"error", iFuture.Error().Reason())
+						return missedFireCount, iFuture.Error()
+					}
+				}
+			}
+			//var availablePages = 1
+			//for i := 0; i < availablePages; i++ {
+			//	iFuture := app.Globals.TriggerHistoryRepository.FindByFilterWithPageAndSort(ctx, func() (interface{}, string, int) {
+			//		return bson.D{{"triggerName", activeTrigger.Name}, {"deletedAt", nil}}, "triggeredAt", 1
+			//	}, int64(i+1), DefaultFetchOrderPerPage).Get()
+			//
+			//	if iFuture.Error() != nil {
+			//		if iFuture.Error().Code() != future.NotFound {
+			//			log.GLog.Logger.Error("TriggerHistoryRepository.FindByFilterWithPageAndSort failed",
+			//				"fn", "missedFireTriggerHandler",
+			//				"activeTrigger", activeTrigger,
+			//				"error", iFuture.Error().Reason())
+			//			return iFuture.Error()
+			//		}
+			//		log.GLog.Logger.Error("trigger history not found for active trigger",
+			//			"fn", "missedFireTriggerHandler",
+			//			"activeTrigger", activeTrigger)
+			//		return nil
+			//	}
+			//
+			//	historyResult := iFuture.Data().(trigger_history_repository.HistoryPageableResult)
+			//
+			//	if historyResult.TotalCount%DefaultFetchOrderPerPage != 0 {
+			//		availablePages = (int(historyResult.TotalCount) / DefaultFetchOrderPerPage) + 1
+			//	} else {
+			//		availablePages = int(historyResult.TotalCount) / DefaultFetchOrderPerPage
+			//	}
+			//
+			//	if historyResult.TotalCount < DefaultFetchOrderPerPage {
+			//		availablePages = 1
+			//	}
+			//
+			//	var newTriggeredAt time.Time
+			//	for index, triggerHistory := range historyResult.Histories {
+			//		newTriggeredAt = activeTrigger.CreatedAt.Add(activeInterval)
+			//
+			//
+			//	}
+			//}
+		} else if int64(intervalCount) == triggersCount {
+			log.GLog.Logger.Info("missed fire not found",
+				"fn", "missedFireTriggerHandler",
+				"triggerHistoryCount", triggersCount,
+				"totalIntervalCount", intervalCount)
+		} else {
+			log.GLog.Logger.Error("fatal error in missed fire calculation",
+				"fn", "missedFireTriggerHandler",
+				"triggerHistoryCount", triggersCount,
+				"totalIntervalCount", intervalCount)
+			return missedFireCount, errors.New("missed fire calculation failed")
+		}
+	} else {
+		log.GLog.Logger.Info("trigger hasn't history",
+			"fn", "missedFireTriggerHandler",
+			"offset", timeOffset,
+			"interval", activeInterval)
+	}
+
+	return missedFireCount, nil
 }
 
 func (scheduler OrderScheduler) scheduleProcess(ctx context.Context) {
@@ -352,7 +625,7 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 	}
 
 	trigger := iFuture.Data().(*entities.SchedulerTrigger)
-	if !trigger.IsEnabled {
+	if !trigger.IsEnable {
 		return
 	}
 
@@ -364,7 +637,6 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 	}
 
 	trigger.LatestTriggerAt = trigger.TriggerAt
-	trigger.TriggerCount += 1
 
 	if trigger.TriggerPointType == entities.AbsoluteTrigger {
 		dateTimeString := timestamp.Format("2006-01-02") + "T" + trigger.TriggerPoint + ":00-0000"

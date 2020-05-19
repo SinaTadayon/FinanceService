@@ -399,6 +399,23 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPageAndSort(ctx contex
 		BuildAndSend()
 }
 
+func (repo iTriggerHistoryRepositoryImpl) ExistsByTriggeredAt(ctx context.Context, triggeredAt time.Time) future.IFuture {
+	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"triggeredAt", triggeredAt.UTC()}, {"deletedAt", nil}})
+	if singleResult.Err() != nil {
+		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
+			return future.FactorySync().
+				SetData(false).
+				BuildAndSend()
+		}
+		return future.FactorySync().
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "ExistsById TriggerHistory Failed")).
+			BuildAndSend()
+	}
+	return future.FactorySync().
+		SetData(true).
+		BuildAndSend()
+}
+
 // only set DeletedAt field
 // return data *entities.TriggerHistory and error
 func (repo iTriggerHistoryRepositoryImpl) DeleteById(ctx context.Context, id primitive.ObjectID) future.IFuture {

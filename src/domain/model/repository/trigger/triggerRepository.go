@@ -17,7 +17,7 @@ type ISchedulerTriggerRepository interface {
 	FindByName(ctx context.Context, name string) future.IFuture
 
 	// return data *entities.SchedulerTrigger and error
-	FindActiveTrigger(ctx context.Context) future.IFuture
+	FindActiveTrigger(ctx context.Context, testMode bool) future.IFuture
 
 	// return data []*entities.SchedulerTrigger and error
 	FindByFilter(ctx context.Context, supplier func() (filter interface{})) future.IFuture

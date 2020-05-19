@@ -309,7 +309,6 @@ func createFinance() *entities.SellerFinance {
 		SellerId:   100002,
 		Version:    1,
 		DocVersion: entities.FinanceDocumentVersion,
-		Trigger:    "SCH4",
 		SellerInfo: &entities.SellerProfile{
 			SellerId: 100002,
 			GeneralInfo: &entities.GeneralSellerInfo{
@@ -379,6 +378,7 @@ func createFinance() *entities.SellerFinance {
 		},
 		OrdersInfo: []*entities.OrderInfo{
 			{
+				TriggerName:    "SCH4",
 				TriggerHistory: primitive.NewObjectID(),
 				Orders: []*entities.SellerOrder{
 					{
