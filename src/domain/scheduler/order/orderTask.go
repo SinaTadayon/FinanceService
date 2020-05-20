@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	DefaultOrderStreamSize   = 8192
-	DefaultSellerSize        = 2048
-	DefaultSellerOrderSize   = 4096
-	DefaultFetchOrderPerPage = 128
+	DefaultOrderStreamBuffer   = 8192
+	DefaultSellerSize          = 2048
+	DefaultSellerOrders        = 4096
+	DefaultFetchOrderPerPage   = 128
+	DefaultFanOutStreamBuffers = 256
 )
 
 type ErrorType int
@@ -111,6 +112,8 @@ func OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHist
 			triggerHistory.ExecResult = entities.TriggerExecResultSuccess
 		}
 
+		triggerHistory.RunMode = entities.TriggerRunModeComplete
+
 		iTriggerFuture := app.Globals.TriggerHistoryRepository.Update(ctx, triggerHistory).Get()
 		if iTriggerFuture.Error() != nil {
 			log.GLog.Logger.Error("TriggerHistoryRepository.Update failed",
@@ -176,7 +179,7 @@ func taskLauncher(tasks ...worker_pool.Task) error {
 }
 
 func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, worker_pool.Task) {
-	orderStream := make(chan *entities.SellerOrder, DefaultOrderStreamSize)
+	orderStream := make(chan *entities.SellerOrder, DefaultOrderStreamBuffer)
 	resultStream := make(chan *ProcessResult)
 	//fetchOrderTask := func() {
 	//	defer close(orderStream)
@@ -274,7 +277,7 @@ func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStrea
 			}
 
 			if writerStream, ok := sellerStreamMap[sellerOrder.SellerId]; !ok {
-				orderStream := make(chan *entities.SellerOrder)
+				orderStream := make(chan *entities.SellerOrder, DefaultFanOutStreamBuffers)
 				sellerStreamMap[sellerOrder.SellerId] = orderStream
 				orderChannelStream <- orderStream
 				orderStream <- sellerOrder
@@ -360,12 +363,12 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 		sellerFinance := &entities.SellerFinance{
 			OrdersInfo: []*entities.OrderInfo{
 				{
-					TriggerHistory: triggerHistory.ID,
-					Orders:         nil,
+					TriggerHistoryId: triggerHistory.ID,
+					Orders:           nil,
 				},
 			},
 		}
-		sellerFinance.OrdersInfo[0].Orders = make([]*entities.SellerOrder, 0, DefaultSellerOrderSize)
+		sellerFinance.OrdersInfo[0].Orders = make([]*entities.SellerOrder, 0, DefaultSellerOrders)
 		defer close(financeStream)
 		for sellerOrder := range orderStream {
 			select {
@@ -376,6 +379,27 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 
 			if sellerFinance.SellerId == 0 {
 				sellerFinance.SellerId = sellerOrder.SellerId
+
+				iFuture := app.Globals.SellerFinanceRepository.CountWithFilter(ctx, func() interface{} {
+					return bson.D{
+						{"sellerId", sellerFinance.SellerId},
+						{"ordersInfo.orders.oid", sellerOrder.OId},
+						{"deletedAt", nil}}
+				}).Get()
+
+				if iFuture.Error() != nil {
+					log.GLog.Logger.Error("SellerFinanceRepository.CountWithFilter for find order history failed",
+						"fn", "ReduceOrders",
+						"oid", sellerOrder.OId,
+						"sellerId", sellerOrder.SellerId,
+						"error", iFuture.Error())
+				}
+
+				if iFuture.Data().(int64) > 0 {
+					sellerOrder.IsAlreadyShippingPay = true
+				} else {
+					sellerOrder.IsAlreadyShippingPay = false
+				}
 
 			} else if sellerFinance.SellerId != sellerOrder.SellerId {
 				log.GLog.Logger.Error("sellerId of sellerFinance mismatch with sellerOrder",
@@ -392,7 +416,7 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 }
 
 func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FRSStream, worker_pool.Task) {
-	financeChannels := make([]chan *entities.SellerFinance, 0, app.Globals.Config.Mongo.MinPoolSize)
+	financeChannels := make([]chan *entities.SellerFinance, 0, app.Globals.Config.Mongo.MinPoolSize/2)
 	financeChannelStream := make(chan FinanceReaderStream)
 
 	financeFanOutTask := func() {
@@ -415,12 +439,12 @@ func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FR
 			default:
 			}
 
-			if index >= len(financeChannels) {
+			if index >= cap(financeChannels) {
 				index = 0
 			}
 
 			if financeChannels[index] == nil {
-				financeStream := make(chan *entities.SellerFinance)
+				financeStream := make(chan *entities.SellerFinance, DefaultFanOutStreamBuffers)
 				financeChannels[index] = financeStream
 				financeChannelStream <- financeStream
 				financeStream <- sellerFinance
@@ -514,8 +538,8 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 						"state", entities.FinanceOrderCollectionStatus)
 
 					newOrderInfo := &entities.OrderInfo{
-						TriggerHistory: triggerHistory.ID,
-						Orders:         nil,
+						TriggerHistoryId: triggerHistory.ID,
+						Orders:           nil,
 					}
 
 					newOrderInfo.Orders = make([]*entities.SellerOrder, 0, len(sellerFinance.OrdersInfo[0].Orders))
@@ -591,9 +615,9 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 						Invoice:    nil,
 						OrdersInfo: []*entities.OrderInfo{
 							{
-								TriggerName:    triggerHistory.TriggerName,
-								TriggerHistory: triggerHistory.ID,
-								Orders:         sellerFinance.OrdersInfo[0].Orders,
+								TriggerName:      triggerHistory.TriggerName,
+								TriggerHistoryId: triggerHistory.ID,
+								Orders:           sellerFinance.OrdersInfo[0].Orders,
 							},
 						},
 						Payment:   nil,
@@ -651,9 +675,9 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					Invoice:    nil,
 					OrdersInfo: []*entities.OrderInfo{
 						{
-							TriggerName:    triggerHistory.TriggerName,
-							TriggerHistory: triggerHistory.ID,
-							Orders:         sellerFinance.OrdersInfo[0].Orders,
+							TriggerName:      triggerHistory.TriggerName,
+							TriggerHistoryId: triggerHistory.ID,
+							Orders:           sellerFinance.OrdersInfo[0].Orders,
 						},
 					},
 					Payment:   nil,

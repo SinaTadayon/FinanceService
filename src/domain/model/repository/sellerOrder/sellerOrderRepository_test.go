@@ -80,7 +80,7 @@ func TestSaveOrder(t *testing.T) {
 	orderFinance := finance1.OrdersInfo[0].Orders[0]
 	orderFinance.OId = 999999999
 	orderFinance.FId = finance.FId
-	iFuture := sellerOrderRepo.SaveOrder(ctx, finance.OrdersInfo[0].TriggerHistory, *orderFinance).Get()
+	iFuture := sellerOrderRepo.SaveOrder(ctx, finance.OrdersInfo[0].TriggerHistoryId, *orderFinance).Get()
 	require.Nil(t, iFuture.Error())
 	updateFinance, err := getSellerFinance(finance.FId)
 	require.Nil(t, err)
@@ -95,13 +95,13 @@ func TestSaveOrderInfo(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	finance1 := createFinance()
 	orderInfo := finance1.OrdersInfo[0]
-	orderInfo.TriggerHistory = primitive.NewObjectID()
+	orderInfo.TriggerHistoryId = primitive.NewObjectID()
 	iFuture := sellerOrderRepo.SaveOrderInfo(ctx, finance.FId, *orderInfo).Get()
 	require.Nil(t, iFuture.Error())
 	updateFinance, err := getSellerFinance(finance.FId)
 	require.Nil(t, err)
 	require.Equal(t, 2, len(updateFinance.OrdersInfo))
-	require.Equal(t, orderInfo.TriggerHistory, updateFinance.OrdersInfo[1].TriggerHistory)
+	require.Equal(t, orderInfo.TriggerHistoryId, updateFinance.OrdersInfo[1].TriggerHistoryId)
 }
 
 func TestFindByFIdAndOId(t *testing.T) {
@@ -334,7 +334,7 @@ func createFinance() *entities.SellerFinance {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		Invoice: entities.Invoice{
+		Invoice: &entities.Invoice{
 			SSORawTotal: &entities.Money{
 				Amount:   "1650000",
 				Currency: "IRR",
@@ -378,13 +378,17 @@ func createFinance() *entities.SellerFinance {
 		},
 		OrdersInfo: []*entities.OrderInfo{
 			{
-				TriggerName:    "SCH4",
-				TriggerHistory: primitive.NewObjectID(),
+				TriggerName:      "SCH4",
+				TriggerHistoryId: primitive.NewObjectID(),
 				Orders: []*entities.SellerOrder{
 					{
 						OId:      1111111111,
 						FId:      "",
 						SellerId: 100002,
+						ShipmentAmount: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
 						RawShippingNet: &entities.Money{
 							Amount:   "1650000",
 							Currency: "IRR",
@@ -393,6 +397,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
+						IsAlreadyShippingPay: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         1111111111222,
@@ -524,6 +529,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
+						OrderCreatedAt:  time.Now(),
 						SubPkgCreatedAt: time.Now(),
 						SubPkgUpdatedAt: time.Now(),
 						DeletedAt:       nil,
@@ -532,6 +538,10 @@ func createFinance() *entities.SellerFinance {
 						OId:      3333333333,
 						FId:      "",
 						SellerId: 100002,
+						ShipmentAmount: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
 						RawShippingNet: &entities.Money{
 							Amount:   "1650000",
 							Currency: "IRR",
@@ -540,6 +550,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
+						IsAlreadyShippingPay: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         3333333333444,
@@ -671,6 +682,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
+						OrderCreatedAt:  time.Now(),
 						SubPkgCreatedAt: time.Now(),
 						SubPkgUpdatedAt: time.Now(),
 						DeletedAt:       nil,

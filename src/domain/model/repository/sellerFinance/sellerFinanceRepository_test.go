@@ -412,7 +412,7 @@ func createFinance() *entities.SellerFinance {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		Invoice: entities.Invoice{
+		Invoice: &entities.Invoice{
 			SSORawTotal: &entities.Money{
 				Amount:   "1650000",
 				Currency: "IRR",
@@ -456,13 +456,17 @@ func createFinance() *entities.SellerFinance {
 		},
 		OrdersInfo: []*entities.OrderInfo{
 			{
-				TriggerName:    "SCH4",
-				TriggerHistory: primitive.NewObjectID(),
+				TriggerName:      "SCH4",
+				TriggerHistoryId: primitive.NewObjectID(),
 				Orders: []*entities.SellerOrder{
 					{
 						OId:      1111111111,
 						FId:      "",
 						SellerId: 100002,
+						ShipmentAmount: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
 						RawShippingNet: &entities.Money{
 							Amount:   "1650000",
 							Currency: "IRR",
@@ -471,6 +475,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
+						IsAlreadyShippingPay: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         1111111111222,
@@ -602,6 +607,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
+						OrderCreatedAt:  time.Now(),
 						SubPkgCreatedAt: time.Now(),
 						SubPkgUpdatedAt: time.Now(),
 						DeletedAt:       nil,
@@ -610,6 +616,10 @@ func createFinance() *entities.SellerFinance {
 						OId:      3333333333,
 						FId:      "",
 						SellerId: 100002,
+						ShipmentAmount: &entities.Money{
+							Amount:   "1650000",
+							Currency: "IRR",
+						},
 						RawShippingNet: &entities.Money{
 							Amount:   "1650000",
 							Currency: "IRR",
@@ -618,6 +628,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
+						IsAlreadyShippingPay: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         3333333333444,
@@ -749,6 +760,7 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
+						OrderCreatedAt:  time.Now(),
 						SubPkgCreatedAt: time.Now(),
 						SubPkgUpdatedAt: time.Now(),
 						DeletedAt:       nil,

@@ -10,6 +10,13 @@ const (
 )
 
 type TriggerExecResult string
+type TriggerRunMode string
+
+const (
+	TriggerRunModeNone     TriggerRunMode = "NONE"
+	TriggerRunModeRunning  TriggerRunMode = "RUNNING"
+	TriggerRunModeComplete TriggerRunMode = "COMPLETE"
+)
 
 const (
 	TriggerExecResultNone    TriggerExecResult = "NONE"
@@ -24,6 +31,7 @@ type TriggerHistory struct {
 	Version      uint64             `bson:"version"`
 	DocVersion   string             `bson:"docVersion"`
 	ExecResult   TriggerExecResult  `bson:"execResult"`
+	RunMode      TriggerRunMode     `bson:"RunMode"`
 	TriggeredAt  *time.Time         `bson:"triggeredAt"`
 	IsMissedFire bool               `bson:"isMissedFire"`
 	CreatedAt    time.Time          `bson:"createdAt"`

@@ -396,6 +396,7 @@ func (scheduler OrderScheduler) missedFireTriggerHandler(ctx context.Context, ac
 						ExecResult:   entities.TriggerExecResultNone,
 						TriggeredAt:  &newTriggeredAt,
 						IsMissedFire: true,
+						RunMode:      entities.TriggerRunModeNone,
 						CreatedAt:    timestamp,
 						UpdatedAt:    timestamp,
 						DeletedAt:    nil,
@@ -670,6 +671,7 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 	triggerHistory := entities.TriggerHistory{
 		TriggerName:  updatedTrigger.Name,
 		ExecResult:   entities.TriggerExecResultNone,
+		RunMode:      entities.TriggerRunModeRunning,
 		TriggeredAt:  trigger.LatestTriggerAt,
 		IsMissedFire: false,
 		CreatedAt:    timestamp,

@@ -203,14 +203,9 @@ func (scheduler *PaymentScheduler) doProcess(ctx context.Context, state PaymentS
 		"fn", "doProcess",
 		"state", state)
 
-	select {
-	case <-ctx.Done():
-		log.GLog.Logger.Debug("context down",
-			"fn", "doProcess",
-			"state", state,
-			"error", ctx.Err())
-		return
-	default:
+	if state == PaymentProcessState {
+		PaymentProcessTask(ctx)
+	} else {
+		PaymentTrackingTask(ctx)
 	}
-
 }

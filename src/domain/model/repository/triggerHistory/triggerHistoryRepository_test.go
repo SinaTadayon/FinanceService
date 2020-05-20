@@ -114,6 +114,7 @@ func createTriggerHistory() *entities.TriggerHistory {
 		ExecResult:   entities.TriggerExecResultSuccess,
 		TriggeredAt:  &timestamp,
 		IsMissedFire: false,
+		RunMode:      entities.TriggerRunModeComplete,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 		DeletedAt:    nil,

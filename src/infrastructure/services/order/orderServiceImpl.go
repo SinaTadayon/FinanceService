@@ -220,11 +220,12 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 				Amount:   orderItemDetail.RoundupShippingNet.Amount,
 				Currency: orderItemDetail.RoundupShippingNet.Currency,
 			},
-			Items:           nil,
-			OrderCreatedAt:  nil,
-			SubPkgCreatedAt: nil,
-			SubPkgUpdatedAt: nil,
-			DeletedAt:       nil,
+			IsAlreadyShippingPay: false,
+			Items:                nil,
+			OrderCreatedAt:       nil,
+			SubPkgCreatedAt:      nil,
+			SubPkgUpdatedAt:      nil,
+			DeletedAt:            nil,
 		}
 
 		createdAt, err := time.Parse(ISO8601, orderItemDetail.CreatedAt)

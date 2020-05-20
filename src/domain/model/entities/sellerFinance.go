@@ -32,7 +32,7 @@ type SellerFinance struct {
 	Version    uint64             `bson:"version"`
 	DocVersion string             `bson:"docVersion"`
 	SellerInfo *SellerProfile     `bson:"sellerInfo"`
-	Invoice    Invoice            `bson:"invoice"`
+	Invoice    *Invoice           `bson:"invoice"`
 	OrdersInfo []*OrderInfo       `bson:"ordersInfo"`
 	Payment    *FinancePayment    `bson:"payment"`
 	Status     FinanceState       `bson:"status"`
@@ -87,23 +87,24 @@ type Invoice struct {
 }
 
 type OrderInfo struct {
-	TriggerName    string             `bson:"triggerName"`
-	TriggerHistory primitive.ObjectID `bson:"triggerHistory"`
-	Orders         []*SellerOrder     `bson:"orders"`
+	TriggerName      string             `bson:"triggerName"`
+	TriggerHistoryId primitive.ObjectID `bson:"triggerHistoryId"`
+	Orders           []*SellerOrder     `bson:"orders"`
 }
 
 type SellerOrder struct {
-	OId                uint64        `bson:"oid"`
-	FId                string        `bson:"fid"`
-	SellerId           uint64        `bson:"sellerId"`
-	ShipmentAmount     *Money        `bson:"shipmentAmount"`
-	RawShippingNet     *Money        `bson:"rawShippingNet"`
-	RoundupShippingNet *Money        `bson:"roundupShippingNet"`
-	Items              []*SellerItem `bson:"items"`
-	OrderCreatedAt     time.Time     `bson:"orderCreatedAt"`
-	SubPkgCreatedAt    time.Time     `bson:"subPkgCreatedAt"`
-	SubPkgUpdatedAt    time.Time     `bson:"subPkgUpdatedAt"`
-	DeletedAt          *time.Time    `bson:"deletedAt"`
+	OId                  uint64        `bson:"oid"`
+	FId                  string        `bson:"fid"`
+	SellerId             uint64        `bson:"sellerId"`
+	ShipmentAmount       *Money        `bson:"shipmentAmount"`
+	RawShippingNet       *Money        `bson:"rawShippingNet"`
+	RoundupShippingNet   *Money        `bson:"roundupShippingNet"`
+	IsAlreadyShippingPay bool          `bson:"isAlreadyShippingPay"`
+	Items                []*SellerItem `bson:"items"`
+	OrderCreatedAt       time.Time     `bson:"orderCreatedAt"`
+	SubPkgCreatedAt      time.Time     `bson:"subPkgCreatedAt"`
+	SubPkgUpdatedAt      time.Time     `bson:"subPkgUpdatedAt"`
+	DeletedAt            *time.Time    `bson:"deletedAt"`
 }
 
 type SellerItem struct {

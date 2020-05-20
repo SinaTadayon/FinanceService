@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 
 //func TestOrderSchedulerTask(t *testing.T) {
 //	ctx, _ := context.WithCancel(context.Background())
-//	iFuture := OrderSchedulerTask(ctx, entities.TriggerHistory{})
+//	iFuture := OrderSchedulerTask(ctx, entities.TriggerHistoryId{})
 //	//time.Sleep(time.Second)
 //	//cancel()
 //	//time.Sleep(time.Second)

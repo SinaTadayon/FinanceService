@@ -31,7 +31,7 @@ func NewTriggerHistoryRepository(mongoDriver *mongoadapter.Mongo, database, coll
 	return &iTriggerHistoryRepositoryImpl{mongoDriver, database, collection}
 }
 
-// return data *entities.TriggerHistory and error
+// return data *entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) Save(ctx context.Context, trigger entities.TriggerHistory) future.IFuture {
 
 	trigger.Version = 1
@@ -39,7 +39,7 @@ func (repo iTriggerHistoryRepositoryImpl) Save(ctx context.Context, trigger enti
 	var insertOneResult, err = repo.mongoAdapter.InsertOne(repo.database, repo.collection, trigger)
 	if err != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Save TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Save TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 	trigger.ID = insertOneResult.InsertedID.(primitive.ObjectID)
@@ -48,7 +48,7 @@ func (repo iTriggerHistoryRepositoryImpl) Save(ctx context.Context, trigger enti
 		BuildAndSend()
 }
 
-// return data *entities.TriggerHistory and error
+// return data *entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) Update(ctx context.Context, trigger entities.TriggerHistory) future.IFuture {
 
 	trigger.UpdatedAt = time.Now().UTC()
@@ -60,13 +60,13 @@ func (repo iTriggerHistoryRepositoryImpl) Update(ctx context.Context, trigger en
 		bson.D{{"$set", trigger}})
 	if e != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "TriggerHistory UpdateOne Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "TriggerHistoryId UpdateOne Failed")).
 			BuildAndSend()
 	}
 
 	if updateResult.MatchedCount != 1 || updateResult.ModifiedCount != 1 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.Wrap(e, "TriggerHistory Not Found")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.Wrap(e, "TriggerHistoryId Not Found")).
 			BuildAndSend()
 	}
 
@@ -75,7 +75,7 @@ func (repo iTriggerHistoryRepositoryImpl) Update(ctx context.Context, trigger en
 		BuildAndSend()
 }
 
-// return data []*entities.TriggerHistory and error
+// return data []*entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) FindByName(ctx context.Context, triggerName string) future.IFuture {
 
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, bson.D{{"triggerName", triggerName}, {"deletedAt", nil}})
@@ -94,7 +94,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByName(ctx context.Context, trigge
 		// decode the document
 		if err := cursor.Decode(&trigger); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistory Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistoryId Failed")).
 				BuildAndSend()
 		}
 		triggers = append(triggers, &trigger)
@@ -102,7 +102,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByName(ctx context.Context, trigge
 
 	if len(triggers) == 0 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.Wrap(e, "TriggerHistory Not Found")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.Wrap(e, "TriggerHistoryId Not Found")).
 			BuildAndSend()
 	}
 
@@ -111,25 +111,25 @@ func (repo iTriggerHistoryRepositoryImpl) FindByName(ctx context.Context, trigge
 		BuildAndSend()
 }
 
-// return data *entities.TriggerHistory and error
+// return data *entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) FindById(ctx context.Context, id primitive.ObjectID) future.IFuture {
 	var finance *entities.TriggerHistory
 	singleResult := repo.mongoAdapter.FindOne(repo.database, repo.collection, bson.D{{"_id", id}, {"deletedAt", nil}})
 	if singleResult.Err() != nil {
 		if repo.mongoAdapter.NoDocument(singleResult.Err()) {
 			return future.FactorySync().
-				SetError(future.NotFound, "TriggerHistory Not Found", errors.Wrap(singleResult.Err(), "TriggerHistory Not Found")).
+				SetError(future.NotFound, "TriggerHistoryId Not Found", errors.Wrap(singleResult.Err(), "TriggerHistoryId Not Found")).
 				BuildAndSend()
 		}
 
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "TriggerHistory FindByNameAndIndex failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "TriggerHistoryId FindByNameAndIndex failed")).
 			BuildAndSend()
 	}
 
 	if err := singleResult.Decode(&finance); err != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
@@ -158,7 +158,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilter(ctx context.Context, supp
 		// decode the document
 		if err := cursor.Decode(&trigger); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistory Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistoryId Failed")).
 				BuildAndSend()
 		}
 		triggers = append(triggers, &trigger)
@@ -166,7 +166,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilter(ctx context.Context, supp
 
 	if len(triggers) == 0 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.Wrap(e, "TriggerHistory Not Found")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.Wrap(e, "TriggerHistoryId Not Found")).
 			BuildAndSend()
 	}
 
@@ -175,7 +175,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilter(ctx context.Context, supp
 		BuildAndSend()
 }
 
-// return data []*entities.TriggerHistory and error
+// return data []*entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithSort(ctx context.Context, supplier func() (filter interface{}, fieldName string, direction int)) future.IFuture {
 	filter, fieldName, direction := supplier()
 	iFuture := repo.CountWithFilter(ctx, func() interface{} { return filter }).Get()
@@ -187,7 +187,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithSort(ctx context.Conte
 	total := iFuture.Data().(int64)
 	if total == 0 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.New("TriggerHistory Not Found")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.New("TriggerHistoryId Not Found")).
 			BuildAndSend()
 	}
 
@@ -200,7 +200,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithSort(ctx context.Conte
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, filter, optionFind)
 	if e != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "FindMany TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "FindMany TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
@@ -213,7 +213,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithSort(ctx context.Conte
 		// decode the document
 		if err := cursor.Decode(&history); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistory Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistoryId Failed")).
 				BuildAndSend()
 		}
 		histories = append(histories, &history)
@@ -242,7 +242,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPage(ctx context.Conte
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.New("TriggerHistory Not Found")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.New("TriggerHistoryId Not Found")).
 			BuildAndSend()
 	}
 
@@ -279,11 +279,11 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPage(ctx context.Conte
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, filter, optionFind)
 	if e != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "FindMany TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "FindMany TriggerHistoryId Failed")).
 			BuildAndSend()
 	} else if cursor.Err() != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(cursor.Err(), "FindMany TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(cursor.Err(), "FindMany TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
@@ -296,7 +296,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPage(ctx context.Conte
 		// decode the document
 		if err := cursor.Decode(&history); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistory Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistoryId Failed")).
 				BuildAndSend()
 		}
 		histories = append(histories, &history)
@@ -326,7 +326,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPageAndSort(ctx contex
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.New("TriggerHistory Not Found")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.New("TriggerHistoryId Not Found")).
 			BuildAndSend()
 	}
 
@@ -369,11 +369,11 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPageAndSort(ctx contex
 	cursor, e := repo.mongoAdapter.FindMany(repo.database, repo.collection, filter, optionFind)
 	if e != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "FindMany TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "FindMany TriggerHistoryId Failed")).
 			BuildAndSend()
 	} else if cursor.Err() != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(cursor.Err(), "FindMany TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(cursor.Err(), "FindMany TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
@@ -386,7 +386,7 @@ func (repo iTriggerHistoryRepositoryImpl) FindByFilterWithPageAndSort(ctx contex
 		// decode the document
 		if err := cursor.Decode(&history); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistory Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode TriggerHistoryId Failed")).
 				BuildAndSend()
 		}
 		histories = append(histories, &history)
@@ -408,7 +408,7 @@ func (repo iTriggerHistoryRepositoryImpl) ExistsByTriggeredAt(ctx context.Contex
 				BuildAndSend()
 		}
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "ExistsById TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(singleResult.Err(), "ExistsById TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 	return future.FactorySync().
@@ -417,7 +417,7 @@ func (repo iTriggerHistoryRepositoryImpl) ExistsByTriggeredAt(ctx context.Contex
 }
 
 // only set DeletedAt field
-// return data *entities.TriggerHistory and error
+// return data *entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) DeleteById(ctx context.Context, id primitive.ObjectID) future.IFuture {
 
 	iFuture := repo.FindById(ctx, id).Get()
@@ -436,13 +436,13 @@ func (repo iTriggerHistoryRepositoryImpl) DeleteById(ctx context.Context, id pri
 		bson.D{{"$set", trigger}})
 	if e != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "UpdateOne TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "UpdateOne TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
 	if updateResult.ModifiedCount != 1 || updateResult.MatchedCount != 1 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.Wrap(e, "UpdateOne TriggerHistory Failed")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.Wrap(e, "UpdateOne TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
@@ -451,7 +451,7 @@ func (repo iTriggerHistoryRepositoryImpl) DeleteById(ctx context.Context, id pri
 		BuildAndSend()
 }
 
-// return data *entities.TriggerHistory and error
+// return data *entities.TriggerHistoryId and error
 func (repo iTriggerHistoryRepositoryImpl) Delete(ctx context.Context, history entities.TriggerHistory) future.IFuture {
 	deletedAt := time.Now().UTC()
 	history.DeletedAt = &deletedAt
@@ -463,13 +463,13 @@ func (repo iTriggerHistoryRepositoryImpl) Delete(ctx context.Context, history en
 		bson.D{{"$set", history}})
 	if e != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "UpdateOne TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(e, "UpdateOne TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
 	if updateResult.ModifiedCount != 1 || updateResult.MatchedCount != 1 {
 		return future.FactorySync().
-			SetError(future.NotFound, "TriggerHistory Not Found", errors.Wrap(e, "UpdateOne TriggerHistory Failed")).
+			SetError(future.NotFound, "TriggerHistoryId Not Found", errors.Wrap(e, "UpdateOne TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 
@@ -494,7 +494,7 @@ func (repo iTriggerHistoryRepositoryImpl) Count(ctx context.Context) future.IFut
 	total, err := repo.mongoAdapter.Count(repo.database, repo.collection, bson.D{{"deletedAt", nil}})
 	if err != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Count TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Count TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 	return future.FactorySync().
@@ -507,7 +507,7 @@ func (repo iTriggerHistoryRepositoryImpl) CountWithFilter(ctx context.Context, s
 	total, err := repo.mongoAdapter.Count(repo.database, repo.collection, supplier())
 	if err != nil {
 		return future.FactorySync().
-			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "CountWithFilter TriggerHistory Failed")).
+			SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "CountWithFilter TriggerHistoryId Failed")).
 			BuildAndSend()
 	}
 	return future.FactorySync().
