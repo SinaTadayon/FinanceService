@@ -19,21 +19,23 @@ type Config struct {
 		FinancePaymentSchedulerWorkerTimeout       int    `env:"FINANCE_PAYMENT_SCHEDULER_WORKER_TIMEOUT"`
 		FinancePaymentSchedulerStates              string `env:"FINANCE_PAYMENT_SCHEDULER_STATES"`
 
-		FinanceOrderSchedulerTimeUint                string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
-		FinanceOrderSchedulerInterval                int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
-		FinanceOrderSchedulerParentWorkerTimeout     int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
-		FinanceOrderSchedulerWorkerTimeout           int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
-		FinanceOrderSchedulerUpdateFinanceDuration   bool   `env:"FINANCE_ORDER_SCHEDULER_UPDATE_FINANCE_DURATION"`
-		FinanceOrderSchedulerHandleMissedFireTrigger bool   `env:"FINANCE_ORDER_SCHEDULER_HANDLE_MISSED_FIRE_TRIGGER"`
+		FinanceOrderSchedulerTimeUint                    string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
+		FinanceOrderSchedulerInterval                    int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
+		FinanceOrderSchedulerParentWorkerTimeout         int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerWorkerTimeout               int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerUpdateFinanceShrinkDuration bool   `env:"FINANCE_ORDER_SCHEDULER_UPDATE_FINANCE_SHRINK_DURATION"`
+		FinanceOrderSchedulerHandleMissedFireTrigger     bool   `env:"FINANCE_ORDER_SCHEDULER_HANDLE_MISSED_FIRE_TRIGGER"`
 
-		FinanceOrderSchedulerTriggerName      string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_NAME"`
-		FinanceOrderSchedulerTriggerTimeUnit  string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_TIME_UNIT"`
-		FinanceOrderSchedulerTriggerInterval  int    `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_INTERVAL"`
-		FinanceOrderSchedulerTriggerDuration  int    `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_DURATION"`
-		FinanceOrderSchedulerTriggerPoint     string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_POINT"`
-		FinanceOrderSchedulerTriggerPointType string `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_POINT_TYPE"`
-		FinanceOrderSchedulerTriggerEnabled   bool   `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_ENABLED"`
-		FinanceOrderSchedulerTriggerTestMode  bool   `env:"FINANCE_ORDER_SCHEDULER_TRIGGER_TEST_MODE"`
+		SellerFinanceTriggerName      string `env:"FINANCE_SELLER_FINANCE_TRIGGER_NAME"`
+		SellerFinanceTriggerTimeUnit  string `env:"FINANCE_SELLER_FINANCE_TRIGGER_TIME_UNIT"`
+		SellerFinanceTriggerInterval  int    `env:"FINANCE_SELLER_FINANCE_TRIGGER_INTERVAL"`
+		SellerFinanceTriggerDuration  int    `env:"FINANCE_SELLER_FINANCE_TRIGGER_DURATION"`
+		SellerFinanceTriggerPoint     string `env:"FINANCE_SELLER_FINANCE_TRIGGER_POINT"`
+		SellerFinanceTriggerPointType string `env:"FINANCE_SELLER_FINANCE_TRIGGER_POINT_TYPE"`
+		SellerFinanceTriggerEnabled   bool   `env:"FINANCE_SELLER_FINANCE_TRIGGER_ENABLED"`
+		SellerFinanceTriggerTestMode  bool   `env:"FINANCE_SELLER_FINANCE_TRIGGER_TEST_MODE"`
+
+		SellerFinancePreventDuplicateOrderItem bool `env:"SELLER_FINANCE_PREVENT_DUPLICATE_ORDER_ITEM"`
 	}
 
 	GRPCServer struct {
@@ -67,7 +69,7 @@ type Config struct {
 		Port                     int    `env:"FINANCE_SERVICE_MONGO_PORT"`
 		Database                 string `env:"FINANCE_SERVICE_MONGO_DB_NAME"`
 		SellerCollection         string `env:"FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME"`
-		TriggerCollection        string `env:"FINANCE_SERVICE_MONGO_TRIGGER_COLLECTION_NAME"`
+		FinanceTriggerCollection string `env:"FINANCE_SERVICE_MONGO_FINANCE_TRIGGER_COLLECTION_NAME"`
 		TriggerHistoryCollection string `env:"FINANCE_SERVICE_MONGO_TRIGGER_HISTORY_COLLECTION_NAME"`
 		ConnectionTimeout        int    `env:"FINANCE_SERVICE_MONGO_CONN_TIMEOUT"`
 		ReadTimeout              int    `env:"FINANCE_SERVICE_MONGO_READ_TIMEOUT"`

@@ -220,12 +220,12 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 				Amount:   orderItemDetail.RoundupShippingNet.Amount,
 				Currency: orderItemDetail.RoundupShippingNet.Currency,
 			},
-			IsAlreadyShippingPay: false,
-			Items:                nil,
-			OrderCreatedAt:       nil,
-			SubPkgCreatedAt:      nil,
-			SubPkgUpdatedAt:      nil,
-			DeletedAt:            nil,
+			IsAlreadyShippingPayed: false,
+			Items:                  nil,
+			OrderCreatedAt:         nil,
+			SubPkgCreatedAt:        nil,
+			SubPkgUpdatedAt:        nil,
+			DeletedAt:              nil,
 		}
 
 		createdAt, err := time.Parse(ISO8601, orderItemDetail.CreatedAt)
@@ -238,7 +238,7 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 				"error", err)
 			return nil, err
 		}
-		sellerOrder.SubPkgCreatedAt = createdAt
+		sellerOrder.SubPkgCreatedAt = &createdAt
 
 		updatedAt, err := time.Parse(ISO8601, orderItemDetail.UpdatedAt)
 		if err != nil {
@@ -250,7 +250,7 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 				"error", err)
 			return nil, err
 		}
-		sellerOrder.SubPkgUpdatedAt = updatedAt
+		sellerOrder.SubPkgUpdatedAt = &updatedAt
 
 		orderCreatedAt, err := time.Parse(ISO8601, orderItemDetail.OrderCreatedAt)
 		if err != nil {
@@ -262,7 +262,7 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 				"error", err)
 			return nil, err
 		}
-		sellerOrder.OrderCreatedAt = orderCreatedAt
+		sellerOrder.OrderCreatedAt = &orderCreatedAt
 
 		sellerOrder.Items = make([]*entities.SellerItem, 0, len(orderItemDetail.Items))
 		for _, ItemDetail := range orderItemDetail.Items {
@@ -280,23 +280,11 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 				Attributes:  nil,
 				Invoice: &entities.ItemInvoice{
 					Commission: &entities.ItemCommission{
-						ItemCommission: ItemDetail.Invoice.Commission.ItemCommission,
-						RawUnitPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.Commission.RawUnitPrice.Amount,
-							Currency: ItemDetail.Invoice.Commission.RawUnitPrice.Currency,
-						},
-						RoundupUnitPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.Commission.RoundupUnitPrice.Amount,
-							Currency: ItemDetail.Invoice.Commission.RoundupUnitPrice.Currency,
-						},
-						RawTotalPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.Commission.RawTotalPrice.Amount,
-							Currency: ItemDetail.Invoice.Commission.RawTotalPrice.Currency,
-						},
-						RoundupTotalPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.Commission.RoundupTotalPrice.Amount,
-							Currency: ItemDetail.Invoice.Commission.RoundupTotalPrice.Currency,
-						},
+						ItemCommission:    ItemDetail.Invoice.Commission.ItemCommission,
+						RawUnitPrice:      nil,
+						RoundupUnitPrice:  nil,
+						RawTotalPrice:     nil,
+						RoundupTotalPrice: nil,
 					},
 					Share: &entities.ItemShare{
 						RawItemNet: &entities.Money{
@@ -333,46 +321,106 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 						},
 					},
 					SSO: &entities.ItemSSO{
-						Rate:      ItemDetail.Invoice.SSO.Rate,
-						IsObliged: ItemDetail.Invoice.SSO.IsObliged,
-						RawUnitPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.SSO.RawUnitPrice.Amount,
-							Currency: ItemDetail.Invoice.SSO.RawUnitPrice.Currency,
-						},
-						RoundupUnitPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.SSO.RoundupUnitPrice.Amount,
-							Currency: ItemDetail.Invoice.SSO.RoundupUnitPrice.Currency,
-						},
-						RawTotalPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.SSO.RawTotalPrice.Amount,
-							Currency: ItemDetail.Invoice.SSO.RawTotalPrice.Currency,
-						},
-						RoundupTotalPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.SSO.RoundupTotalPrice.Amount,
-							Currency: ItemDetail.Invoice.SSO.RoundupTotalPrice.Currency,
-						},
+						Rate:              ItemDetail.Invoice.SSO.Rate,
+						IsObliged:         ItemDetail.Invoice.SSO.IsObliged,
+						RawUnitPrice:      nil,
+						RoundupUnitPrice:  nil,
+						RawTotalPrice:     nil,
+						RoundupTotalPrice: nil,
 					},
 					VAT: &entities.ItemVAT{
-						Rate:      ItemDetail.Invoice.VAT.Rate,
-						IsObliged: ItemDetail.Invoice.VAT.IsObliged,
-						RawUnitPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.VAT.RawUnitPrice.Amount,
-							Currency: ItemDetail.Invoice.VAT.RawUnitPrice.Currency,
-						},
-						RoundupUnitPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.VAT.RoundupUnitPrice.Amount,
-							Currency: ItemDetail.Invoice.VAT.RoundupUnitPrice.Currency,
-						},
-						RawTotalPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.VAT.RawTotalPrice.Amount,
-							Currency: ItemDetail.Invoice.VAT.RawTotalPrice.Currency,
-						},
-						RoundupTotalPrice: &entities.Money{
-							Amount:   ItemDetail.Invoice.VAT.RoundupTotalPrice.Amount,
-							Currency: ItemDetail.Invoice.VAT.RoundupTotalPrice.Currency,
-						},
+						Rate:              ItemDetail.Invoice.VAT.Rate,
+						IsObliged:         ItemDetail.Invoice.VAT.IsObliged,
+						RawUnitPrice:      nil,
+						RoundupUnitPrice:  nil,
+						RawTotalPrice:     nil,
+						RoundupTotalPrice: nil,
 					},
 				},
+			}
+
+			if ItemDetail.Invoice.Commission.RawUnitPrice != nil {
+				sellerItem.Invoice.Commission.RawUnitPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.Commission.RawUnitPrice.Amount,
+					Currency: ItemDetail.Invoice.Commission.RawUnitPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.Commission.RoundupUnitPrice != nil {
+				sellerItem.Invoice.Commission.RoundupUnitPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.Commission.RoundupUnitPrice.Amount,
+					Currency: ItemDetail.Invoice.Commission.RoundupUnitPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.Commission.RawTotalPrice != nil {
+				sellerItem.Invoice.Commission.RawTotalPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.Commission.RawTotalPrice.Amount,
+					Currency: ItemDetail.Invoice.Commission.RawTotalPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.Commission.RoundupTotalPrice != nil {
+				sellerItem.Invoice.Commission.RoundupTotalPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.Commission.RoundupTotalPrice.Amount,
+					Currency: ItemDetail.Invoice.Commission.RoundupTotalPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.SSO.RawUnitPrice != nil {
+				sellerItem.Invoice.SSO.RawUnitPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.SSO.RawUnitPrice.Amount,
+					Currency: ItemDetail.Invoice.SSO.RawUnitPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.SSO.RoundupUnitPrice != nil {
+				sellerItem.Invoice.SSO.RoundupUnitPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.SSO.RoundupUnitPrice.Amount,
+					Currency: ItemDetail.Invoice.SSO.RoundupUnitPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.SSO.RawTotalPrice != nil {
+				sellerItem.Invoice.SSO.RawTotalPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.SSO.RawTotalPrice.Amount,
+					Currency: ItemDetail.Invoice.SSO.RawTotalPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.SSO.RoundupTotalPrice != nil {
+				sellerItem.Invoice.SSO.RoundupTotalPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.SSO.RoundupTotalPrice.Amount,
+					Currency: ItemDetail.Invoice.SSO.RoundupTotalPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.VAT.RawUnitPrice != nil {
+				sellerItem.Invoice.VAT.RawUnitPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.VAT.RawUnitPrice.Amount,
+					Currency: ItemDetail.Invoice.VAT.RawUnitPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.VAT.RoundupUnitPrice != nil {
+				sellerItem.Invoice.VAT.RoundupUnitPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.VAT.RoundupUnitPrice.Amount,
+					Currency: ItemDetail.Invoice.VAT.RoundupUnitPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.VAT.RawTotalPrice != nil {
+				sellerItem.Invoice.VAT.RawTotalPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.VAT.RawTotalPrice.Amount,
+					Currency: ItemDetail.Invoice.VAT.RawTotalPrice.Currency,
+				}
+			}
+
+			if ItemDetail.Invoice.VAT.RoundupTotalPrice != nil {
+				sellerItem.Invoice.VAT.RoundupTotalPrice = &entities.Money{
+					Amount:   ItemDetail.Invoice.VAT.RoundupTotalPrice.Amount,
+					Currency: ItemDetail.Invoice.VAT.RoundupTotalPrice.Currency,
+				}
 			}
 
 			if ItemDetail.Attributes != nil {
@@ -394,6 +442,14 @@ func convertOrderItemDetailToSellerFinance(ctx context.Context,
 			}
 
 			sellerOrder.Items = append(sellerOrder.Items, sellerItem)
+		}
+
+		if len(sellerOrder.Items) == 0 {
+			log.GLog.Logger.Error("items of order empty",
+				"fn", "convertOrderItemDetailToSellerFinance",
+				"oid", orderItemDetail.OId,
+				"sellerId", orderItemDetail.SellerId)
+			return nil, errors.New("Order items empty")
 		}
 
 		sellerOrders = append(sellerOrders, sellerOrder)

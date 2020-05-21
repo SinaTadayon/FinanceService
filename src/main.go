@@ -16,6 +16,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
 	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
+	user_service "gitlab.faza.io/services/finance/infrastructure/services/user"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"os"
@@ -71,7 +72,7 @@ func main() {
 
 	app.Globals.SellerFinanceRepository = finance_repository.NewSellerFinanceRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.SellerOrderRepository = order_repository.NewSellerOrderRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
-	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerCollection)
+	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.FinanceTriggerCollection)
 	app.Globals.TriggerHistoryRepository = trigger_history_repository.NewTriggerHistoryRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerHistoryCollection)
 
 	if app.Globals.Config.OrderService.Address == "" ||
@@ -88,6 +89,7 @@ func main() {
 
 	app.Globals.OrderService = order_service.NewOrderService(app.Globals.Config.OrderService.Address, app.Globals.Config.OrderService.Port, app.Globals.Config.OrderService.Timeout)
 	app.Globals.PaymentService = payment_service.NewPaymentService(app.Globals.Config.PaymentTransferService.Address, app.Globals.Config.PaymentTransferService.Port, app.Globals.Config.PaymentTransferService.Timeout)
+	app.Globals.UserService = user_service.NewUserService(app.Globals.Config.UserService.Address, app.Globals.Config.UserService.Port, app.Globals.Config.UserService.Timeout)
 
 	app.Globals.WorkerPool, err = worker_pool.Factory()
 	if err != nil {
@@ -155,43 +157,43 @@ func main() {
 	}
 
 	var OrderSchedulerTriggerTimeUnit utils.TimeUnit
-	if app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit == "" {
+	if app.Globals.Config.App.SellerFinanceTriggerTimeUnit == "" {
 		if OrderSchedulerTimeUnit == utils.HourUnit {
-			app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit = string(utils.HourUnit)
+			app.Globals.Config.App.SellerFinanceTriggerTimeUnit = string(utils.HourUnit)
 			OrderSchedulerTriggerTimeUnit = utils.HourUnit
 		} else {
-			app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit = string(utils.MinuteUnit)
+			app.Globals.Config.App.SellerFinanceTriggerTimeUnit = string(utils.MinuteUnit)
 			OrderSchedulerTriggerTimeUnit = utils.MinuteUnit
 		}
 	} else {
-		if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit) == string(utils.HourUnit) {
+		if strings.ToUpper(app.Globals.Config.App.SellerFinanceTriggerTimeUnit) == string(utils.HourUnit) {
 			OrderSchedulerTriggerTimeUnit = utils.HourUnit
-		} else if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit) == string(utils.MinuteUnit) {
+		} else if strings.ToUpper(app.Globals.Config.App.SellerFinanceTriggerTimeUnit) == string(utils.MinuteUnit) {
 			OrderSchedulerTriggerTimeUnit = utils.MinuteUnit
 		} else {
-			log.GLog.Logger.Error("FinanceOrderSchedulerTriggerTimeUnit invalid",
+			log.GLog.Logger.Error("SellerFinanceTriggerTimeUnit invalid",
 				"fn", "main",
-				"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
+				"SellerFinanceTriggerTimeUnit", app.Globals.Config.App.SellerFinanceTriggerTimeUnit)
 			os.Exit(1)
 		}
 	}
 
-	if !app.Globals.Config.App.FinanceOrderSchedulerTriggerTestMode && OrderSchedulerTriggerTimeUnit == utils.MinuteUnit {
-		log.GLog.Logger.Error("Minute time unit of FinanceOrderSchedulerTriggerTimeUnit is valid in only Test mode",
+	if !app.Globals.Config.App.SellerFinanceTriggerTestMode && OrderSchedulerTriggerTimeUnit == utils.MinuteUnit {
+		log.GLog.Logger.Error("Minute time unit of SellerFinanceTriggerTimeUnit is valid in only Test mode",
 			"fn", "main",
-			"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
+			"SellerFinanceTriggerTimeUnit", app.Globals.Config.App.SellerFinanceTriggerTimeUnit)
 		os.Exit(1)
 	}
 
 	if OrderSchedulerTimeUnit == utils.HourUnit && OrderSchedulerTriggerTimeUnit == utils.MinuteUnit {
-		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerTimeUnit must be hour time unit",
+		log.GLog.Logger.Error("SellerFinanceTriggerTimeUnit must be hour time unit",
 			"fn", "main",
-			"FinanceOrderSchedulerTriggerTimeUnit", app.Globals.Config.App.FinanceOrderSchedulerTriggerTimeUnit)
+			"SellerFinanceTriggerTimeUnit", app.Globals.Config.App.SellerFinanceTriggerTimeUnit)
 		os.Exit(1)
 	}
 
 	var OrderSchedulerTriggerInterval time.Duration
-	if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval <= 0 {
+	if app.Globals.Config.App.SellerFinanceTriggerInterval <= 0 {
 		log.GLog.Logger.Error("FinanceOrderSchedulerInterval invalid",
 			"fn", "main",
 			"FinanceOrderSchedulerInterval", app.Globals.Config.App.FinanceOrderSchedulerInterval)
@@ -199,137 +201,137 @@ func main() {
 	} else {
 		if OrderSchedulerTriggerTimeUnit == utils.HourUnit {
 			if OrderSchedulerTimeUnit == utils.HourUnit {
-				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
-					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
+				if app.Globals.Config.App.SellerFinanceTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
+					log.GLog.Logger.Error("SellerFinanceTriggerInterval less than FinanceOrderSchedulerInterval",
 						"fn", "main",
-						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+						"SellerFinanceTriggerInterval", app.Globals.Config.App.SellerFinanceTriggerInterval)
 					os.Exit(1)
 				}
 			} else {
-				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval/60 {
-					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
+				if app.Globals.Config.App.SellerFinanceTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval/60 {
+					log.GLog.Logger.Error("SellerFinanceTriggerInterval less than FinanceOrderSchedulerInterval",
 						"fn", "main",
-						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+						"SellerFinanceTriggerInterval", app.Globals.Config.App.SellerFinanceTriggerInterval)
 					os.Exit(1)
 				}
 			}
 
-			if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval%24 != 0 {
-				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval is not factor 24",
+			if app.Globals.Config.App.SellerFinanceTriggerInterval%24 != 0 {
+				log.GLog.Logger.Error("SellerFinanceTriggerInterval is not factor 24",
 					"fn", "main",
-					"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+					"SellerFinanceTriggerInterval", app.Globals.Config.App.SellerFinanceTriggerInterval)
 				os.Exit(1)
 			}
-			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) * time.Hour
+			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.SellerFinanceTriggerInterval) * time.Hour
 		} else {
 			if OrderSchedulerTimeUnit == utils.HourUnit {
-				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval*60 {
-					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
+				if app.Globals.Config.App.SellerFinanceTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval*60 {
+					log.GLog.Logger.Error("SellerFinanceTriggerInterval less than FinanceOrderSchedulerInterval",
 						"fn", "main",
-						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+						"SellerFinanceTriggerInterval", app.Globals.Config.App.SellerFinanceTriggerInterval)
 					os.Exit(1)
 				}
 			} else {
-				if app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
-					log.GLog.Logger.Error("FinanceOrderSchedulerTriggerInterval less than FinanceOrderSchedulerInterval",
+				if app.Globals.Config.App.SellerFinanceTriggerInterval < app.Globals.Config.App.FinanceOrderSchedulerInterval {
+					log.GLog.Logger.Error("SellerFinanceTriggerInterval less than FinanceOrderSchedulerInterval",
 						"fn", "main",
-						"FinanceOrderSchedulerTriggerInterval", app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval)
+						"SellerFinanceTriggerInterval", app.Globals.Config.App.SellerFinanceTriggerInterval)
 					os.Exit(1)
 				}
 			}
 
-			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) * time.Minute
+			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.SellerFinanceTriggerInterval) * time.Minute
 		}
 	}
 
 	var OrderSchedulerTriggerDuration time.Duration
-	if app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration <= 0 {
-		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerDuration invalid",
+	if app.Globals.Config.App.SellerFinanceTriggerDuration <= 0 {
+		log.GLog.Logger.Error("SellerFinanceTriggerDuration invalid",
 			"fn", "main",
-			"FinanceOrderSchedulerTriggerDuration", app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration)
+			"SellerFinanceTriggerDuration", app.Globals.Config.App.SellerFinanceTriggerDuration)
 		os.Exit(1)
 	} else {
-		if app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration < app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval {
-			log.GLog.Logger.Error("FinanceOrderSchedulerTriggerDuration less than FinanceOrderSchedulerTriggerInterval",
+		if app.Globals.Config.App.SellerFinanceTriggerDuration < app.Globals.Config.App.SellerFinanceTriggerInterval {
+			log.GLog.Logger.Error("SellerFinanceTriggerDuration less than SellerFinanceTriggerInterval",
 				"fn", "main",
-				"FinanceOrderSchedulerTriggerDuration", app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration)
+				"SellerFinanceTriggerDuration", app.Globals.Config.App.SellerFinanceTriggerDuration)
 			os.Exit(1)
 		}
 
 		if OrderSchedulerTriggerTimeUnit == utils.HourUnit {
-			if app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration%24 != 0 {
-				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerDuration is not factor 24",
+			if app.Globals.Config.App.SellerFinanceTriggerDuration%24 != 0 {
+				log.GLog.Logger.Error("SellerFinanceTriggerDuration is not factor 24",
 					"fn", "main",
-					"FinanceOrderSchedulerTriggerDuration", app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration)
+					"SellerFinanceTriggerDuration", app.Globals.Config.App.SellerFinanceTriggerDuration)
 				os.Exit(1)
 			}
-			OrderSchedulerTriggerDuration = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerDuration) * time.Hour
+			OrderSchedulerTriggerDuration = time.Duration(app.Globals.Config.App.SellerFinanceTriggerDuration) * time.Hour
 		} else {
-			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval) * time.Minute
+			OrderSchedulerTriggerInterval = time.Duration(app.Globals.Config.App.SellerFinanceTriggerInterval) * time.Minute
 		}
 	}
 
-	if app.Globals.Config.App.FinanceOrderSchedulerTriggerName == "" {
-		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerName is empty",
+	if app.Globals.Config.App.SellerFinanceTriggerName == "" {
+		log.GLog.Logger.Error("SellerFinanceTriggerName is empty",
 			"fn", "main",
-			"FinanceOrderSchedulerTriggerName", app.Globals.Config.App.FinanceOrderSchedulerTriggerName)
+			"SellerFinanceTriggerName", app.Globals.Config.App.SellerFinanceTriggerName)
 		os.Exit(1)
 	}
 
 	var triggerPointType entities.TriggerPointType
-	if app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType == "" {
-		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPointType is empty",
+	if app.Globals.Config.App.SellerFinanceTriggerPointType == "" {
+		log.GLog.Logger.Error("SellerFinanceTriggerPointType is empty",
 			"fn", "main",
-			"FinanceOrderSchedulerTriggerPointType", app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType)
+			"SellerFinanceTriggerPointType", app.Globals.Config.App.SellerFinanceTriggerPointType)
 		os.Exit(1)
 	} else {
-		if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType) == string(entities.AbsoluteTrigger) {
+		if strings.ToUpper(app.Globals.Config.App.SellerFinanceTriggerPointType) == string(entities.AbsoluteTrigger) {
 			triggerPointType = entities.AbsoluteTrigger
-		} else if strings.ToUpper(app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType) == string(entities.RelativeTrigger) {
+		} else if strings.ToUpper(app.Globals.Config.App.SellerFinanceTriggerPointType) == string(entities.RelativeTrigger) {
 			triggerPointType = entities.RelativeTrigger
 		} else {
-			log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPointType invalid",
+			log.GLog.Logger.Error("SellerFinanceTriggerPointType invalid",
 				"fn", "main",
-				"FinanceOrderSchedulerTriggerPointType", app.Globals.Config.App.FinanceOrderSchedulerTriggerPointType)
+				"SellerFinanceTriggerPointType", app.Globals.Config.App.SellerFinanceTriggerPointType)
 			os.Exit(1)
 		}
 	}
 
 	var triggerPointOffset time.Duration
-	if app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint == "" {
-		log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint is empty",
+	if app.Globals.Config.App.SellerFinanceTriggerPoint == "" {
+		log.GLog.Logger.Error("SellerFinanceTriggerPoint is empty",
 			"fn", "main",
-			"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			"SellerFinanceTriggerPoint", app.Globals.Config.App.SellerFinanceTriggerPoint)
 		os.Exit(1)
 	} else {
 		if triggerPointType == entities.AbsoluteTrigger {
-			offset, err := ParseTime(app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			offset, err := ParseTime(app.Globals.Config.App.SellerFinanceTriggerPoint)
 			if err != nil {
-				log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint invalid",
+				log.GLog.Logger.Error("SellerFinanceTriggerPoint invalid",
 					"fn", "main",
-					"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+					"SellerFinanceTriggerPoint", app.Globals.Config.App.SellerFinanceTriggerPoint)
 				os.Exit(1)
 			}
 
 			triggerPointOffset = time.Duration(offset) * time.Minute
 		} else {
-			//offset, err := strconv.Atoi(app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			//offset, err := strconv.Atoi(app.Globals.Config.App.SellerFinanceTriggerPoint)
 			//if err != nil {
-			//	log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint invalid",
+			//	log.GLog.Logger.Error("SellerFinanceTriggerPoint invalid",
 			//		"fn", "main",
-			//		"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			//		"SellerFinanceTriggerPoint", app.Globals.Config.App.SellerFinanceTriggerPoint)
 			//	os.Exit(1)
 			//}
 			//
-			//if offset > app.Globals.Config.App.FinanceOrderSchedulerTriggerInterval {
-			//	log.GLog.Logger.Error("FinanceOrderSchedulerTriggerPoint is greater than FinanceOrderSchedulerTriggerInterval",
+			//if offset > app.Globals.Config.App.SellerFinanceTriggerInterval {
+			//	log.GLog.Logger.Error("SellerFinanceTriggerPoint is greater than SellerFinanceTriggerInterval",
 			//		"fn", "main",
-			//		"FinanceOrderSchedulerTriggerPoint", app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint)
+			//		"SellerFinanceTriggerPoint", app.Globals.Config.App.SellerFinanceTriggerPoint)
 			//	os.Exit(1)
 			//}
 			//
 			//triggerPointOffset = time.Duration(offset) * time.Second
-			app.Globals.Config.App.FinanceOrderSchedulerTriggerPoint = "0"
+			app.Globals.Config.App.SellerFinanceTriggerPoint = "0"
 			triggerPointOffset = 0
 		}
 	}
@@ -338,7 +340,7 @@ func main() {
 		OrderSchedulerWorkerTimeout, OrderSchedulerTriggerInterval, triggerPointOffset, OrderSchedulerTriggerDuration, triggerPointType,
 		OrderSchedulerTimeUnit, OrderSchedulerTriggerTimeUnit)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(context.Background())
 	if err := orderScheduler.SchedulerStart(ctx); err != nil {
 		log.GLog.Logger.Error("OrderScheduler.SchedulerStart failed",
 			"fn", "main",

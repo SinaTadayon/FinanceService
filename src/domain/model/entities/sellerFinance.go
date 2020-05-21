@@ -93,18 +93,18 @@ type OrderInfo struct {
 }
 
 type SellerOrder struct {
-	OId                  uint64        `bson:"oid"`
-	FId                  string        `bson:"fid"`
-	SellerId             uint64        `bson:"sellerId"`
-	ShipmentAmount       *Money        `bson:"shipmentAmount"`
-	RawShippingNet       *Money        `bson:"rawShippingNet"`
-	RoundupShippingNet   *Money        `bson:"roundupShippingNet"`
-	IsAlreadyShippingPay bool          `bson:"isAlreadyShippingPay"`
-	Items                []*SellerItem `bson:"items"`
-	OrderCreatedAt       time.Time     `bson:"orderCreatedAt"`
-	SubPkgCreatedAt      time.Time     `bson:"subPkgCreatedAt"`
-	SubPkgUpdatedAt      time.Time     `bson:"subPkgUpdatedAt"`
-	DeletedAt            *time.Time    `bson:"deletedAt"`
+	OId                    uint64        `bson:"oid"`
+	FId                    string        `bson:"fid"`
+	SellerId               uint64        `bson:"sellerId"`
+	ShipmentAmount         *Money        `bson:"shipmentAmount"`
+	RawShippingNet         *Money        `bson:"rawShippingNet"`
+	RoundupShippingNet     *Money        `bson:"roundupShippingNet"`
+	IsAlreadyShippingPayed bool          `bson:"isAlreadyShippingPayed"`
+	Items                  []*SellerItem `bson:"items"`
+	OrderCreatedAt         *time.Time    `bson:"orderCreatedAt"`
+	SubPkgCreatedAt        *time.Time    `bson:"subPkgCreatedAt"`
+	SubPkgUpdatedAt        *time.Time    `bson:"subPkgUpdatedAt"`
+	DeletedAt              *time.Time    `bson:"deletedAt"`
 }
 
 type SellerItem struct {

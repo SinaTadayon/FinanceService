@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	triggerRepository = NewSchedulerTriggerRepository(mongoAdapter, config.Mongo.Database, config.Mongo.TriggerCollection)
+	triggerRepository = NewSchedulerTriggerRepository(mongoAdapter, config.Mongo.Database, config.Mongo.FinanceTriggerCollection)
 
 	// Running Tests
 	code := m.Run()
@@ -73,7 +73,7 @@ func TestSaveTriggerRepository(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error(), "triggerRepository.Save failed")
-	require.NotNil(t, iFuture.Data().(*entities.SchedulerTrigger).ID, "triggerRepository.Save failed, tid not generated")
+	require.NotNil(t, iFuture.Data().(*entities.FinanceTrigger).ID, "triggerRepository.Save failed, tid not generated")
 }
 
 func TestUpdateTriggerRepository(t *testing.T) {
@@ -82,14 +82,14 @@ func TestUpdateTriggerRepository(t *testing.T) {
 	trigger := createSchedulerTrigger()
 	ctx, _ := context.WithCancel(context.Background())
 	iFuture := triggerRepository.Save(ctx, *trigger).Get()
-	trigger1 := iFuture.Data().(*entities.SchedulerTrigger)
+	trigger1 := iFuture.Data().(*entities.FinanceTrigger)
 	require.Nil(t, iFuture.Error(), "triggerRepository.Save failed")
 	require.NotNil(t, trigger1.ID, "triggerRepository.Save failed, id not generated")
 
 	trigger1.Data = "PAYMENT_IN_PROGRESS"
 	iFuture = triggerRepository.Update(ctx, *trigger1).Get()
 	require.Nil(t, iFuture.Error(), "triggerRepository.Save failed")
-	require.Equal(t, "PAYMENT_IN_PROGRESS", iFuture.Data().(*entities.SchedulerTrigger).Data.(string))
+	require.Equal(t, "PAYMENT_IN_PROGRESS", iFuture.Data().(*entities.FinanceTrigger).Data.(string))
 }
 
 func TestExistsByNameRepository(t *testing.T) {
@@ -99,9 +99,9 @@ func TestExistsByNameRepository(t *testing.T) {
 	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
-	iFuture = triggerRepository.FindByName(ctx, iFuture.Data().(*entities.SchedulerTrigger).Name).Get()
+	iFuture = triggerRepository.FindByName(ctx, iFuture.Data().(*entities.FinanceTrigger).Name).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, trigger.Name, iFuture.Data().(*entities.SchedulerTrigger).Name)
+	require.Equal(t, trigger.Name, iFuture.Data().(*entities.FinanceTrigger).Name)
 }
 
 func TestDeleteTriggerRepository(t *testing.T) {
@@ -110,11 +110,11 @@ func TestDeleteTriggerRepository(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
-	trigger1 := iFuture.Data().(*entities.SchedulerTrigger)
+	trigger1 := iFuture.Data().(*entities.FinanceTrigger)
 
 	iFuture = triggerRepository.Delete(ctx, *trigger1).Get()
 	require.Nil(t, iFuture.Error())
-	require.NotNil(t, iFuture.Data().(*entities.SchedulerTrigger).DeletedAt)
+	require.NotNil(t, iFuture.Data().(*entities.FinanceTrigger).DeletedAt)
 }
 
 func TestRemoveTriggerRepository(t *testing.T) {
@@ -124,7 +124,7 @@ func TestRemoveTriggerRepository(t *testing.T) {
 	iFuture := triggerRepository.Save(ctx, *trigger).Get()
 	require.Nil(t, iFuture.Error())
 
-	iFuture = triggerRepository.Remove(ctx, *(iFuture.Data().(*entities.SchedulerTrigger))).Get()
+	iFuture = triggerRepository.Remove(ctx, *(iFuture.Data().(*entities.FinanceTrigger))).Get()
 	require.Nil(t, iFuture.Error())
 }
 
@@ -147,7 +147,7 @@ func TestFindByFilterRepository(t *testing.T) {
 	}).Get()
 
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, int64(12), iFuture.Data().([]*entities.SchedulerTrigger)[0].Interval)
+	require.Equal(t, int64(12), iFuture.Data().([]*entities.FinanceTrigger)[0].Interval)
 }
 
 func removeCollection() {
@@ -156,9 +156,9 @@ func removeCollection() {
 	}
 }
 
-func createSchedulerTrigger() *entities.SchedulerTrigger {
+func createSchedulerTrigger() *entities.FinanceTrigger {
 	timestamp := time.Now().UTC()
-	return &entities.SchedulerTrigger{
+	return &entities.FinanceTrigger{
 		Version:          1,
 		DocVersion:       entities.TriggerDocumentVersion,
 		Name:             "Trigger-Test",
@@ -172,8 +172,10 @@ func createSchedulerTrigger() *entities.SchedulerTrigger {
 		LatestTriggerAt:  &timestamp,
 		TriggerAt:        &timestamp,
 		Data:             nil,
+		Type:             entities.SellerTrigger,
 		IsActive:         true,
 		IsEnable:         true,
+		TestMode:         false,
 		ExecMode:         entities.SequentialTrigger,
 		JobExecType:      entities.TriggerSyncJob,
 		CreatedAt:        time.Now(),

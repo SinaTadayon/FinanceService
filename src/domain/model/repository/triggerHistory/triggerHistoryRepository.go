@@ -14,22 +14,22 @@ type HistoryPageableResult struct {
 }
 
 type ITriggerHistoryRepository interface {
-	// return data *entities.TriggerHistoryId and error
+	// return data *entities.TriggerHistory and error
 	Save(ctx context.Context, history entities.TriggerHistory) future.IFuture
 
-	// return data *entities.TriggerHistoryId and error
+	// return data *entities.TriggerHistory and error
 	Update(ctx context.Context, history entities.TriggerHistory) future.IFuture
 
-	// return data []*entities.TriggerHistoryId and error
+	// return data []*entities.TriggerHistory and error
 	FindByName(ctx context.Context, triggerName string) future.IFuture
 
-	// return data *entities.TriggerHistoryId and error
+	// return data *entities.TriggerHistory and error
 	FindById(ctx context.Context, id primitive.ObjectID) future.IFuture
 
-	// return data []*entities.TriggerHistoryId and error
+	// return data []*entities.TriggerHistory and error
 	FindByFilter(ctx context.Context, supplier func() (filter interface{})) future.IFuture
 
-	// return data []*entities.TriggerHistoryId and error
+	// return data []*entities.TriggerHistory and error
 	FindByFilterWithSort(ctx context.Context, supplier func() (filter interface{}, fieldName string, direction int)) future.IFuture
 
 	// return data TriggerHistoryPageableResult and error
@@ -42,10 +42,10 @@ type ITriggerHistoryRepository interface {
 	ExistsByTriggeredAt(ctx context.Context, triggeredAt time.Time) future.IFuture
 
 	// only set DeletedAt field
-	// return data *entities.TriggerHistoryId and error
+	// return data *entities.TriggerHistory and error
 	DeleteById(ctx context.Context, id primitive.ObjectID) future.IFuture
 
-	// return data *entities.TriggerHistoryId and error
+	// return data *entities.TriggerHistory and error
 	Delete(ctx context.Context, trigger entities.TriggerHistory) future.IFuture
 
 	// return error

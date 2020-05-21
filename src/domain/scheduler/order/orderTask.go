@@ -62,22 +62,21 @@ type ResultReaderStream <-chan *ProcessResult
 type OrderReduceFunc func(ctx context.Context, orderChannel OrderReaderStream)
 type CreateUpdateFinanceFunc func(ctx context.Context, financeChannel FinanceReaderStream)
 
-func OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHistory) future.IFuture {
+func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHistory) future.IFuture {
 
-	triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
-	startAt := triggerHistory.TriggeredAt.Add(-triggerInterval)
-	ctx = context.WithValue(ctx, string(utils.CtxTriggerHistory), triggerHistory)
+	startAt := triggerHistory.TriggeredAt.Add(-scheduler.financeTriggerInterval)
 	ctx, cancel := context.WithCancel(ctx)
+	ctx = context.WithValue(ctx, string(utils.CtxTriggerHistory), triggerHistory)
 	var iFuture = future.FactorySync().Build()
 
 	task := func() {
-		orderStream, fetchOrderResultStream, fetchOrderTask := FetchOrders(ctx, startAt, *triggerHistory.TriggeredAt)
-		orderChannelStream, fanOutOrderTask := FanOutOrders(ctx, orderStream)
-		financeStream, fanInOrderResultStream, fanInOrderTask := FanInOrderStreams(ctx, orderChannelStream)
-		financeChannelStream, fanOutFinanceTask := FanOutFinances(ctx, financeStream)
-		fanInFinanceResultStream, fanInFinanceTask := FanInFinanceStreams(ctx, financeChannelStream)
+		orderStream, fetchOrderResultStream, fetchOrderTask := scheduler.FetchOrders(ctx, startAt, *triggerHistory.TriggeredAt)
+		orderChannelStream, fanOutOrderTask := scheduler.FanOutOrders(ctx, orderStream)
+		financeStream, fanInOrderResultStream, fanInOrderTask := scheduler.FanInOrderStreams(ctx, orderChannelStream)
+		financeChannelStream, fanOutFinanceTask := scheduler.FanOutFinances(ctx, financeStream)
+		fanInFinanceResultStream, fanInFinanceTask := scheduler.FanInFinanceStreams(ctx, financeChannelStream)
 
-		resultStream, err := fanInResultStream(ctx, fetchOrderResultStream, fanInOrderResultStream, fanInFinanceResultStream)
+		resultStream, err := scheduler.fanInResultStream(ctx, fetchOrderResultStream, fanInOrderResultStream, fanInFinanceResultStream)
 		if err != nil {
 			cancel()
 			future.FactoryOf(iFuture).
@@ -86,7 +85,7 @@ func OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHist
 			return
 		}
 
-		err = taskLauncher(fanInFinanceTask, fanOutFinanceTask, fanInOrderTask, fanOutOrderTask, fetchOrderTask)
+		err = scheduler.taskLauncher(fanInFinanceTask, fanOutFinanceTask, fanInOrderTask, fanOutOrderTask, fetchOrderTask)
 		if err != nil {
 			cancel()
 			future.FactoryOf(iFuture).
@@ -141,25 +140,23 @@ func OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHist
 	return iFuture
 }
 
-func fanInResultStream(ctx context.Context, channels ...ResultReaderStream) (ResultReaderStream, error) {
+func (scheduler OrderScheduler) fanInResultStream(ctx context.Context, channels ...ResultReaderStream) (ResultReaderStream, error) {
 	var wg sync.WaitGroup
 	multiplexedStream := make(chan *ProcessResult)
-	multiplex := func(c ResultReaderStream) {
+	multiplex := func(resultStream ResultReaderStream) {
 		defer wg.Done()
-		for i := range c {
+		for processResult := range resultStream {
 			select {
 			case <-ctx.Done():
 				return
-			case multiplexedStream <- i:
+			case multiplexedStream <- processResult:
 			}
 		}
 	}
 	// Select from all the channels
 	wg.Add(len(channels))
-	for _, c := range channels {
-		if err := app.Globals.WorkerPool.SubmitTask(func() { multiplex(c) }); err != nil {
-			return nil, err
-		}
+	for _, channel := range channels {
+		go multiplex(channel)
 	}
 	// Wait for all the reads to complete
 	if err := app.Globals.WorkerPool.SubmitTask(func() { wg.Wait(); close(multiplexedStream) }); err != nil {
@@ -169,7 +166,7 @@ func fanInResultStream(ctx context.Context, channels ...ResultReaderStream) (Res
 	return multiplexedStream, nil
 }
 
-func taskLauncher(tasks ...worker_pool.Task) error {
+func (scheduler OrderScheduler) taskLauncher(tasks ...worker_pool.Task) error {
 	for _, task := range tasks {
 		if err := app.Globals.WorkerPool.SubmitTask(task); err != nil {
 			return err
@@ -178,14 +175,9 @@ func taskLauncher(tasks ...worker_pool.Task) error {
 	return nil
 }
 
-func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, worker_pool.Task) {
+func (scheduler OrderScheduler) FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, worker_pool.Task) {
 	orderStream := make(chan *entities.SellerOrder, DefaultOrderStreamBuffer)
 	resultStream := make(chan *ProcessResult)
-	//fetchOrderTask := func() {
-	//	defer close(orderStream)
-	//	generateOrders(orderStream)
-	//}
-
 	fetchOrderTask := func() {
 		defer func() {
 			close(orderStream)
@@ -204,7 +196,7 @@ func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStre
 				startAt, endAt, uint32(i+1), DefaultFetchOrderPerPage).Get()
 			if iFuture.Error() != nil {
 				if iFuture.Error().Code() != future.NotFound {
-					log.GLog.Logger.Error("submit fetchOrderTask to WorkerPool.SubmitTask failed",
+					log.GLog.Logger.Error("GetFinanceOrderItems from order service failed",
 						"fn", "FetchOrders", "error", iFuture.Error().Reason())
 
 					resultStream <- &ProcessResult{
@@ -213,6 +205,7 @@ func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStre
 						ErrType:       OrderServiceError,
 						Result:        false,
 					}
+
 					return
 				}
 
@@ -250,15 +243,14 @@ func FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStre
 	return orderStream, resultStream, fetchOrderTask
 }
 
-func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStream, worker_pool.Task) {
+func (scheduler OrderScheduler) FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStream, worker_pool.Task) {
 
 	sellerStreamMap := make(map[uint64]OrderWriterStream, DefaultSellerSize)
 	orderChannelStream := make(chan OrderReaderStream)
 
 	fanOutTask := func() {
+
 		defer func() {
-			log.GLog.Logger.Debug("complete",
-				"fn", "FanOutOrders")
 			for _, stream := range sellerStreamMap {
 				close(stream)
 			}
@@ -267,9 +259,6 @@ func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStrea
 		}()
 
 		for sellerOrder := range orderChannel {
-			//log.GLog.Logger.Debug("received order",
-			//	"fn", "FanOutOrders",
-			//	"oid", sellerOrder.OId)
 			select {
 			case <-ctx.Done():
 				break
@@ -279,8 +268,8 @@ func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStrea
 			if writerStream, ok := sellerStreamMap[sellerOrder.SellerId]; !ok {
 				orderStream := make(chan *entities.SellerOrder, DefaultFanOutStreamBuffers)
 				sellerStreamMap[sellerOrder.SellerId] = orderStream
-				orderChannelStream <- orderStream
 				orderStream <- sellerOrder
+				orderChannelStream <- orderStream
 			} else {
 				writerStream <- sellerOrder
 			}
@@ -290,7 +279,7 @@ func FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (ORSStrea
 	return orderChannelStream, fanOutTask
 }
 
-func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceReaderStream, ResultReaderStream, worker_pool.Task) {
+func (scheduler OrderScheduler) FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceReaderStream, ResultReaderStream, worker_pool.Task) {
 	multiplexedFinanceStream := make(chan *entities.SellerFinance)
 	resultStream := make(chan *ProcessResult)
 	var wg sync.WaitGroup
@@ -299,6 +288,7 @@ func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceR
 			close(multiplexedFinanceStream)
 			close(resultStream)
 		}()
+
 		for orderStream := range orderChanStream {
 			select {
 			case <-ctx.Done():
@@ -327,9 +317,6 @@ func FanInOrderStreams(ctx context.Context, orderChanStream ORSStream) (FinanceR
 			fanInMultiplexTask := func() {
 				defer wg.Done()
 				for finance := range financeStream {
-					//log.GLog.Logger.Debug("received order",
-					//	"fn", "FanInOrderStreams",
-					//	"sellerId", finance.SellerId)
 					multiplexedFinanceStream <- finance
 				}
 			}
@@ -359,7 +346,7 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 	financeStream := make(chan *entities.SellerFinance)
 
 	return financeStream, func(ctx context.Context, orderStream OrderReaderStream) {
-		triggerHistory := ctx.Value(utils.CtxTriggerHistory).(entities.TriggerHistory)
+		triggerHistory := ctx.Value(string(utils.CtxTriggerHistory)).(entities.TriggerHistory)
 		sellerFinance := &entities.SellerFinance{
 			OrdersInfo: []*entities.OrderInfo{
 				{
@@ -380,27 +367,6 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 			if sellerFinance.SellerId == 0 {
 				sellerFinance.SellerId = sellerOrder.SellerId
 
-				iFuture := app.Globals.SellerFinanceRepository.CountWithFilter(ctx, func() interface{} {
-					return bson.D{
-						{"sellerId", sellerFinance.SellerId},
-						{"ordersInfo.orders.oid", sellerOrder.OId},
-						{"deletedAt", nil}}
-				}).Get()
-
-				if iFuture.Error() != nil {
-					log.GLog.Logger.Error("SellerFinanceRepository.CountWithFilter for find order history failed",
-						"fn", "ReduceOrders",
-						"oid", sellerOrder.OId,
-						"sellerId", sellerOrder.SellerId,
-						"error", iFuture.Error())
-				}
-
-				if iFuture.Data().(int64) > 0 {
-					sellerOrder.IsAlreadyShippingPay = true
-				} else {
-					sellerOrder.IsAlreadyShippingPay = false
-				}
-
 			} else if sellerFinance.SellerId != sellerOrder.SellerId {
 				log.GLog.Logger.Error("sellerId of sellerFinance mismatch with sellerOrder",
 					"fn", "ReduceOrders",
@@ -408,14 +374,93 @@ func ReduceOrders() (FinanceReaderStream, OrderReduceFunc) {
 					"sellerOrder", sellerOrder)
 				continue
 			}
+
+			iFuture := app.Globals.SellerFinanceRepository.CountWithFilter(ctx, func() interface{} {
+				return bson.D{
+					{"sellerId", sellerFinance.SellerId},
+					{"ordersInfo.orders.oid", sellerOrder.OId},
+					{"deletedAt", nil}}
+			}).Get()
+
+			if iFuture.Error() != nil {
+				log.GLog.Logger.Error("SellerFinanceRepository.CountWithFilter for find order history failed",
+					"fn", "ReduceOrders",
+					"oid", sellerOrder.OId,
+					"sellerId", sellerOrder.SellerId,
+					"error", iFuture.Error())
+				continue
+			}
+
+			if iFuture.Data().(int64) > 0 {
+				sellerOrder.IsAlreadyShippingPayed = true
+			} else {
+				sellerOrder.IsAlreadyShippingPayed = false
+			}
+
+			if app.Globals.Config.App.SellerFinancePreventDuplicateOrderItem {
+				validItems := make([]*entities.SellerItem, 0, len(sellerOrder.Items))
+
+				for _, item := range sellerOrder.Items {
+					iFuture := app.Globals.SellerOrderRepository.CountWithFilter(ctx, func() interface{} {
+						return []bson.M{
+							{"$match": bson.M{"ordersInfo.orders.sellerId": sellerOrder.SellerId, "ordersInfo.orders.oid": sellerOrder.OId, "ordersInfo.orders.deletedAt": nil}},
+							{"$unwind": "$ordersInfo"},
+							{"$unwind": "$ordersInfo.orders"},
+							{"$unwind": "$ordersInfo.orders.items"},
+							{"$match": bson.M{"ordersInfo.orders.oid": sellerOrder.OId, "ordersInfo.orders.items.sid": item.SId, "ordersInfo.orders.deletedAt": nil}},
+							{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
+							{"$project": bson.M{"_id": 0, "count": 1}},
+						}
+					}).Get()
+
+					if iFuture.Error() != nil {
+						log.GLog.Logger.Error("SellerOrderRepository.CountWithFilter for duplicate order subpackage failed",
+							"fn", "ReduceOrders",
+							"oid", sellerOrder.OId,
+							"sellerId", sellerOrder.SellerId,
+							"sid", item.SId,
+							"error", iFuture.Error())
+						continue
+					}
+
+					if iFuture.Data().(int64) > 0 {
+						log.GLog.Logger.Warn("duplicate order subpackage detected",
+							"fn", "ReduceOrders",
+							"oid", sellerOrder.OId,
+							"sellerId", sellerOrder.SellerId,
+							"sid", item.SId,
+							"inventoryId", item.InventoryId)
+						continue
+					}
+
+					validItems = append(validItems, item)
+				}
+
+				if len(validItems) > 0 {
+					sellerOrder.Items = validItems
+				} else {
+					log.GLog.Logger.Warn("duplicate order detected",
+						"fn", "ReduceOrders",
+						"oid", sellerOrder.OId,
+						"sellerId", sellerOrder.SellerId)
+					continue
+				}
+			}
+
 			sellerFinance.OrdersInfo[0].Orders = append(sellerFinance.OrdersInfo[0].Orders, sellerOrder)
 		}
 
-		financeStream <- sellerFinance
+		if len(sellerFinance.OrdersInfo[0].Orders) > 0 {
+			financeStream <- sellerFinance
+		} else {
+			log.GLog.Logger.Warn("seller finance dropped because of valid order not found",
+				"fn", "ReduceOrders",
+				"sellerId", sellerFinance.SellerId)
+		}
 	}
 }
 
-func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FRSStream, worker_pool.Task) {
+func (scheduler OrderScheduler) FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FRSStream, worker_pool.Task) {
 	financeChannels := make([]chan *entities.SellerFinance, 0, app.Globals.Config.Mongo.MinPoolSize/2)
 	financeChannelStream := make(chan FinanceReaderStream)
 
@@ -429,28 +474,29 @@ func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FR
 		}()
 
 		index := 0
+		initIndex := 0
 		for sellerFinance := range financeChannel {
-			//log.GLog.Logger.Debug("received order",
-			//	"fn", "FanOutOrders",
-			//	"oid", sellerOrder.OId)
+			log.GLog.Logger.Debug("received order",
+				"fn", "FanOutFinance",
+				"sellerId", sellerFinance.SellerId)
 			select {
 			case <-ctx.Done():
 				return
 			default:
 			}
 
-			if index >= cap(financeChannels) {
+			if initIndex < cap(financeChannels) {
+				financeStream := make(chan *entities.SellerFinance, DefaultFanOutStreamBuffers)
+				financeChannels = append(financeChannels, financeStream)
+				financeChannelStream <- financeStream
+				initIndex++
+			}
+
+			if index > len(financeChannels) {
 				index = 0
 			}
 
-			if financeChannels[index] == nil {
-				financeStream := make(chan *entities.SellerFinance, DefaultFanOutStreamBuffers)
-				financeChannels[index] = financeStream
-				financeChannelStream <- financeStream
-				financeStream <- sellerFinance
-			} else {
-				financeChannels[index] <- sellerFinance
-			}
+			financeChannels[index] <- sellerFinance
 			index++
 		}
 	}
@@ -458,11 +504,13 @@ func FanOutFinances(ctx context.Context, financeChannel FinanceReaderStream) (FR
 	return financeChannelStream, financeFanOutTask
 }
 
-func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
+func (scheduler OrderScheduler) CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 
 	resultStream := make(chan *ProcessResult)
 	return resultStream, func(ctx context.Context, financeChannel FinanceReaderStream) {
 		defer close(resultStream)
+
+		timestamp := time.Now().UTC()
 		for sellerFinance := range financeChannel {
 
 			select {
@@ -470,7 +518,7 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 				return
 			default:
 			}
-			timestamp := time.Now().UTC()
+
 			iFuture := app.Globals.SellerFinanceRepository.FindByFilter(ctx, func() interface{} {
 				return bson.D{{"sellerId", sellerFinance.SellerId},
 					{"status", entities.FinanceOrderCollectionStatus},
@@ -479,9 +527,9 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 				}
 			}).Get()
 
-			triggerHistory := ctx.Value(utils.CtxTriggerHistory).(entities.TriggerHistory)
-			triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
-			triggerDuration := ctx.Value(utils.CtxTriggerDuration).(time.Duration)
+			triggerHistory := ctx.Value(string(utils.CtxTriggerHistory)).(entities.TriggerHistory)
+			//triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
+			//triggerDuration := ctx.Value(utils.CtxTriggerDuration).(time.Duration)
 
 			isNotFoundFlag := false
 			if iFuture.Error() != nil {
@@ -538,6 +586,7 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 						"state", entities.FinanceOrderCollectionStatus)
 
 					newOrderInfo := &entities.OrderInfo{
+						TriggerName:      triggerHistory.TriggerName,
 						TriggerHistoryId: triggerHistory.ID,
 						Orders:           nil,
 					}
@@ -545,40 +594,70 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 					newOrderInfo.Orders = make([]*entities.SellerOrder, 0, len(sellerFinance.OrdersInfo[0].Orders))
 
 					for _, newOrder := range sellerFinance.OrdersInfo[0].Orders {
+						collectOrders := make([]*entities.SellerOrder, 0, 1)
 						for _, orderInfo := range foundSellerFinance.OrdersInfo {
 							for _, order := range orderInfo.Orders {
 								if order.OId == newOrder.OId {
-									diffItems := make([]*entities.SellerItem, 0, len(newOrder.Items))
-									for _, newItem := range newOrder.Items {
-										for _, item := range order.Items {
-											if newItem.SId != item.SId {
-												diffItems = append(diffItems, newItem)
-											} else {
-												log.GLog.Logger.Warn("duplicate order subpackage found",
-													"fn", "CreateUpdateFinance",
-													"sellerId", sellerFinance.SellerId,
-													"oid", order.OId,
-													"sid", item.SId)
-											}
-										}
-									}
-									if len(diffItems) > 0 {
-										newOrder.Items = diffItems
-										orderInfo.Orders = append(orderInfo.Orders, newOrder)
-									} else {
-										log.GLog.Logger.Warn("duplicate order found",
-											"fn", "CreateUpdateFinance",
-											"sellerId", sellerFinance.SellerId,
-											"oid", newOrder.OId)
-									}
-								} else {
-									orderInfo.Orders = append(orderInfo.Orders, newOrder)
+									collectOrders = append(collectOrders, order)
 								}
 							}
 						}
+
+						if len(collectOrders) > 0 {
+							for _, newItem := range newOrder.Items {
+								diffItems := make([]*entities.SellerItem, 0, len(newOrder.Items))
+								itemFindFlag := false
+								for _, order := range collectOrders {
+									for _, item := range order.Items {
+										if newItem.SId == item.SId {
+											itemFindFlag = true
+											break
+										}
+									}
+
+									if itemFindFlag {
+										break
+									}
+								}
+
+								if !itemFindFlag {
+									diffItems = append(diffItems, newItem)
+								} else {
+									log.GLog.Logger.Warn("duplicate order subpackage found",
+										"fn", "CreateUpdateFinance",
+										"sellerId", foundSellerFinance.SellerId,
+										"oid", newOrder.OId,
+										"sid", newItem.SId,
+										"inventoryId", newItem.InventoryId)
+								}
+
+								if len(diffItems) > 0 {
+									newOrder.Items = diffItems
+									newOrder.FId = foundSellerFinance.FId
+									newOrderInfo.Orders = append(newOrderInfo.Orders, newOrder)
+								} else {
+									log.GLog.Logger.Warn("duplicate order found",
+										"fn", "CreateUpdateFinance",
+										"sellerId", sellerFinance.SellerId,
+										"oid", newOrder.OId)
+								}
+							}
+						} else {
+							newOrder.FId = foundSellerFinance.FId
+							newOrderInfo.Orders = append(newOrderInfo.Orders, newOrder)
+						}
 					}
 
-					foundSellerFinance.OrdersInfo = append(foundSellerFinance.OrdersInfo, newOrderInfo)
+					if len(newOrderInfo.Orders) > 0 {
+						foundSellerFinance.OrdersInfo = append(foundSellerFinance.OrdersInfo, newOrderInfo)
+					} else {
+						log.GLog.Logger.Warn("valid orders not found for add to orderInfo of sellerFinance",
+							"fn", "CreateUpdateFinance",
+							"sellerId", sellerFinance.SellerId,
+							"trigger", triggerHistory.TriggerName,
+							"triggerHistoryId", triggerHistory.ID)
+						continue
+					}
 
 					iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *foundSellerFinance).Get()
 					if iFuture.Error() != nil {
@@ -606,8 +685,8 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 
 					// create new seller finance
 				} else {
-					startAt := triggerHistory.TriggeredAt.Add(-triggerInterval)
-					endAt := startAt.Add(triggerDuration)
+					startAt := triggerHistory.TriggeredAt.Add(-scheduler.financeTriggerInterval)
+					endAt := startAt.Add(scheduler.financeTriggerDuration)
 
 					newSellerFinance := &entities.SellerFinance{
 						SellerId:   sellerFinance.SellerId,
@@ -666,8 +745,8 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 				}
 				// create new seller finance
 			} else {
-				startAt := triggerHistory.TriggeredAt.Add(-triggerInterval)
-				endAt := startAt.Add(triggerDuration)
+				startAt := triggerHistory.TriggeredAt.Add(-scheduler.financeTriggerInterval)
+				endAt := startAt.Add(scheduler.financeTriggerDuration)
 
 				newSellerFinance := &entities.SellerFinance{
 					SellerId:   sellerFinance.SellerId,
@@ -728,7 +807,7 @@ func CreateUpdateFinance() (ResultReaderStream, CreateUpdateFinanceFunc) {
 	}
 }
 
-func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (ResultReaderStream, worker_pool.Task) {
+func (scheduler OrderScheduler) FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (ResultReaderStream, worker_pool.Task) {
 	multiplexedResultStream := make(chan *ProcessResult)
 	var wg sync.WaitGroup
 	fanInCoreTask := func() {
@@ -740,7 +819,7 @@ func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (R
 			default:
 			}
 
-			resultReaderStream, CreateUpdateFinanceFn := CreateUpdateFinance()
+			resultReaderStream, CreateUpdateFinanceFn := scheduler.CreateUpdateFinance()
 			CreateUpdateFinanceTask := func() {
 				CreateUpdateFinanceFn(ctx, financeChannel)
 			}
@@ -787,169 +866,4 @@ func FanInFinanceStreams(ctx context.Context, financeChannelStream FRSStream) (R
 		wg.Wait()
 	}
 	return multiplexedResultStream, fanInCoreTask
-}
-
-func generateOrders(stream chan *entities.SellerOrder) {
-	for i := 0; i < 10; i++ {
-		order := createOrder()
-		order.OId = uint64(i)
-		stream <- order
-	}
-
-	for i := 0; i < 10; i++ {
-		order := createOrder()
-		order.OId = uint64(i)
-		order.SellerId = 100002
-		stream <- order
-	}
-}
-
-func createOrder() *entities.SellerOrder {
-	return &entities.SellerOrder{
-		OId:      0,
-		FId:      "",
-		SellerId: 100001,
-		RawShippingNet: &entities.Money{
-			Amount:   "1650000",
-			Currency: "IRR",
-		},
-		RoundupShippingNet: &entities.Money{
-			Amount:   "1650000",
-			Currency: "IRR",
-		},
-		Items: []*entities.SellerItem{
-			{
-				SId:         1111111111222,
-				SKU:         "yt545-34",
-				InventoryId: "666777888999",
-				Title:       "Mobile",
-				Brand:       "Nokia",
-				Guaranty:    "Sazegar",
-				Category:    "Electronic",
-				Image:       "",
-				Returnable:  false,
-				Quantity:    5,
-				Attributes: map[string]*entities.Attribute{
-					"Color": {
-						KeyTranslate: map[string]string{
-							"en": "رنگ",
-							"fa": "رنگ",
-						},
-						ValueTranslate: map[string]string{
-							"en": "رنگ",
-							"fa": "رنگ",
-						},
-					},
-					"dial_color": {
-						KeyTranslate: map[string]string{
-							"fa": "رنگ صفحه",
-							"en": "رنگ صفحه",
-						},
-						ValueTranslate: map[string]string{
-							"fa": "رنگ صفحه",
-							"en": "رنگ صفحه",
-						},
-					},
-				},
-				Invoice: &entities.ItemInvoice{
-					Commission: &entities.ItemCommission{
-						ItemCommission: 9,
-						RawUnitPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupUnitPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RawTotalPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupTotalPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-					},
-					Share: &entities.ItemShare{
-						RawItemNet: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupItemNet: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RawTotalNet: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupTotalNet: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RawUnitSellerShare: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupUnitSellerShare: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RawTotalSellerShare: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupTotalSellerShare: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-					},
-					SSO: &entities.ItemSSO{
-						Rate:      8,
-						IsObliged: true,
-						RawUnitPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupUnitPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RawTotalPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupTotalPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-					},
-					VAT: &entities.ItemVAT{
-						Rate:      8,
-						IsObliged: true,
-						RawUnitPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupUnitPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RawTotalPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-						RoundupTotalPrice: &entities.Money{
-							Amount:   "1650000",
-							Currency: "IRR",
-						},
-					},
-				},
-			},
-		},
-		SubPkgUpdatedAt: time.Now(),
-		SubPkgCreatedAt: time.Now(),
-		DeletedAt:       nil,
-	}
 }

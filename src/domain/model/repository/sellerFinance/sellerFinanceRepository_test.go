@@ -475,7 +475,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
-						IsAlreadyShippingPay: false,
+						IsAlreadyShippingPayed: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         1111111111222,
@@ -628,7 +628,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
-						IsAlreadyShippingPay: false,
+						IsAlreadyShippingPayed: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         3333333333444,

@@ -14,6 +14,12 @@ type TriggerTimeUnit string
 type TriggerPointType string
 type TriggerExecMode string
 type TriggerJobExecType string
+type TriggerType string
+
+const (
+	SellerTrigger TriggerType = "SELLER"
+	BuyerTrigger  TriggerType = "BUYER"
+)
 
 const (
 	TriggerAsyncJob TriggerJobExecType = "ASYNC"
@@ -30,7 +36,7 @@ const (
 	RelativeTrigger TriggerPointType = "RELATIVE"
 )
 
-type SchedulerTrigger struct {
+type FinanceTrigger struct {
 	ID               primitive.ObjectID `bson:"-"`
 	Version          uint64             `bson:"version"`
 	DocVersion       string             `bson:"docVersion"`
@@ -45,6 +51,7 @@ type SchedulerTrigger struct {
 	LatestTriggerAt  *time.Time         `bson:"latestTriggerAt"`
 	TriggerAt        *time.Time         `bson:"triggerAt"`
 	Data             interface{}        `bson:"data"`
+	Type             TriggerType        `bson:"type"`
 	IsActive         bool               `bson:"isActive"`
 	IsEnable         bool               `bson:"isEnable"`
 	TestMode         bool               `bson:"testMode"`

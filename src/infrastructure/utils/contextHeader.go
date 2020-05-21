@@ -11,7 +11,7 @@ const (
 	CtxForwardedHost ContextKey = "forwarded-host"
 	CtxTrackingId    ContextKey = "tracking-id"
 
-	CtxTriggerHistory     ContextKey = "trigger"
+	CtxTriggerHistory     ContextKey = "triggerHistory"
 	CtxTriggerOffsetPoint ContextKey = "triggerOffsetPoint"
 	CtxTriggerInterval    ContextKey = "triggerInterval"
 	CtxTriggerDuration    ContextKey = "triggerDuration"

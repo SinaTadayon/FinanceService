@@ -304,6 +304,7 @@ func removeCollection() {
 }
 
 func createFinance() *entities.SellerFinance {
+	timestamp := time.Now().UTC()
 	return &entities.SellerFinance{
 		FId:        "",
 		SellerId:   100002,
@@ -397,7 +398,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
-						IsAlreadyShippingPay: false,
+						IsAlreadyShippingPayed: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         1111111111222,
@@ -529,9 +530,9 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						OrderCreatedAt:  time.Now(),
-						SubPkgCreatedAt: time.Now(),
-						SubPkgUpdatedAt: time.Now(),
+						OrderCreatedAt:  &timestamp,
+						SubPkgCreatedAt: &timestamp,
+						SubPkgUpdatedAt: &timestamp,
 						DeletedAt:       nil,
 					},
 					{
@@ -550,7 +551,7 @@ func createFinance() *entities.SellerFinance {
 							Amount:   "1650000",
 							Currency: "IRR",
 						},
-						IsAlreadyShippingPay: false,
+						IsAlreadyShippingPayed: false,
 						Items: []*entities.SellerItem{
 							{
 								SId:         3333333333444,
@@ -682,9 +683,9 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						OrderCreatedAt:  time.Now(),
-						SubPkgCreatedAt: time.Now(),
-						SubPkgUpdatedAt: time.Now(),
+						OrderCreatedAt:  &timestamp,
+						SubPkgCreatedAt: &timestamp,
+						SubPkgUpdatedAt: &timestamp,
 						DeletedAt:       nil,
 					},
 				},

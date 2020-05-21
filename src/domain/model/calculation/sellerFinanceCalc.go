@@ -275,7 +275,7 @@ func FinanceCalcFactory(ctx context.Context, finance *entities.SellerFinance) (*
 				ShipmentAmount:       nil,
 				RawShippingNet:       nil,
 				RoundupShippingNet:   nil,
-				IsAlreadyShippingPay: order.IsAlreadyShippingPay,
+				IsAlreadyShippingPay: order.IsAlreadyShippingPayed,
 				Items:                nil,
 			}
 

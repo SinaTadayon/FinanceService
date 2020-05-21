@@ -7,34 +7,34 @@ import (
 )
 
 type ISchedulerTriggerRepository interface {
-	// return data *entities.SchedulerTrigger and error
-	Save(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture
+	// return data *entities.FinanceTrigger and error
+	Save(ctx context.Context, trigger entities.FinanceTrigger) future.IFuture
 
-	// return data *entities.SchedulerTrigger and error
-	Update(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture
+	// return data *entities.FinanceTrigger and error
+	Update(ctx context.Context, trigger entities.FinanceTrigger) future.IFuture
 
-	// return data *entities.SchedulerTrigger and error
+	// return data *entities.FinanceTrigger and error
 	FindByName(ctx context.Context, name string) future.IFuture
 
-	// return data *entities.SchedulerTrigger and error
-	FindActiveTrigger(ctx context.Context, testMode bool) future.IFuture
+	// return data *entities.FinanceTrigger and error
+	FindActiveTrigger(ctx context.Context, triggerType entities.TriggerType) future.IFuture
 
-	// return data []*entities.SchedulerTrigger and error
+	// return data []*entities.FinanceTrigger and error
 	FindByFilter(ctx context.Context, supplier func() (filter interface{})) future.IFuture
 
 	// only set DeletedAt field
-	// return data *entities.SchedulerTrigger and error
+	// return data *entities.FinanceTrigger and error
 	DeleteByName(ctx context.Context, name string) future.IFuture
 
-	// return data *entities.SchedulerTrigger and error
-	Delete(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture
+	// return data *entities.FinanceTrigger and error
+	Delete(ctx context.Context, trigger entities.FinanceTrigger) future.IFuture
 
 	// remove order from db
 	// return error
 	RemoveByName(ctx context.Context, name string) future.IFuture
 
 	// return error
-	Remove(ctx context.Context, trigger entities.SchedulerTrigger) future.IFuture
+	Remove(ctx context.Context, trigger entities.FinanceTrigger) future.IFuture
 
 	// return error
 	RemoveAll(ctx context.Context) future.IFuture
