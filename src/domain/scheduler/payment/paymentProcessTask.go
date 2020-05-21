@@ -23,11 +23,11 @@ const (
 	DefaultFetchFinancePerPage = 64
 )
 
-type FinanceWriterStream chan<- *entities.SellerFinance
-type FinanceReaderStream <-chan *entities.SellerFinance
-type FinanceChannelStream <-chan FinanceReaderStream
+type financeWriterStream chan<- *entities.SellerFinance
+type financeReaderStream <-chan *entities.SellerFinance
+type financeChannelStream <-chan financeReaderStream
 
-type FinancePipelineFunc func(ctx context.Context, financeStream FinanceReaderStream)
+type financePipelineFunc func(ctx context.Context, financeStream financeReaderStream)
 
 func PaymentProcessTask(ctx context.Context) future.IFuture {
 
@@ -64,7 +64,7 @@ func PaymentProcessTask(ctx context.Context) future.IFuture {
 	}
 }
 
-func findEligibleFinance(ctx context.Context) (FinanceReaderStream, error) {
+func findEligibleFinance(ctx context.Context) (financeReaderStream, error) {
 
 	financeStream := make(chan *entities.SellerFinance, DefaultFinanceStreamSize)
 	findEligibleFinanceTask := func() {
@@ -131,9 +131,9 @@ func findEligibleFinance(ctx context.Context) (FinanceReaderStream, error) {
 	return financeStream, nil
 }
 
-func fanOutFinances(ctx context.Context, financeStream FinanceReaderStream) (FinanceChannelStream, error) {
-	financeWriterChannels := make([]FinanceWriterStream, 0, app.Globals.Config.Mongo.MinPoolSize/2)
-	financeChannelStream := make(chan FinanceReaderStream)
+func fanOutFinances(ctx context.Context, financeStream financeReaderStream) (financeChannelStream, error) {
+	financeWriterChannels := make([]financeWriterStream, 0, app.Globals.Config.Mongo.MinPoolSize/2)
+	financeChannelStream := make(chan financeReaderStream)
 
 	fanOutTask := func() {
 		defer func() {
@@ -185,7 +185,7 @@ func fanOutFinances(ctx context.Context, financeStream FinanceReaderStream) (Fin
 
 }
 
-func fanInFinanceStreams(ctx context.Context, financeChannelStream FinanceChannelStream) (FinanceReaderStream, error) {
+func fanInFinanceStreams(ctx context.Context, financeChannelStream financeChannelStream) (financeReaderStream, error) {
 	multiplexedFinanceStream := make(chan *entities.SellerFinance)
 
 	var wg sync.WaitGroup
@@ -258,10 +258,10 @@ func fanInFinanceStreams(ctx context.Context, financeChannelStream FinanceChanne
 	return multiplexedFinanceStream, nil
 }
 
-func financeProcess() (FinanceReaderStream, FinancePipelineFunc) {
+func financeProcess() (financeReaderStream, financePipelineFunc) {
 	financeOutStream := make(chan *entities.SellerFinance)
 
-	return financeOutStream, func(ctx context.Context, financeInStream FinanceReaderStream) {
+	return financeOutStream, func(ctx context.Context, financeInStream financeReaderStream) {
 		defer close(financeOutStream)
 
 		for sellerFinance := range financeInStream {
@@ -438,10 +438,10 @@ func financeTriggerValidation(ctx context.Context, finance *entities.SellerFinan
 	return nil
 }
 
-func financePayment() (FinanceReaderStream, FinancePipelineFunc) {
+func financePayment() (financeReaderStream, financePipelineFunc) {
 	financeOutStream := make(chan *entities.SellerFinance)
 
-	return financeOutStream, func(ctx context.Context, financeInStream FinanceReaderStream) {
+	return financeOutStream, func(ctx context.Context, financeInStream financeReaderStream) {
 		defer close(financeOutStream)
 
 		for sellerFinance := range financeInStream {
