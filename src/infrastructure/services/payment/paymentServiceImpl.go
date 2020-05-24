@@ -131,15 +131,15 @@ func (payment *iPaymentServiceImpl) SingleTransferMoney(ctx context.Context, req
 				SetError(future.NotAccepted, "Payment TransferOne Failed", errors.New("Payment Service Timeout")).
 				BuildAndSend()
 		}
-	} else if response, ok := obj.(*paymentProto.TransferResult); ok {
+	} else if response, ok := obj.(*paymentProto.TransferOneResponse); ok {
 		log.GLog.Logger.Debug("TransferOne payment service success",
 			"fn", "SingleTransferMoney",
 			"request", request)
 
 		return future.FactorySync().
 			SetData(PaymentResponse{
-				TransferId: response.Id,
-				FId:        response.CorelationId}).
+				TransferId: response.Res.Id,
+				FId:        response.Res.CorelationId}).
 			BuildAndSend()
 	}
 

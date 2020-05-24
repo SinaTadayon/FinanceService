@@ -74,7 +74,7 @@ func (userService *iUserServiceImpl) getUserService(ctx context.Context) error {
 func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, password string) future.IFuture {
 	ctx1, _ := context.WithCancel(context.Background())
 	if err := userService.getUserService(ctx1); err != nil {
-		return future.Factory().SetCapacity(1).
+		return future.FactorySync().
 			SetError(future.InternalError, "UnknownError", errors.Wrap(err, "Connect to UserService Failed")).
 			BuildAndSend()
 	}
@@ -111,7 +111,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 		log.GLog.Logger.FromContext(ctx).Error("userService.client.Login timeout",
 			"fn", "UserLogin",
 			"username", "password", username, password)
-		return future.Factory().SetCapacity(1).
+		return future.FactorySync().
 			SetError(future.InternalError, "UnknownError", errors.New("UserLogin Timeout")).
 			BuildAndSend()
 	}
@@ -123,7 +123,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 				"username", username,
 				"password", password,
 				"error", err)
-			return future.Factory().SetCapacity(1).
+			return future.FactorySync().
 				SetError(future.InternalError, "UnknownError", errors.Wrap(err, "userService.client.Login Failed")).
 				BuildAndSend()
 		}
@@ -134,7 +134,7 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 				"username", username,
 				"password", password,
 				"error", err)
-			return future.Factory().SetCapacity(1).
+			return future.FactorySync().
 				SetError(future.Forbidden, "User Login Failed", errors.Wrap(err, "User Login Failed")).
 				BuildAndSend()
 		}
@@ -144,14 +144,14 @@ func (userService *iUserServiceImpl) UserLogin(ctx context.Context, username, pa
 			RefreshToken: result.Data.RefreshToken,
 		}
 
-		return future.Factory().SetCapacity(1).SetData(loginTokens).BuildAndSend()
+		return future.FactorySync().SetData(loginTokens).BuildAndSend()
 	}
 
 	log.GLog.Logger.FromContext(ctx).Error("userService.client.Login failed",
 		"fn", "UserLogin",
 		"username", username,
 		"password", password)
-	return future.Factory().SetCapacity(1).
+	return future.FactorySync().
 		SetError(future.InternalError, "UnknownError", errors.New("User Login Failed")).
 		BuildAndSend()
 }
@@ -221,7 +221,7 @@ func (userService iUserServiceImpl) AuthenticateContextToken(ctx context.Context
 func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, sellerId string) future.IFuture {
 	ctx1, _ := context.WithCancel(context.Background())
 	if err := userService.getUserService(ctx1); err != nil {
-		return future.Factory().SetCapacity(1).
+		return future.FactorySync().
 			SetError(future.InternalError, "UnknownError", errors.Wrap(err, "Connect to UserService Failed")).
 			BuildAndSend()
 	}
@@ -264,7 +264,7 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 			log.GLog.Logger.FromContext(ctx).Error("userService.client.InternalUserGetOne failed",
 				"fn", "GetSellerProfile",
 				"pid", sellerId, "error", err)
-			return future.Factory().SetCapacity(1).
+			return future.FactorySync().
 				SetError(future.NotFound, "sellerId Not Found", errors.Wrap(err, "sellerId Not Found")).
 				BuildAndSend()
 		}
@@ -277,7 +277,7 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 	}
 
 	if userProfile.Data.Seller == nil {
-		return future.Factory().SetCapacity(1).
+		return future.FactorySync().
 			SetError(future.NotFound, "sellerId Not Found", errors.New("User Not a Seller")).
 			BuildAndSend()
 	}
@@ -309,83 +309,30 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 		}
 	}
 
-	//if userProfile.Data.Seller.CorpInfo != nil {
-	//	sellerProfile.CorporationInfo = &entities.CorporateSellerInfo{
-	//		CompanyRegisteredName:     userProfile.Data.Seller.CorpInfo.CompanyRegisteredName,
-	//		CompanyRegistrationNumber: userProfile.Data.Seller.CorpInfo.CompanyRegistrationNumber,
-	//		CompanyRationalId:         userProfile.Data.Seller.CorpInfo.CompanyRationalID,
-	//		TradeNumber:               userProfile.Data.Seller.CorpInfo.TradeNumber,
-	//	}
-	//}
-	//
-	//if userProfile.Data.Seller.IndivInfo != nil {
-	//	sellerProfile.IndividualInfo = &entities.IndividualSellerInfo{
-	//		FirstName:          userProfile.Data.Seller.IndivInfo.FirstName,
-	//		FamilyName:         userProfile.Data.Seller.IndivInfo.FamilyName,
-	//		NationalId:         userProfile.Data.Seller.IndivInfo.NationalID,
-	//		NationalIdFrontURL: userProfile.Data.Seller.IndivInfo.NationalIDfrontURL,
-	//		NationalIdBackURL:  userProfile.Data.Seller.IndivInfo.NationalIDbackURL,
-	//	}
-	//}
-	//
-	//if userProfile.Data.Seller.ReturnInfo != nil {
-	//	sellerProfile.ReturnInfo = &entities.ReturnInfo{
-	//
-	//		PostalAddress: userProfile.Data.Seller.ReturnInfo.PostalAddress,
-	//		PostalCode:    userProfile.Data.Seller.ReturnInfo.PostalCode,
-	//	}
-	//
-	//	if userProfile.Data.Seller.ReturnInfo.Country != nil {
-	//		sellerProfile.ReturnInfo.Country = userProfile.Data.Seller.ReturnInfo.Country.Name
-	//	}
-	//
-	//	if userProfile.Data.Seller.ReturnInfo.Province != nil {
-	//		sellerProfile.ReturnInfo.Province = userProfile.Data.Seller.ReturnInfo.Province.Name
-	//	}
-	//
-	//	if userProfile.Data.Seller.ReturnInfo.City != nil {
-	//		sellerProfile.ReturnInfo.City = userProfile.Data.Seller.ReturnInfo.City.Name
-	//	}
-	//
-	//	if userProfile.Data.Seller.ReturnInfo.Neighborhood != nil {
-	//		sellerProfile.ReturnInfo.Neighborhood = userProfile.Data.Seller.ReturnInfo.Neighborhood.Name
-	//	}
-	//}
-	//
-	//if userProfile.Data.Seller.ContactPerson != nil {
-	//	sellerProfile.ContactPerson = &entities.SellerContactPerson{
-	//		FirstName:   userProfile.Data.Seller.ContactPerson.FirstName,
-	//		FamilyName:  userProfile.Data.Seller.ContactPerson.FamilyName,
-	//		MobilePhone: userProfile.Data.Seller.ContactPerson.MobilePhone,
-	//		Email:       userProfile.Data.Seller.ContactPerson.Email,
-	//	}
-	//}
-	//
-	//if userProfile.Data.Seller.ShipmentInfo != nil {
-	//	sellerProfile.ShipmentInfo = &entities.SellerShipmentInfo{}
-	//	if userProfile.Data.Seller.ShipmentInfo.SameCity != nil {
-	//		sellerProfile.ShipmentInfo.SameCity = &entities.PricePlan{
-	//			Threshold:        userProfile.Data.Seller.ShipmentInfo.SameCity.Threshold,
-	//			BelowPrice:       userProfile.Data.Seller.ShipmentInfo.SameCity.BelowPrice,
-	//			ReactionTimeDays: userProfile.Data.Seller.ShipmentInfo.SameCity.ReactionTimeDays,
-	//		}
-	//	}
-	//
-	//	if userProfile.Data.Seller.ShipmentInfo.DifferentCity != nil {
-	//		sellerProfile.ShipmentInfo.DifferentCity = &entities.PricePlan{
-	//			Threshold:        userProfile.Data.Seller.ShipmentInfo.DifferentCity.Threshold,
-	//			BelowPrice:       userProfile.Data.Seller.ShipmentInfo.DifferentCity.BelowPrice,
-	//			ReactionTimeDays: userProfile.Data.Seller.ShipmentInfo.DifferentCity.ReactionTimeDays,
-	//		}
-	//	}
-	//}
-
 	if userProfile.Data.Seller.FinanceData != nil {
 		sellerProfile.FinanceData = &entities.SellerFinanceData{
 			Iban:                    userProfile.Data.Seller.FinanceData.Iban,
 			AccountHolderFirstName:  userProfile.Data.Seller.FinanceData.AccountHolderFirstName,
 			AccountHolderFamilyName: userProfile.Data.Seller.FinanceData.AccountHolderFamilyName,
 		}
+	} else {
+		log.GLog.Logger.FromContext(ctx).Error("user FinanceData is empty",
+			"fn", "GetSellerProfile",
+			"userId", userProfile.Data.UserId)
+
+		return future.FactorySync().
+			SetError(future.NotAccepted, "user profile finance data is empty", errors.New("user profile finance data is empty")).
+			BuildAndSend()
+	}
+
+	if sellerProfile.FinanceData.Iban == "" {
+		log.GLog.Logger.FromContext(ctx).Error("user FinanceData iban field is empty",
+			"fn", "GetSellerProfile",
+			"userId", userProfile.Data.UserId)
+
+		return future.FactorySync().
+			SetError(future.NotAccepted, "user FinanceData iban field is empty", errors.New("user profile iban field is empty")).
+			BuildAndSend()
 	}
 
 	timestamp, err := time.Parse(ISO8601, userProfile.Data.CreatedAt)
@@ -405,5 +352,5 @@ func (userService iUserServiceImpl) GetSellerProfile(ctx context.Context, seller
 		timestamp = time.Now().UTC()
 	}
 	sellerProfile.UpdatedAt = timestamp
-	return future.Factory().SetCapacity(1).SetData(sellerProfile).BuildAndSend()
+	return future.FactorySync().SetData(sellerProfile).BuildAndSend()
 }

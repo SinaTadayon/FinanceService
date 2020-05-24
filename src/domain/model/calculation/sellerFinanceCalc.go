@@ -36,13 +36,13 @@ type OrderInfoCalc struct {
 }
 
 type SellerOrderCalc struct {
-	OId                  uint64
-	SellerId             uint64
-	ShipmentAmount       *decimal.Decimal
-	RawShippingNet       *decimal.Decimal
-	RoundupShippingNet   *decimal.Decimal
-	IsAlreadyShippingPay bool
-	Items                []*SellerItemCalc
+	OId                    uint64
+	SellerId               uint64
+	ShipmentAmount         *decimal.Decimal
+	RawShippingNet         *decimal.Decimal
+	RoundupShippingNet     *decimal.Decimal
+	IsAlreadyShippingPayed bool
+	Items                  []*SellerItemCalc
 }
 
 type SellerItemCalc struct {
@@ -270,13 +270,13 @@ func FinanceCalcFactory(ctx context.Context, finance *entities.SellerFinance) (*
 		orderInfoCalc.Orders = make([]*SellerOrderCalc, 0, len(orderInfo.Orders))
 		for _, order := range orderInfo.Orders {
 			orderCalc := &SellerOrderCalc{
-				OId:                  order.OId,
-				SellerId:             order.SellerId,
-				ShipmentAmount:       nil,
-				RawShippingNet:       nil,
-				RoundupShippingNet:   nil,
-				IsAlreadyShippingPay: order.IsAlreadyShippingPayed,
-				Items:                nil,
+				OId:                    order.OId,
+				SellerId:               order.SellerId,
+				ShipmentAmount:         nil,
+				RawShippingNet:         nil,
+				RoundupShippingNet:     nil,
+				IsAlreadyShippingPayed: order.IsAlreadyShippingPayed,
+				Items:                  nil,
 			}
 
 			if order.ShipmentAmount != nil {

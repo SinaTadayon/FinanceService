@@ -9,6 +9,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
+	worker_pool "gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"go.mongodb.org/mongo-driver/bson"
 	"strconv"
 	"sync"
@@ -16,23 +17,23 @@ import (
 )
 
 func PaymentTrackingTask(ctx context.Context) future.IFuture {
-	financeStream, err := findFinancePaymentProcessState(ctx)
+	financeStream, err := findPaymentPendingFinance(ctx)
 	if err != nil {
-		return future.Factory().
-			SetError(future.InternalError, "findFinancePaymentProcessState failed", errors.Wrap(err, "findFinancePaymentProcessState failed")).
+		return future.FactorySync().
+			SetError(future.InternalError, "findPaymentPendingFinance failed", errors.Wrap(err, "findPaymentPendingFinance failed")).
 			BuildAndSend()
 	}
 
-	financeChannelStream, err := fanOutPaymentFinances(ctx, financeStream)
+	financeChannelStream, err := fanOutFinancePipeline(ctx, financeStream)
 	if err != nil {
-		return future.Factory().
+		return future.FactorySync().
 			SetError(future.InternalError, "fanOutPaymentFinances failed", errors.Wrap(err, "fanOutPaymentFinances failed")).
 			BuildAndSend()
 	}
 
-	financeOutStream, err := fanInPaymentTrackingStreams(ctx, financeChannelStream)
+	financeOutStream, err := fanInPipelineStream(ctx, financeChannelStream)
 	if err != nil {
-		return future.Factory().
+		return future.FactorySync().
 			SetError(future.InternalError, "fanInPaymentTrackingStreams failed", errors.Wrap(err, "fanInPaymentTrackingStreams failed")).
 			BuildAndSend()
 	}
@@ -40,16 +41,16 @@ func PaymentTrackingTask(ctx context.Context) future.IFuture {
 	for {
 		select {
 		case <-ctx.Done():
-			return future.Factory().SetData(struct{}{}).BuildAndSend()
+			return future.FactorySync().SetData(struct{}{}).BuildAndSend()
 		case _, ok := <-financeOutStream:
 			if !ok {
-				return future.Factory().SetData(struct{}{}).BuildAndSend()
+				return future.FactorySync().SetData(struct{}{}).BuildAndSend()
 			}
 		}
 	}
 }
 
-func findFinancePaymentProcessState(ctx context.Context) (financeReaderStream, error) {
+func findPaymentPendingFinance(ctx context.Context) (FinanceReaderStream, error) {
 
 	financeStream := make(chan *entities.SellerFinance, DefaultFinanceStreamSize)
 	findPendingFinanceTask := func() {
@@ -81,7 +82,7 @@ func findFinancePaymentProcessState(ctx context.Context) (financeReaderStream, e
 				return
 			}
 
-			financeResult := iFuture.Data().(*finance_repository.FinancePageableResult)
+			financeResult := iFuture.Data().(finance_repository.FinancePageableResult)
 
 			if financeResult.TotalCount%DefaultFetchFinancePerPage != 0 {
 				availablePages = (int(financeResult.TotalCount) / DefaultFetchFinancePerPage) + 1
@@ -114,61 +115,57 @@ func findFinancePaymentProcessState(ctx context.Context) (financeReaderStream, e
 	return financeStream, nil
 }
 
-func fanOutPaymentFinances(ctx context.Context, financeStream financeReaderStream) (financeChannelStream, error) {
-	financeWriterChannels := make([]financeWriterStream, 0, app.Globals.Config.Mongo.MinPoolSize/2)
-	financeChannelStream := make(chan financeReaderStream)
+func fanOutFinancePipeline(ctx context.Context, financeStream FinanceReaderStream) (PipelineInStream, error) {
+	financeWriterChannels := make([]FinanceWriterStream, 0, app.Globals.Config.Mongo.MinPoolSize/2)
+	pipelineStream := make(chan *Pipeline)
 
 	fanOutTask := func() {
 		defer func() {
-			log.GLog.Logger.Debug("complete",
-				"fn", "fanOutPaymentFinances")
 			for _, stream := range financeWriterChannels {
 				close(stream)
 			}
 
-			close(financeChannelStream)
+			close(pipelineStream)
 		}()
 
 		index := 0
+		initIndex := 0
 		for sellerFinance := range financeStream {
-			//log.GLog.Logger.Debug("received order",
-			//	"fn", "FanOutOrders",
-			//	"oid", sellerOrder.OId)
 			select {
 			case <-ctx.Done():
 				return
 			default:
 			}
 
-			if index >= cap(financeWriterChannels) {
+			if initIndex < cap(financeWriterChannels) {
+				financeStream := make(chan *entities.SellerFinance, DefaultFanOutStreamBuffer)
+				financeWriterChannels = append(financeWriterChannels, financeStream)
+				pipelineStream <- &Pipeline{dataStream: financeStream}
+				initIndex++
+			}
+
+			if index > len(financeWriterChannels) {
 				index = 0
 			}
 
-			if financeWriterChannels[index] == nil {
-				financeStream := make(chan *entities.SellerFinance, DefaultFanOutStreamBuffer)
-				financeWriterChannels[index] = financeStream
-				financeChannelStream <- financeStream
-				financeStream <- sellerFinance
-			} else {
-				financeWriterChannels[index] <- sellerFinance
-			}
+			financeWriterChannels[index] <- sellerFinance
 			index++
 		}
 	}
 
 	if err := app.Globals.WorkerPool.SubmitTask(fanOutTask); err != nil {
 		log.GLog.Logger.Error("WorkerPool.SubmitTask failed",
-			"fn", "fanOutPaymentFinances",
+			"fn", "fanOutFinancePipeline",
 			"error", err)
 
 		return nil, err
 	}
 
-	return financeChannelStream, nil
+	return pipelineStream, nil
 
 }
 
-func fanInPaymentTrackingStreams(ctx context.Context, financeChannelStream financeChannelStream) (financeReaderStream, error) {
+func fanInPipelineStream(ctx context.Context, pipelineStream PipelineInStream) (FinanceReaderStream, error) {
 	multiplexedFinanceStream := make(chan *entities.SellerFinance)
 
 	var wg sync.WaitGroup
@@ -176,30 +173,24 @@ func fanInPaymentTrackingStreams(ctx context.Context, financeChannelStream finan
 		defer func() {
 			close(multiplexedFinanceStream)
 		}()
-		for financeChannel := range financeChannelStream {
+		for pipeline := range pipelineStream {
 			select {
 			case <-ctx.Done():
 				break
 			default:
 			}
 
-			financeStream, financePaymentTrackingFn := financePaymentTracking()
-			financePaymentTrackingTask := func() {
-				financePaymentTrackingFn(ctx, financeChannel)
-			}
+			financeStream, pipelineTask := pipeline.financePaymentTracking(ctx)
 
-			if err := app.Globals.WorkerPool.SubmitTask(financePaymentTrackingTask); err != nil {
-				log.GLog.Logger.Error("submit financePaymentTrackingTask to WorkerPool.SubmitTask failed",
-					"fn", "fanInPaymentTrackingStreams", "error", err)
+			if err := app.Globals.WorkerPool.SubmitTask(pipelineTask); err != nil {
+				log.GLog.Logger.Error("submit pipelineTask to WorkerPool.SubmitTask failed",
+					"fn", "fanInPipelineStream", "error", err)
 				continue
 			}
 
 			fanInMultiplexTask := func() {
 				defer wg.Done()
 				for finance := range financeStream {
-					//log.GLog.Logger.Debug("received order",
-					//	"fn", "FanInOrderStreams",
-					//	"sellerId", finance.SellerId)
 					select {
 					case <-ctx.Done():
 						break
@@ -211,7 +202,7 @@ func fanInPaymentTrackingStreams(ctx context.Context, financeChannelStream finan
 			wg.Add(1)
 			if err := app.Globals.WorkerPool.SubmitTask(fanInMultiplexTask); err != nil {
 				log.GLog.Logger.Error("submit fanInMultiplexTask to WorkerPool.SubmitTask failed",
-					"fn", "fanInPaymentTrackingStreams", "error", err)
+					"fn", "fanInPipelineStream", "error", err)
 				wg.Done()
 			}
 		}
@@ -221,7 +212,7 @@ func fanInPaymentTrackingStreams(ctx context.Context, financeChannelStream finan
 
 	if err := app.Globals.WorkerPool.SubmitTask(fanInTask); err != nil {
 		log.GLog.Logger.Error("WorkerPool.SubmitTask failed",
-			"fn", "fanInFinanceStreams",
+			"fn", "fanInPipelineStream",
 			"error", err)
 
 		return nil, err
@@ -230,13 +221,13 @@ func fanInPaymentTrackingStreams(ctx context.Context, financeChannelStream finan
 	return multiplexedFinanceStream, nil
 }
 
-func financePaymentTracking() (financeReaderStream, financePipelineFunc) {
+func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceReaderStream, worker_pool.Task) {
 	financeOutStream := make(chan *entities.SellerFinance)
 
-	return financeOutStream, func(ctx context.Context, financeInStream financeReaderStream) {
+	return financeOutStream, func() {
 		defer close(financeOutStream)
 
-		for sellerFinance := range financeInStream {
+		for sellerFinance := range pipeline.dataStream {
 			select {
 			case <-ctx.Done():
 				return
@@ -248,7 +239,13 @@ func financePaymentTracking() (financeReaderStream, financePipelineFunc) {
 					"fn", "financePaymentTracking",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId)
-				_ = financeStartPayment(ctx, sellerFinance)
+				err := pipeline.financeTrackingStartPayment(ctx, sellerFinance)
+				if err != nil {
+					log.GLog.Logger.Warn("financePaymentTracking StartPayment failed",
+						"fn", "financePaymentTracking",
+						"fid", sellerFinance.FId,
+						"sellerId", sellerFinance.SellerId)
+				}
 			} else if sellerFinance.Payment.Status == entities.TransferPendingState {
 				log.GLog.Logger.Debug("tracking finance payment transfer money",
 					"fn", "financePaymentTracking",
@@ -268,25 +265,50 @@ func financePaymentTracking() (financeReaderStream, financePipelineFunc) {
 				}
 
 				transferResult := iFuture.Data().(payment_service.TransferMoneyResult)
-				if transferResult.Pending == 0 {
-					log.GLog.Logger.Debug("finance transfer money complete",
-						"fn", "financePaymentTracking",
-						"fid", sellerFinance.FId,
-						"sellerId", sellerFinance.SellerId,
-						"result", transferResult)
-
+				if sellerFinance.Payment.TransferResult == nil {
 					sellerFinance.Payment.TransferResult = &entities.TransferResult{
 						TransferId: transferResult.TransferId,
 						SuccessTransfer: &entities.Money{
 							Amount:   strconv.Itoa(int(transferResult.Total)),
 							Currency: transferResult.Currency,
 						},
+
+						PendingTransfer: &entities.Money{
+							Amount:   strconv.Itoa(int(transferResult.Pending)),
+							Currency: transferResult.Currency,
+						},
+
 						FailedTransfer: &entities.Money{
 							Amount:   strconv.Itoa(int(transferResult.Failed)),
 							Currency: transferResult.Currency,
 						},
 						CreatedAt: time.Now().UTC(),
+						UpdatedAt: time.Now().UTC(),
 					}
+				} else {
+					sellerFinance.Payment.TransferResult.SuccessTransfer = &entities.Money{
+						Amount:   strconv.Itoa(int(transferResult.Total)),
+						Currency: transferResult.Currency,
+					}
+
+					sellerFinance.Payment.TransferResult.PendingTransfer = &entities.Money{
+						Amount:   strconv.Itoa(int(transferResult.Pending)),
+						Currency: transferResult.Currency,
+					}
+
+					sellerFinance.Payment.TransferResult.FailedTransfer = &entities.Money{
+						Amount:   strconv.Itoa(int(transferResult.Failed)),
+						Currency: transferResult.Currency,
+					}
+					sellerFinance.Payment.TransferResult.UpdatedAt = time.Now().UTC()
+				}
+
+				if transferResult.Pending == 0 {
+					log.GLog.Logger.Debug("finance transfer money complete",
+						"fn", "financePaymentTracking",
+						"fid", sellerFinance.FId,
+						"sellerId", sellerFinance.SellerId,
+						"result", transferResult)
 
 					if transferResult.Total == 0 {
 						sellerFinance.Payment.Status = entities.TransferFailedState
@@ -296,20 +318,23 @@ func financePaymentTracking() (financeReaderStream, financePipelineFunc) {
 						sellerFinance.Payment.Status = entities.TransferPartialState
 					}
 
-					iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
-					if iFuture.Error() != nil {
-						log.GLog.Logger.Error("sellerFinance transfer money result failed",
-							"fn", "financeProcess",
-							"fid", sellerFinance.FId,
-							"sellerId", sellerFinance.SellerId,
-							"error", iFuture.Error())
-					}
+					sellerFinance.Status = entities.FinanceClosedStatus
 				} else {
 					log.GLog.Logger.Debug("finance transfer money in progress . . .",
 						"fn", "financePaymentTracking",
 						"fid", sellerFinance.FId,
 						"sellerId", sellerFinance.SellerId,
 						"result", transferResult)
+				}
+
+				iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
+				if iFuture.Error() != nil {
+					log.GLog.Logger.Error("sellerFinance transfer money result failed",
+						"fn", "financeProcess",
+						"fid", sellerFinance.FId,
+						"sellerId", sellerFinance.SellerId,
+						"error", iFuture.Error())
+					continue
 				}
 			}
 
@@ -318,7 +343,7 @@ func financePaymentTracking() (financeReaderStream, financePipelineFunc) {
 	}
 }
 
-func financeStartPayment(ctx context.Context, sellerFinance *entities.SellerFinance) error {
+func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, sellerFinance *entities.SellerFinance) error {
 
 	requestTimestamp := time.Now().UTC()
 	paymentRequest := payment_service.PaymentRequest{
@@ -335,7 +360,7 @@ func financeStartPayment(ctx context.Context, sellerFinance *entities.SellerFina
 	iFuture := app.Globals.PaymentService.SingleTransferMoney(ctx, paymentRequest).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("SingleTransferMoney for seller payment failed",
-			"fn", "financePayment",
+			"fn", "financeTrackingStartPayment",
 			"fid", sellerFinance.FId,
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())
@@ -368,7 +393,7 @@ func financeStartPayment(ctx context.Context, sellerFinance *entities.SellerFina
 	iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("sellerFinance update after transfer money request failed",
-			"fn", "financeProcess",
+			"fn", "financeTrackingStartPayment",
 			"fid", sellerFinance.FId,
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())

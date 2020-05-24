@@ -12,7 +12,6 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -31,8 +30,6 @@ type OrderScheduler struct {
 
 	schedulerTimeUnit      utils.TimeUnit
 	financeTriggerTimeUnit utils.TimeUnit
-	waitGroup              sync.WaitGroup
-	mux                    sync.Mutex
 }
 
 func NewOrderScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWorkerTimeout,
@@ -58,10 +55,7 @@ func (scheduler OrderScheduler) SchedulerStart(ctx context.Context) error {
 	if err := scheduler.init(ctx); err != nil {
 		return err
 	}
-
-	scheduler.waitGroup.Add(1)
 	go scheduler.scheduleProcess(ctx)
-	scheduler.waitGroup.Wait()
 	return nil
 }
 
@@ -162,7 +156,7 @@ func (scheduler OrderScheduler) init(ctx context.Context) error {
 		}
 
 		newTrigger = iFuture.Data().(*entities.FinanceTrigger)
-		if app.Globals.Config.App.FinanceOrderSchedulerUpdateFinanceShrinkDuration && activeTrigger != nil {
+		if app.Globals.Config.App.FinanceOrderSchedulerUpdateFinanceDuration && activeTrigger != nil {
 			if err := scheduler.updateSellerFinanceWithNewTriggerConfig(ctx, activeTrigger, newTrigger); err != nil {
 				log.GLog.Logger.Error("updateSellerFinance With NewTriggerConfig failed",
 					"fn", "init",
@@ -544,14 +538,13 @@ func (scheduler OrderScheduler) scheduleProcess(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.GLog.Logger.Debug("stewardWorkerFn goroutine context down!",
+			log.GLog.Logger.Debug("order scheduler stewardWorkerFn goroutine context down!",
 				"fn", "scheduleProcess")
 			stewardTimer.Stop()
-			scheduler.waitGroup.Done()
 			return
 		case _, ok := <-heartbeat:
 			if ok == false {
-				log.GLog.Logger.Debug("heartbeat of stewardWorkerFn closed",
+				log.GLog.Logger.Debug("order scheduler heartbeat of stewardWorkerFn closed",
 					"fn", "scheduleProcess")
 				stewardCtxCancel()
 				stewardCtx, stewardCtxCancel = context.WithCancel(context.Background())
@@ -565,7 +558,7 @@ func (scheduler OrderScheduler) scheduleProcess(ctx context.Context) {
 			}
 
 		case <-stewardTimer.C:
-			log.GLog.Logger.Debug("stewardWorkerFn goroutine is not healthy!",
+			log.GLog.Logger.Debug("order scheduler stewardWorkerFn goroutine is not healthy!",
 				"fn", "scheduleProcess")
 			stewardCtxCancel()
 			stewardCtx, stewardCtxCancel = context.WithCancel(context.Background())
@@ -608,7 +601,7 @@ func (scheduler OrderScheduler) stewardFn(ctx context.Context, wardPulseInterval
 					wardTimer.Reset(wardPulseInterval * 2)
 
 				case <-wardTimer.C:
-					log.GLog.Logger.Error("ward unhealthy; restarting ward",
+					log.GLog.Logger.Error("order scheduler ward unhealthy; restarting ward",
 						"fn", "stewardFn")
 					wardCtxCancel()
 					startWard()
@@ -616,7 +609,7 @@ func (scheduler OrderScheduler) stewardFn(ctx context.Context, wardPulseInterval
 
 				case <-ctx.Done():
 					wardTimer.Stop()
-					log.GLog.Logger.Debug("context done . . .",
+					log.GLog.Logger.Debug("order scheduler context done . . .",
 						"fn", "stewardFn",
 						"error", ctx.Err())
 					return
@@ -630,7 +623,7 @@ func (scheduler OrderScheduler) stewardFn(ctx context.Context, wardPulseInterval
 func (scheduler OrderScheduler) worker(ctx context.Context, pulseInterval time.Duration,
 	scheduleInterval time.Duration) <-chan interface{} {
 
-	log.GLog.Logger.Debug("scheduler start workers . . .",
+	log.GLog.Logger.Debug("order scheduler start workers . . .",
 		"fn", "workers",
 		"pulse", pulseInterval,
 		"schedule", scheduleInterval)
@@ -651,7 +644,7 @@ func (scheduler OrderScheduler) worker(ctx context.Context, pulseInterval time.D
 			case <-ctx.Done():
 				pulseTimer.Stop()
 				scheduleTimer.Stop()
-				log.GLog.Logger.Debug("context down",
+				log.GLog.Logger.Debug("order scheduler context down",
 					"fn", "workers",
 					"error", ctx.Err())
 				return
@@ -670,8 +663,8 @@ func (scheduler OrderScheduler) worker(ctx context.Context, pulseInterval time.D
 }
 
 func (scheduler OrderScheduler) doProcess(ctx context.Context) {
-	//log.GLog.Logger.Debug("scheduler doProcess",
-	//	"fn", "doProcess")
+	log.GLog.Logger.Debug("order scheduler doProcess",
+		"fn", "doProcess")
 
 	iFuture := app.Globals.TriggerRepository.FindByName(ctx, app.Globals.Config.App.SellerFinanceTriggerName).Get()
 	if iFuture.Error() != nil {
@@ -750,12 +743,6 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 	}
 
 	triggerHistory = iFuture.Data().(*entities.TriggerHistory)
-
-	//ctx = context.WithValue(ctx, string(utils.CtxTriggerDuration), scheduler.financeTriggerDuration)
-	//ctx = context.WithValue(ctx, string(utils.CtxTriggerInterval), scheduler.financeTriggerInterval)
-	//ctx = context.WithValue(ctx, string(utils.CtxTriggerOffsetPoint), scheduler.financeTriggerOffsetPoint)
-	//ctx = context.WithValue(ctx, string(utils.CtxTriggerPointType), scheduler.financeTriggerPointType)
-	//ctx = context.WithValue(ctx, string(utils.CtxTriggerTimeUnit), scheduler.financeTriggerTimeUnit)
 
 	// concurrent or sequential
 	scheduler.OrderSchedulerTask(ctx, *triggerHistory).Get()

@@ -69,8 +69,10 @@ type TransferResponse struct {
 type TransferResult struct {
 	TransferId      string    `bson:"transferId"`
 	SuccessTransfer *Money    `bson:"successTransfer"`
+	PendingTransfer *Money    `bson:"pendingTransfer"`
 	FailedTransfer  *Money    `bson:"failedTransfer"`
 	CreatedAt       time.Time `bson:"createdAt"`
+	UpdatedAt       time.Time `bson:"updatedAt"`
 }
 
 type Invoice struct {

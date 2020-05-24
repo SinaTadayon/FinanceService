@@ -19,12 +19,12 @@ type Config struct {
 		FinancePaymentSchedulerWorkerTimeout       int    `env:"FINANCE_PAYMENT_SCHEDULER_WORKER_TIMEOUT"`
 		FinancePaymentSchedulerStates              string `env:"FINANCE_PAYMENT_SCHEDULER_STATES"`
 
-		FinanceOrderSchedulerTimeUint                    string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
-		FinanceOrderSchedulerInterval                    int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
-		FinanceOrderSchedulerParentWorkerTimeout         int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
-		FinanceOrderSchedulerWorkerTimeout               int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
-		FinanceOrderSchedulerUpdateFinanceShrinkDuration bool   `env:"FINANCE_ORDER_SCHEDULER_UPDATE_FINANCE_SHRINK_DURATION"`
-		FinanceOrderSchedulerHandleMissedFireTrigger     bool   `env:"FINANCE_ORDER_SCHEDULER_HANDLE_MISSED_FIRE_TRIGGER"`
+		FinanceOrderSchedulerTimeUint                string `env:"FINANCE_ORDER_SCHEDULER_TIME_UNIT"`
+		FinanceOrderSchedulerInterval                int    `env:"FINANCE_ORDER_SCHEDULER_INTERVAL"`
+		FinanceOrderSchedulerParentWorkerTimeout     int    `env:"FINANCE_ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerWorkerTimeout           int    `env:"FINANCE_ORDER_SCHEDULER_WORKER_TIMEOUT"`
+		FinanceOrderSchedulerUpdateFinanceDuration   bool   `env:"FINANCE_ORDER_SCHEDULER_UPDATE_FINANCE_DURATION"`
+		FinanceOrderSchedulerHandleMissedFireTrigger bool   `env:"FINANCE_ORDER_SCHEDULER_HANDLE_MISSED_FIRE_TRIGGER"`
 
 		SellerFinanceTriggerName      string `env:"FINANCE_SELLER_FINANCE_TRIGGER_NAME"`
 		SellerFinanceTriggerTimeUnit  string `env:"FINANCE_SELLER_FINANCE_TRIGGER_TIME_UNIT"`
@@ -35,7 +35,7 @@ type Config struct {
 		SellerFinanceTriggerEnabled   bool   `env:"FINANCE_SELLER_FINANCE_TRIGGER_ENABLED"`
 		SellerFinanceTriggerTestMode  bool   `env:"FINANCE_SELLER_FINANCE_TRIGGER_TEST_MODE"`
 
-		SellerFinancePreventDuplicateOrderItem bool `env:"SELLER_FINANCE_PREVENT_DUPLICATE_ORDER_ITEM"`
+		SellerFinancePreventDuplicateOrderItem bool `env:"FINANCE_SELLER_FINANCE_PREVENT_DUPLICATE_ORDER_ITEM"`
 	}
 
 	GRPCServer struct {

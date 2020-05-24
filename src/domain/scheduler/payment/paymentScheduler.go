@@ -24,8 +24,6 @@ type startWardFn func(ctx context.Context, pulseInterval time.Duration, schedule
 type startStewardFn func(ctx context.Context, pulseInterval time.Duration) (heartbeat <-chan interface{})
 
 type PaymentScheduler struct {
-	database                string
-	collection              string
 	states                  []StateConfig
 	schedulerInterval       time.Duration
 	schedulerStewardTimeout time.Duration
@@ -34,15 +32,14 @@ type PaymentScheduler struct {
 	mux                     sync.Mutex
 }
 
-func NewPaymentScheduler(database, collection string,
-	schedulerInterval, schedulerStewardTimeout, schedulerWorkerTimeout time.Duration,
+func NewPaymentScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWorkerTimeout time.Duration,
 	states ...StateConfig) *PaymentScheduler {
 	for i := 0; i < len(states); i++ {
 		if states[i].ScheduleInterval == 0 {
 			states[i].ScheduleInterval = schedulerInterval
 		}
 	}
-	return &PaymentScheduler{database: database, collection: collection,
+	return &PaymentScheduler{
 		schedulerInterval: schedulerInterval, schedulerStewardTimeout: schedulerStewardTimeout,
 		schedulerWorkerTimeout: schedulerWorkerTimeout,
 		states:                 states}
@@ -67,7 +64,7 @@ func (scheduler *PaymentScheduler) scheduleProcess(ctx context.Context, config S
 	for {
 		select {
 		case <-ctx.Done():
-			log.GLog.Logger.Debug("stewardWorkerFn goroutine context down!",
+			log.GLog.Logger.Debug("payment scheduler stewardWorkerFn goroutine context down!",
 				"fn", "scheduleProcess",
 				"state", config.State)
 			stewardTimer.Stop()
@@ -75,7 +72,7 @@ func (scheduler *PaymentScheduler) scheduleProcess(ctx context.Context, config S
 			return
 		case _, ok := <-heartbeat:
 			if ok == false {
-				log.GLog.Logger.Debug("heartbeat of stewardWorkerFn closed",
+				log.GLog.Logger.Debug("payment scheduler heartbeat of stewardWorkerFn closed",
 					"fn", "scheduleProcess",
 					"state", config.State)
 				stewardCtxCancel()
@@ -90,7 +87,7 @@ func (scheduler *PaymentScheduler) scheduleProcess(ctx context.Context, config S
 			}
 
 		case <-stewardTimer.C:
-			log.GLog.Logger.Debug("stewardWorkerFn goroutine is not healthy!",
+			log.GLog.Logger.Debug("payment scheduler stewardWorkerFn goroutine is not healthy!",
 				"fn", "scheduleProcess",
 				"state:", config.State)
 			stewardCtxCancel()
@@ -134,7 +131,7 @@ func (scheduler *PaymentScheduler) stewardFn(ctx context.Context, wardPulseInter
 					wardTimer.Reset(wardPulseInterval * 2)
 
 				case <-wardTimer.C:
-					log.GLog.Logger.Error("ward unhealthy; restarting ward",
+					log.GLog.Logger.Error("payment scheduler ward unhealthy; restarting ward",
 						"fn", "stewardFn",
 						"state", state)
 					wardCtxCancel()
@@ -143,7 +140,7 @@ func (scheduler *PaymentScheduler) stewardFn(ctx context.Context, wardPulseInter
 
 				case <-ctx.Done():
 					wardTimer.Stop()
-					log.GLog.Logger.Debug("context done . . .",
+					log.GLog.Logger.Debug("payment scheduler context done . . .",
 						"fn", "stewardFn",
 						"state", state, "cause", ctx.Err())
 					return
@@ -157,7 +154,7 @@ func (scheduler *PaymentScheduler) stewardFn(ctx context.Context, wardPulseInter
 func (scheduler *PaymentScheduler) worker(ctx context.Context, pulseInterval time.Duration,
 	scheduleInterval time.Duration, state PaymentState) <-chan interface{} {
 
-	log.GLog.Logger.Debug("scheduler start worker . . .",
+	log.GLog.Logger.Debug("payment scheduler start worker . . .",
 		"fn", "worker",
 		"pulse", pulseInterval,
 		"schedule", scheduleInterval,
@@ -179,7 +176,7 @@ func (scheduler *PaymentScheduler) worker(ctx context.Context, pulseInterval tim
 			case <-ctx.Done():
 				pulseTimer.Stop()
 				scheduleTimer.Stop()
-				log.GLog.Logger.Debug("context down",
+				log.GLog.Logger.Debug("payment scheduler context down",
 					"fn", "worker",
 					"state", state,
 					"cause", ctx.Err())
@@ -199,13 +196,13 @@ func (scheduler *PaymentScheduler) worker(ctx context.Context, pulseInterval tim
 }
 
 func (scheduler *PaymentScheduler) doProcess(ctx context.Context, state PaymentState) {
-	log.GLog.Logger.Debug("scheduler doProcess",
+	log.GLog.Logger.Debug("payment scheduler doProcess",
 		"fn", "doProcess",
 		"state", state)
 
 	if state == PaymentProcessState {
-		PaymentProcessTask(ctx)
+		PaymentProcessTask(ctx).Get()
 	} else {
-		PaymentTrackingTask(ctx)
+		PaymentTrackingTask(ctx).Get()
 	}
 }

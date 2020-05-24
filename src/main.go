@@ -472,8 +472,6 @@ func main() {
 	}
 
 	paymentScheduler := payment_scheduler.NewPaymentScheduler(
-		app.Globals.Config.Mongo.Database,
-		app.Globals.Config.Mongo.SellerCollection,
 		PaymentSchedulerInterval,
 		PaymentSchedulerParentWorkerTimeout,
 		PaymentSchedulerWorkerTimeout,

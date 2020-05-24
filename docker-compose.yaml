@@ -15,7 +15,8 @@ services:
     depends_on:
       - mongo
       - userservice
-      - orderservice
+#      - orderservice
+#      - paymentservice
 
   userservice:
     image: registry.faza.io/user-app/user-app:staging
@@ -59,71 +60,121 @@ services:
       - mongo
       - redis
 
-  orderservice:
-    image: registry.faza.io/order-service/order-service:staging
-    restart: always
-    ports:
-      - 9095:9095
-    security_opt:
-      - seccomp:unconfined
-    environment:
-      - PORT=9095
-      - APP_MODE=docker
-      - ORDER_SERVICE_MODE=server
-      - ORDER_SERVER_ADDRESS=
-      - ORDER_SERVER_PORT=9095
-      - ORDER_SERVICE_MONGO_HOST=mongo
-      - ORDER_SERVICE_MONGO_PORT=27017
-      - ORDER_SERVICE_MONGO_USER=root
-      - ORDER_SERVICE_MONGO_CONN_TIMEOUT=5
-      - ORDER_SERVICE_MONGO_READ_TIMEOUT=5
-      - ORDER_SERVICE_MONGO_WRITE_TIMEOUT=5
-      - ORDER_SERVICE_MONGO_MAX_CONN_IDLE_TIME=60
-      - ORDER_SERVICE_MONGO_MAX_POOL_SIZE=128
-      - ORDER_SERVICE_MONGO_MIN_POOL_SIZE=64
-      - ORDER_SERVICE_MONGO_DB_NAME=orderService
-      - ORDER_SERVICE_MONGO_COLLECTION_NAME=orders
-      - ORDER_SCHEDULER_TIME_UNIT=minute
-      - ORDER_SCHEDULER_STATES=Payment_Pending;Approval_Pending;Shipment_Pending;Shipment_Delayed;Shipped;Delivery_Pending;Delivered;Return_Shipment_Pending;Return_Shipped;Return_Delivered
-      - ORDER_SCHEDULER_INTERVAL=60
-      - ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT=25
-      - ORDER_SCHEDULER_WORKER_TIMEOUT=20
-      - ORDER_SCHEDULER_STATE_TIME_UNIT=hour
-      - ORDER_SCHEDULER_SELLER_REACTION_TIME=10
-      - ORDER_SCHEDULER_PAYMENT_PENDING_STATE=15
-      - ORDER_SCHEDULER_RETRY_PAYMENT_PENDING_STATE=100
-      - ORDER_SCHEDULER_APPROVAL_PENDING_STATE=24
-      - ORDER_SCHEDULER_SHIPMENT_PENDING_STATE=80
-      - ORDER_SCHEDULER_SHIPPED_STATE=72
-      - ORDER_SCHEDULER_DELIVERY_PENDING_STATE=96
-      - ORDER_SCHEDULER_NOTIFY_DELIVERY_PENDING_STATE=48
-      - ORDER_SCHEDULER_DELIVERED_STATE=144
-      - ORDER_SCHEDULER_RETURN_SHIPPED_STATE=72
-      - ORDER_SCHEDULER_RETURN_REQUEST_PENDING_STATE=72
-      - ORDER_SCHEDULER_RETURN_SHIPMENT_PENDING_STATE=96
-      - ORDER_SCHEDULER_RETURN_DELIVERED_STATE=96
-      - ORDER_PAYMENT_CALLBACK_URL_SUCCESS=http://staging.faza.io/callback-success?orderId=
-      - ORDER_PAYMENT_CALLBACK_URL_FAIL=http://staging.faza.io/callback-failed?orderId=
-      - PROMETHEUS_PORT=9100
-      - NOTIFICATION_SMS_TEMPLATES=/app/notification/sms/smsTemplate.txt
-      - EMAIL_TMP_NOTIFY_SELLER_FOR_NEW_ORDER=NotifySellerForNewOrder.html
-      - PAYMENT_GATEWAY_ADDRESS=
-      - PAYMENT_GATEWAY_PORT=3010
-      - PAYMENT_SERVICE_MOCK_ENABLED=true
-      - STOCK_SERVICE_ADDRESS=
-      - STOCK_SERVICE_PORT=9098
-      - STOCK_SERVICE_MOCK_ENABLED=true
-      - USER_SERVICE_ADDRESS=userservice
-      - USER_SERVICE_PORT=9096
-      - NOTIFY_SERVICE_ADDRESS=notifyservice
-      - NOTIFY_SERVICE_PORT=9099
-      - NOTIFY_SERVICE_TIMEOUT=30
-      - NOTIFY_SERVICE_SELLER_ENABLED=true
-      - NOTIFY_SERVICE_BUYER_ENABLED=true
+#  orderservice:
+#    image: registry.faza.io/order-service/order-service:staging
+#    restart: always
+#    ports:
+#      - 9095:9095
+#    security_opt:
+#      - seccomp:unconfined
+#    environment:
+#      - PORT=9095
+#      - APP_MODE=docker
+#      - ORDER_SERVICE_MODE=server
+#      - ORDER_SERVER_ADDRESS=
+#      - ORDER_SERVER_PORT=9095
+#      - ORDER_SERVICE_MONGO_HOST=mongo
+#      - ORDER_SERVICE_MONGO_PORT=27017
+#      - ORDER_SERVICE_MONGO_USER=root
+#      - ORDER_SERVICE_MONGO_CONN_TIMEOUT=5
+#      - ORDER_SERVICE_MONGO_READ_TIMEOUT=5
+#      - ORDER_SERVICE_MONGO_WRITE_TIMEOUT=5
+#      - ORDER_SERVICE_MONGO_MAX_CONN_IDLE_TIME=60
+#      - ORDER_SERVICE_MONGO_MAX_POOL_SIZE=128
+#      - ORDER_SERVICE_MONGO_MIN_POOL_SIZE=64
+#      - ORDER_SERVICE_MONGO_DB_NAME=orderService
+#      - ORDER_SERVICE_MONGO_COLLECTION_NAME=orders
+#      - ORDER_SCHEDULER_TIME_UNIT=minute
+#      - ORDER_SCHEDULER_STATES=Payment_Pending;Approval_Pending;Shipment_Pending;Shipment_Delayed;Shipped;Delivery_Pending;Delivered;Return_Shipment_Pending;Return_Shipped;Return_Delivered
+#      - ORDER_SCHEDULER_INTERVAL=60
+#      - ORDER_SCHEDULER_PARENT_WORKER_TIMEOUT=25
+#      - ORDER_SCHEDULER_WORKER_TIMEOUT=20
+#      - ORDER_SCHEDULER_STATE_TIME_UNIT=hour
+#      - ORDER_SCHEDULER_SELLER_REACTION_TIME=10
+#      - ORDER_SCHEDULER_PAYMENT_PENDING_STATE=15
+#      - ORDER_SCHEDULER_RETRY_PAYMENT_PENDING_STATE=100
+#      - ORDER_SCHEDULER_APPROVAL_PENDING_STATE=24
+#      - ORDER_SCHEDULER_SHIPMENT_PENDING_STATE=80
+#      - ORDER_SCHEDULER_SHIPPED_STATE=72
+#      - ORDER_SCHEDULER_DELIVERY_PENDING_STATE=96
+#      - ORDER_SCHEDULER_NOTIFY_DELIVERY_PENDING_STATE=48
+#      - ORDER_SCHEDULER_DELIVERED_STATE=144
+#      - ORDER_SCHEDULER_RETURN_SHIPPED_STATE=72
+#      - ORDER_SCHEDULER_RETURN_REQUEST_PENDING_STATE=72
+#      - ORDER_SCHEDULER_RETURN_SHIPMENT_PENDING_STATE=96
+#      - ORDER_SCHEDULER_RETURN_DELIVERED_STATE=96
+#      - ORDER_PAYMENT_CALLBACK_URL_SUCCESS=http://staging.faza.io/callback-success?orderId=
+#      - ORDER_PAYMENT_CALLBACK_URL_FAIL=http://staging.faza.io/callback-failed?orderId=
+#      - PROMETHEUS_PORT=9100
+#      - NOTIFICATION_SMS_TEMPLATES=/app/notification/sms/smsTemplate.txt
+#      - EMAIL_TMP_NOTIFY_SELLER_FOR_NEW_ORDER=NotifySellerForNewOrder.html
+#      - PAYMENT_GATEWAY_ADDRESS=
+#      - PAYMENT_GATEWAY_PORT=3010
+#      - PAYMENT_SERVICE_MOCK_ENABLED=true
+#      - STOCK_SERVICE_ADDRESS=
+#      - STOCK_SERVICE_PORT=9098
+#      - STOCK_SERVICE_MOCK_ENABLED=true
+#      - USER_SERVICE_ADDRESS=userservice
+#      - USER_SERVICE_PORT=9096
+#      - NOTIFY_SERVICE_ADDRESS=notifyservice
+#      - NOTIFY_SERVICE_PORT=9099
+#      - NOTIFY_SERVICE_TIMEOUT=30
+#      - NOTIFY_SERVICE_SELLER_ENABLED=true
+#      - NOTIFY_SERVICE_BUYER_ENABLED=true
+#
+#    depends_on:
+#      - mongo
+#      - userservice
 
-    depends_on:
-      - mongo
-      - userservice
+#  paymentservice:
+##    image: registry.faza.io/payment-transfer/payment-transfer:staging
+#    image: payment-trasfer-service:latest
+#    restart: unless-stopped
+#    ports:
+#      - 9793:9793
+#    security_opt:
+#      - seccomp:unconfined
+#    environment:
+#      - PORT=9793
+#      - MONGO_URL=mongodb://mongo1:52301,mongo2:52302,mongo3:52303
+#      - DB_NAME=paymentTransfer
+#      - BANK_MELLI_CLIENT_KEY=
+#      - BANK_MELLI_CLIENT_SECRET=
+#      - BANK_MELLI_ACCOUNT_ID=0225823144002
+#    depends_on:
+#      - mongo1
+#      - mongo2
+#      - mongo3
+#
+#  mongo1:
+#    image: registry.faza.io/mongo:4.2.2
+#    container_name: mongo1
+#    restart: unless-stopped
+#    networks:
+#      - payment-transfer
+#    command: /usr/bin/mongod --bind_ip_all --replSet=rs0 --port 52301
+#    ports:
+#      - 52301:52301
+#
+#  mongo2:
+#    image: registry.faza.io/mongo:4.2.2
+#    restart: unless-stopped
+#    container_name: mongo2
+#    networks:
+#      - payment-transfer
+#    command: /usr/bin/mongod --bind_ip_all --replSet=rs0 --port 52302
+#    ports:
+#      - 52302:5230
+#
+#  mongo3:
+#    image: registry.faza.io/mongo:4.2.2
+#    restart: unless-stopped
+#    container_name: mongo3
+#    networks:
+#      - payment-transfer
+#    command: /usr/bin/mongod --bind_ip_all --replSet=rs0 --port 52303
+#    ports:
+#      - 52303:52303
 
   redis:
     image: registry.faza.io/redis:5.0
@@ -140,3 +191,5 @@ services:
     ports:
       - 8081:8081
 
+#networks:
+#  payment-transfer:

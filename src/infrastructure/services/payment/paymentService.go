@@ -12,11 +12,11 @@ type IPaymentService interface {
 	GetBatchTransferMoneyResult(ctx context.Context, fid []string) future.IFuture
 }
 
-type PaymentType int
+type PaymentType string
 
 const (
-	SellerPayment PaymentType = iota
-	BuyerPayment
+	SellerPayment PaymentType = "SELLER_PAYMENT"
+	BuyerPayment  PaymentType = "BUYER_PAYMENT"
 )
 
 type PaymentRequest struct {
