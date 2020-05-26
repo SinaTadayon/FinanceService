@@ -159,6 +159,7 @@ func (payment *iPaymentServiceImpl) GetSingleTransferMoneyResult(ctx context.Con
 			BuildAndSend()
 	}
 
+	ctx = context.WithValue(ctx, "internal_request", true)
 	timeoutTimer := time.NewTimer(time.Duration(payment.timeout) * time.Second)
 
 	paymentFn := func() <-chan interface{} {
