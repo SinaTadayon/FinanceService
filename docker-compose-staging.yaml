@@ -10,7 +10,8 @@ services:
       - seccomp:unconfined
     environment:
       - PORT=${PORT}
-      - APP_MODE=docker
+      - FINANCE_SERVER_TEST_API_ENABLED=true
+
       - FINANCE_PAYMENT_SCHEDULER_TIME_UNIT=minute
       - FINANCE_PAYMENT_SCHEDULER_STATES=PAYMENT_PROCESS:60;PAYMENT_TRACKING:15
       - FINANCE_PAYMENT_SCHEDULER_INTERVAL=60

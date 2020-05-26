@@ -1,0 +1,194 @@
+syntax = "proto3";
+
+package financesrv;
+
+service FinanceService {
+    rpc TestSellerFinance_OrderCollectionRequestHandler (OrderCollectionRequest) returns (OrderCollectionResponse);
+    rpc TestSellerFinance_MoneyTransferRequestHandler (MoneyTransferRequest) returns (MoneyTransferResponse);
+}
+
+message MoneyTransferRequest {
+    repeated string fids = 1;
+}
+
+message MoneyTransferResponse {
+    repeated SellerFinance finances= 1;
+}
+
+message OrderCollectionRequest {
+    string StartAt = 1;
+    string EndAt = 2;
+    repeated uint64 sellerIds = 3;
+}
+
+message OrderCollectionResponse {
+    repeated SellerFinance finances= 1;
+}
+
+message SellerFinance {
+    string FId = 1;
+    uint64 SellerId = 2;
+    SellerProfile SellerInfo = 3;
+    SellerInvoice Invoice = 4;
+    repeated SellerOrder orders = 5;
+    SellerFinancePayment Payment = 6;
+    string Status = 7;
+    string StartAt = 8;
+    string EndAt = 9;
+    string CreatedAt = 10;
+    string UpdatedAt = 11;
+}
+
+message SellerProfile {
+    message GeneralInfo{
+        string ShopDisplayName = 1;
+        string Type = 2;
+        string Email = 3;
+        string LandPhone = 4;
+        string MobilePhone = 5;
+        string Website = 6;
+        string Province = 7;
+        string City = 8;
+        string Neighborhood = 9;
+        string PostalAddress = 10;
+        string PostalCode = 11;
+        bool   IsVATObliged = 12;
+        string VATCertificationImageURL = 13;
+    }
+
+    GeneralInfo generalInfo = 1;
+
+    message FinanceInfo {
+        string Iban = 1;
+        string AccountHolderFirstName = 2;
+        string AccountHolderFamilyName = 3;
+    }
+
+    FinanceInfo financeInfo = 2;
+}
+
+message SellerInvoice {
+    Money SSORawTotal = 1;
+    Money SSORoundupTotal = 2;
+    Money VATRawTotal = 3;
+    Money VATRoundupTotal = 4;
+    Money CommissionRawTotal = 5;
+    Money CommissionRoundupTotal = 6;
+    Money ShareRawTotal = 7;
+    Money ShareRoundupTotal = 8;
+    Money ShipmentRawTotal = 9;
+    Money ShipmentRoundupTotal = 10;
+}
+
+message SellerOrder {
+    uint64 OId = 1;
+    Money ShipmentAmount = 2;
+    Money RawShippingNet = 3;
+    Money RoundupShippingNet = 4;
+    bool IsAlreadyShippingPayed = 5;
+    repeated SellerItem Items = 6;
+    string OrderCreatedAt = 7;
+    string SubPkgCreatedAt = 8;
+    string SubPkgUpdatedAt = 9;
+}
+
+message SellerItem {
+    uint64 SId = 1;
+    string SKU = 2;
+    string InventoryId = 3;
+    string Title = 4;
+    string Brand = 5;
+    string Guaranty = 6;
+    string Category = 7;
+    string Image = 8;
+    bool Returnable = 9;
+    int32 Quantity = 10;
+    map<string,Attribute> attributes = 11;
+    SellerItemInvoice Invoice = 12;
+}
+
+message Attribute {
+    map<string,string> KeyTranslate = 1;
+    map<string,string> ValueTranslate = 2;
+}
+
+message SellerItemInvoice {
+    SellerItemCommission Commission = 1;
+    SellerItemShare Share = 2;
+    SellerItemSSO SSO = 3;
+    SellerItemVAT VAT = 4;
+}
+
+message SellerItemShare {
+    Money RawItemNet = 1;
+    Money RoundupItemNet = 2;
+    Money RawTotalNet = 3;
+    Money RoundupTotalNet = 4;
+    Money RawUnitSellerShare = 5;
+    Money RoundupUnitSellerShare = 6;
+    Money RawTotalSellerShare = 7;
+    Money RoundupTotalSellerShare = 8;
+}
+
+message SellerItemCommission {
+    float ItemCommission = 1;
+    Money RawUnitPrice = 2;
+    Money RoundupUnitPrice = 3;
+    Money RawTotalPrice = 4;
+    Money RoundupTotalPrice = 5;
+}
+
+message SellerItemSSO {
+    float Rate = 1;
+    bool IsObliged = 2;
+    Money RawUnitPrice = 3;
+    Money RoundupUnitPrice = 4;
+    Money RawTotalPrice = 5;
+    Money RoundupTotalPrice = 6;
+}
+
+message SellerItemVAT {
+    float Rate = 1;
+    bool IsObliged = 2;
+    Money RawUnitPrice = 3;
+    Money RoundupUnitPrice = 4;
+    Money RawTotalPrice = 5;
+    Money RoundupTotalPrice = 6;
+}
+
+message SellerFinancePayment {
+    SellerTransferRequest TransferRequest = 1;
+    SellerTransferResponse TransferResponse = 2;
+    SellerTransferResult TransferResult = 3;
+    string SellerTransferState = 4;
+    string CreatedAt = 5;
+    string UpdatedAt = 6;
+}
+
+message SellerTransferRequest {
+    Money TotalPrice = 1;
+    string ReceiverName = 2;
+    string ReceiverAccountId = 3;
+    string PaymentDescription = 4;
+    string TransferType = 5;
+    string CreatedAt = 6;
+}
+
+message SellerTransferResponse {
+    string TransferId = 1;
+    string CreatedAt = 2;
+}
+
+message SellerTransferResult {
+    string TransferId = 1;
+    Money SuccessTransfer = 2;
+    Money PendingTransfer = 3;
+    Money FailedTransfer = 4;
+    string CreatedAt = 5;
+    string UpdatedAt = 6;
+}
+
+message Money {
+    string Amount = 1;
+    string Currency = 2;
+}

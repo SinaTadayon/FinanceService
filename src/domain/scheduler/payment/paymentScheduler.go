@@ -4,7 +4,6 @@ import (
 	"context"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
-	"sync"
 	"time"
 )
 
@@ -28,8 +27,6 @@ type PaymentScheduler struct {
 	schedulerInterval       time.Duration
 	schedulerStewardTimeout time.Duration
 	schedulerWorkerTimeout  time.Duration
-	waitGroup               sync.WaitGroup
-	mux                     sync.Mutex
 }
 
 func NewPaymentScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWorkerTimeout time.Duration,
@@ -48,10 +45,8 @@ func NewPaymentScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWo
 func (scheduler *PaymentScheduler) Scheduler(ctx context.Context) {
 
 	for _, state := range scheduler.states {
-		scheduler.waitGroup.Add(1)
 		go scheduler.scheduleProcess(ctx, state)
 	}
-	scheduler.waitGroup.Wait()
 }
 
 func (scheduler *PaymentScheduler) scheduleProcess(ctx context.Context, config StateConfig) {
@@ -68,7 +63,6 @@ func (scheduler *PaymentScheduler) scheduleProcess(ctx context.Context, config S
 				"fn", "scheduleProcess",
 				"state", config.State)
 			stewardTimer.Stop()
-			scheduler.waitGroup.Done()
 			return
 		case _, ok := <-heartbeat:
 			if ok == false {

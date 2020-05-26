@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/configs"
@@ -19,6 +20,8 @@ import (
 	user_service "gitlab.faza.io/services/finance/infrastructure/services/user"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
+	"gitlab.faza.io/services/finance/server/grpc"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -315,22 +318,6 @@ func main() {
 
 			triggerPointOffset = time.Duration(offset) * time.Minute
 		} else {
-			//offset, err := strconv.Atoi(app.Globals.Config.App.SellerFinanceTriggerPoint)
-			//if err != nil {
-			//	log.GLog.Logger.Error("SellerFinanceTriggerPoint invalid",
-			//		"fn", "main",
-			//		"SellerFinanceTriggerPoint", app.Globals.Config.App.SellerFinanceTriggerPoint)
-			//	os.Exit(1)
-			//}
-			//
-			//if offset > app.Globals.Config.App.SellerFinanceTriggerInterval {
-			//	log.GLog.Logger.Error("SellerFinanceTriggerPoint is greater than SellerFinanceTriggerInterval",
-			//		"fn", "main",
-			//		"SellerFinanceTriggerPoint", app.Globals.Config.App.SellerFinanceTriggerPoint)
-			//	os.Exit(1)
-			//}
-			//
-			//triggerPointOffset = time.Duration(offset) * time.Second
 			app.Globals.Config.App.SellerFinanceTriggerPoint = "0"
 			triggerPointOffset = 0
 		}
@@ -342,7 +329,7 @@ func main() {
 
 	ctx, _ := context.WithCancel(context.Background())
 	if err := orderScheduler.SchedulerStart(ctx); err != nil {
-		log.GLog.Logger.Error("OrderScheduler.SchedulerStart failed",
+		log.GLog.Logger.Error("orderScheduler.SchedulerStart failed",
 			"fn", "main",
 			"error", err)
 		os.Exit(1)
@@ -479,12 +466,31 @@ func main() {
 
 	paymentScheduler.Scheduler(context.Background())
 
+	// listen and serve prometheus scraper
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		promPort := fmt.Sprintf(":%d", app.Globals.Config.App.PrometheusPort)
+		log.GLog.Logger.Info("prometheus running", "port", promPort)
+		e := http.ListenAndServe(promPort, nil)
+		if e != nil {
+			log.GLog.Logger.Error("error listening for prometheus", "fn", "main", "error", e)
+		}
+	}()
+
+	if app.Globals.Config.GRPCServer.Port <= 0 {
+		log.GLog.Logger.Error("GRPCServer.Port port invalid", "fn", "main")
+		os.Exit(1)
+	}
+
+	grpcServer := grpc.NewServer(app.Globals.Config.GRPCServer.Address, uint16(app.Globals.Config.GRPCServer.Port), orderScheduler)
+	if err := grpcServer.Start(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func ParseTime(st string) (int64, error) {
 	var h, m int
 	n, err := fmt.Sscanf(st, "%d:%d", &h, &m)
-	fmt.Print(n, err)
 	if err != nil || n != 3 {
 		return 0, err
 	}

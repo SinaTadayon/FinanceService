@@ -72,10 +72,10 @@ func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerH
 	var iFuture = future.FactorySync().Build()
 
 	task := func() {
-		orderStream, fetchOrderResultStream, fetchOrderTask := scheduler.FetchOrders(ctx, startAt, *triggerHistory.TriggeredAt)
-		pipelineStream, fanOutOrderTask := scheduler.FanOutOrders(ctx, orderStream)
-		pipelineChannelStream, fanOutPipelineTask := scheduler.FanOutPipelines(ctx, pipelineStream)
-		fanInFinanceResultStream, fanInPipelineTask := scheduler.FanInPipelineStreams(ctx, pipelineChannelStream)
+		orderStream, fetchOrderResultStream, fetchOrderTask := scheduler.fetchOrders(ctx, startAt, *triggerHistory.TriggeredAt)
+		pipelineStream, fanOutOrderTask := scheduler.fanOutOrders(ctx, orderStream)
+		pipelineChannelStream, fanOutPipelineTask := scheduler.fanOutPipelines(ctx, pipelineStream)
+		fanInFinanceResultStream, fanInPipelineTask := scheduler.fanInPipelineStreams(ctx, pipelineChannelStream)
 
 		resultStream, err := scheduler.fanInResultStream(ctx, fetchOrderResultStream, fanInFinanceResultStream)
 		if err != nil {
@@ -176,7 +176,7 @@ func (scheduler OrderScheduler) taskLauncher(tasks ...worker_pool.Task) error {
 	return nil
 }
 
-func (scheduler OrderScheduler) FetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, worker_pool.Task) {
+func (scheduler OrderScheduler) fetchOrders(ctx context.Context, startAt, endAt time.Time) (OrderReaderStream, ResultReaderStream, worker_pool.Task) {
 	orderStream := make(chan *entities.SellerOrder, DefaultOrderStreamBuffer)
 	resultStream := make(chan *ProcessResult)
 	fetchOrderTask := func() {
@@ -198,7 +198,7 @@ func (scheduler OrderScheduler) FetchOrders(ctx context.Context, startAt, endAt 
 			if iFuture.Error() != nil {
 				if iFuture.Error().Code() != future.NotFound {
 					log.GLog.Logger.Error("GetFinanceOrderItems from order service failed",
-						"fn", "FetchOrders", "error", iFuture.Error().Reason())
+						"fn", "fetchOrders", "error", iFuture.Error().Reason())
 
 					resultStream <- &ProcessResult{
 						Function:      FetchOrderFn,
@@ -243,7 +243,7 @@ func (scheduler OrderScheduler) FetchOrders(ctx context.Context, startAt, endAt 
 	return orderStream, resultStream, fetchOrderTask
 }
 
-func (scheduler OrderScheduler) FanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (PipelineInStream, worker_pool.Task) {
+func (scheduler OrderScheduler) fanOutOrders(ctx context.Context, orderChannel OrderReaderStream) (PipelineInStream, worker_pool.Task) {
 
 	sellerStreamMap := make(map[uint64]OrderWriterStream, DefaultSellerSize)
 	pipelineStream := make(chan *Pipeline)
@@ -282,7 +282,7 @@ func (scheduler OrderScheduler) FanOutOrders(ctx context.Context, orderChannel O
 	return pipelineStream, fanOutTask
 }
 
-func (scheduler OrderScheduler) FanOutPipelines(ctx context.Context, pipelineStream PipelineInStream) (PLIStream, worker_pool.Task) {
+func (scheduler OrderScheduler) fanOutPipelines(ctx context.Context, pipelineStream PipelineInStream) (PLIStream, worker_pool.Task) {
 	pipelineChannels := make([]chan *Pipeline, 0, app.Globals.Config.Mongo.MinPoolSize/2)
 	pipelineChannelStream := make(chan PipelineInStream)
 
@@ -323,7 +323,7 @@ func (scheduler OrderScheduler) FanOutPipelines(ctx context.Context, pipelineStr
 	return pipelineChannelStream, financeFanOutTask
 }
 
-func (scheduler OrderScheduler) FanInPipelineStreams(ctx context.Context, pipelineChannelStream PLIStream) (ResultReaderStream, worker_pool.Task) {
+func (scheduler OrderScheduler) fanInPipelineStreams(ctx context.Context, pipelineChannelStream PLIStream) (ResultReaderStream, worker_pool.Task) {
 	multiplexedResultStream := make(chan *ProcessResult)
 	var wg sync.WaitGroup
 	fanInCoreTask := func() {
@@ -335,14 +335,14 @@ func (scheduler OrderScheduler) FanInPipelineStreams(ctx context.Context, pipeli
 			default:
 			}
 
-			resultReaderStream, pipelineTaskFn := scheduler.ExecutePipeline(ctx, pipelineChannel)
+			resultReaderStream, pipelineTaskFn := scheduler.executePipeline(ctx, pipelineChannel)
 			//CreateUpdateFinanceTask := func() {
 			//	pipelineTaskFn(ctx, pipelineChannel)
 			//}
 
 			if err := app.Globals.WorkerPool.SubmitTask(pipelineTaskFn); err != nil {
 				log.GLog.Logger.Error("submit pipelineTaskFn to WorkerPool.SubmitTask failed",
-					"fn", "FanInPipelineStreams", "error", err)
+					"fn", "fanInPipelineStreams", "error", err)
 
 				multiplexedResultStream <- &ProcessResult{
 					Function:      FanInFinanceStreamsFn,
@@ -363,7 +363,7 @@ func (scheduler OrderScheduler) FanInPipelineStreams(ctx context.Context, pipeli
 			wg.Add(1)
 			if err := app.Globals.WorkerPool.SubmitTask(fanInMultiplexTask); err != nil {
 				log.GLog.Logger.Error("submit fanInMultiplexTask to WorkerPool.SubmitTask failed",
-					"fn", "FanInPipelineStreams", "error", err)
+					"fn", "fanInPipelineStreams", "error", err)
 
 				multiplexedResultStream <- &ProcessResult{
 					Function:      FanInFinanceStreamsFn,
@@ -381,7 +381,7 @@ func (scheduler OrderScheduler) FanInPipelineStreams(ctx context.Context, pipeli
 	return multiplexedResultStream, fanInCoreTask
 }
 
-func (scheduler OrderScheduler) ExecutePipeline(ctx context.Context, pipelineStream PipelineInStream) (ResultReaderStream, worker_pool.Task) {
+func (scheduler OrderScheduler) executePipeline(ctx context.Context, pipelineStream PipelineInStream) (ResultReaderStream, worker_pool.Task) {
 
 	resultStream := make(chan *ProcessResult)
 	pipelineTask := func() {
@@ -393,13 +393,13 @@ func (scheduler OrderScheduler) ExecutePipeline(ctx context.Context, pipelineStr
 			default:
 			}
 
-			sellerOrder, processResult := pipeline.ReduceOrders(ctx, pipeline.orderStream)
+			sellerOrder, processResult := pipeline.reduceOrders(ctx, pipeline.orderStream)
 			if processResult != nil {
 				resultStream <- processResult
 				continue
 			}
 
-			processResult = pipeline.CreateUpdateFinance(ctx, sellerOrder)
+			processResult = pipeline.createUpdateFinance(ctx, sellerOrder)
 			resultStream <- processResult
 		}
 	}
@@ -407,11 +407,12 @@ func (scheduler OrderScheduler) ExecutePipeline(ctx context.Context, pipelineStr
 	return resultStream, pipelineTask
 }
 
-func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderReaderStream) (*entities.SellerFinance, *ProcessResult) {
+func (pipeline *Pipeline) reduceOrders(ctx context.Context, orderStream OrderReaderStream) (*entities.SellerFinance, *ProcessResult) {
 	triggerHistory := ctx.Value(string(utils.CtxTriggerHistory)).(entities.TriggerHistory)
 	sellerFinance := &entities.SellerFinance{
 		OrdersInfo: []*entities.OrderInfo{
 			{
+				TriggerName:      triggerHistory.TriggerName,
 				TriggerHistoryId: triggerHistory.ID,
 				Orders:           nil,
 			},
@@ -436,7 +437,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 
 		} else if sellerFinance.SellerId != sellerOrder.SellerId {
 			log.GLog.Logger.Error("sellerId of sellerFinance mismatch with sellerOrder",
-				"fn", "ReduceOrders",
+				"fn", "reduceOrders",
 				"sellerId", sellerFinance.SellerId,
 				"sellerOrder", sellerOrder)
 			return nil, &ProcessResult{
@@ -456,7 +457,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 
 		if iFuture.Error() != nil {
 			log.GLog.Logger.Error("SellerFinanceRepository.CountWithFilter for find order history failed",
-				"fn", "ReduceOrders",
+				"fn", "reduceOrders",
 				"oid", sellerOrder.OId,
 				"sellerId", sellerOrder.SellerId,
 				"error", iFuture.Error())
@@ -492,7 +493,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 
 				if iFuture.Error() != nil {
 					log.GLog.Logger.Error("SellerOrderRepository.CountWithFilter for duplicate order subpackage failed",
-						"fn", "ReduceOrders",
+						"fn", "reduceOrders",
 						"oid", sellerOrder.OId,
 						"sellerId", sellerOrder.SellerId,
 						"sid", item.SId,
@@ -507,7 +508,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 
 				if iFuture.Data().(int64) > 0 {
 					log.GLog.Logger.Warn("duplicate order subpackage detected",
-						"fn", "ReduceOrders",
+						"fn", "reduceOrders",
 						"oid", sellerOrder.OId,
 						"sellerId", sellerOrder.SellerId,
 						"sid", item.SId,
@@ -527,7 +528,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 				sellerOrder.Items = validItems
 			} else {
 				log.GLog.Logger.Warn("duplicate order detected",
-					"fn", "ReduceOrders",
+					"fn", "reduceOrders",
 					"oid", sellerOrder.OId,
 					"sellerId", sellerOrder.SellerId)
 				return nil, &ProcessResult{
@@ -546,7 +547,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 		return sellerFinance, nil
 	}
 	log.GLog.Logger.Warn("seller finance dropped because of valid order not found",
-		"fn", "ReduceOrders",
+		"fn", "reduceOrders",
 		"sellerId", sellerFinance.SellerId)
 
 	return nil, &ProcessResult{
@@ -557,7 +558,7 @@ func (pipeline *Pipeline) ReduceOrders(ctx context.Context, orderStream OrderRea
 	}
 }
 
-func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance *entities.SellerFinance) *ProcessResult {
+func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance *entities.SellerFinance) *ProcessResult {
 
 	timestamp := time.Now().UTC()
 	iFuture := app.Globals.SellerFinanceRepository.FindByFilter(ctx, func() interface{} {
@@ -569,14 +570,12 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 	}).Get()
 
 	triggerHistory := ctx.Value(string(utils.CtxTriggerHistory)).(entities.TriggerHistory)
-	//triggerInterval := ctx.Value(utils.CtxTriggerInterval).(time.Duration)
-	//triggerDuration := ctx.Value(utils.CtxTriggerDuration).(time.Duration)
 
 	isNotFoundFlag := false
 	if iFuture.Error() != nil {
 		if iFuture.Error().Code() != future.NotFound {
 			log.GLog.Logger.Error("SellerFinanceRepository.FindByFilter failed",
-				"fn", "CreateUpdateFinance",
+				"fn", "createUpdateFinance",
 				"sellerId", sellerFinance.SellerId,
 				"error", iFuture.Error().Reason())
 
@@ -597,7 +596,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 
 		if len(sellerFinances) > 1 {
 			log.GLog.Logger.Debug("many sellers found in collect order state",
-				"fn", "CreateUpdateFinance",
+				"fn", "createUpdateFinance",
 				"sellerId", sellerFinance.SellerId,
 				"state", entities.FinanceOrderCollectionStatus,
 				"founds", len(sellerFinances))
@@ -610,7 +609,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 					foundSellerFinance = finance
 				} else {
 					log.GLog.Logger.Warn("greater than one seller found in collect order state",
-						"fn", "CreateUpdateFinance",
+						"fn", "createUpdateFinance",
 						"fid", finance.FId,
 						"sellerId", sellerFinance.SellerId,
 						"state", entities.FinanceOrderCollectionStatus)
@@ -620,7 +619,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 
 		if foundSellerFinance != nil {
 			log.GLog.Logger.Info("found valid sellerFinance in collect order state",
-				"fn", "CreateUpdateFinance",
+				"fn", "createUpdateFinance",
 				"fid", foundSellerFinance.FId,
 				"sellerId", sellerFinance.SellerId,
 				"state", entities.FinanceOrderCollectionStatus)
@@ -664,7 +663,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 							diffItems = append(diffItems, newItem)
 						} else {
 							log.GLog.Logger.Warn("duplicate order subpackage found",
-								"fn", "CreateUpdateFinance",
+								"fn", "createUpdateFinance",
 								"sellerId", foundSellerFinance.SellerId,
 								"oid", newOrder.OId,
 								"sid", newItem.SId,
@@ -677,7 +676,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 							newOrderInfo.Orders = append(newOrderInfo.Orders, newOrder)
 						} else {
 							log.GLog.Logger.Warn("duplicate order found",
-								"fn", "CreateUpdateFinance",
+								"fn", "createUpdateFinance",
 								"sellerId", sellerFinance.SellerId,
 								"oid", newOrder.OId)
 						}
@@ -692,7 +691,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 				foundSellerFinance.OrdersInfo = append(foundSellerFinance.OrdersInfo, newOrderInfo)
 			} else {
 				log.GLog.Logger.Warn("valid orders not found for add to orderInfo of sellerFinance",
-					"fn", "CreateUpdateFinance",
+					"fn", "createUpdateFinance",
 					"sellerId", sellerFinance.SellerId,
 					"trigger", triggerHistory.TriggerName,
 					"triggerHistoryId", triggerHistory.ID)
@@ -707,7 +706,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 			iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *foundSellerFinance).Get()
 			if iFuture.Error() != nil {
 				log.GLog.Logger.Error("SellerFinanceRepository.Update failed",
-					"fn", "CreateUpdateFinance",
+					"fn", "createUpdateFinance",
 					"fid", foundSellerFinance.FId,
 					"sellerId", foundSellerFinance.SellerId,
 					"error", iFuture.Error().Reason())
@@ -755,7 +754,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 			iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
 			if iFuture.Error() != nil {
 				log.GLog.Logger.Error("UserService.GetSellerProfile failed",
-					"fn", "CreateUpdateFinance",
+					"fn", "createUpdateFinance",
 					"sellerId", sellerFinance.SellerId,
 					"error", iFuture.Error().Reason())
 			} else {
@@ -765,7 +764,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 			iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *newSellerFinance).Get()
 			if iFuture.Error() != nil {
 				log.GLog.Logger.Error("SellerFinanceRepository.Save failed",
-					"fn", "CreateUpdateFinance",
+					"fn", "createUpdateFinance",
 					"sellerId", newSellerFinance.SellerId,
 					"startAt", startAt,
 					"endAt", endAt,
@@ -814,7 +813,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 		iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
 		if iFuture.Error() != nil {
 			log.GLog.Logger.Error("UserService.GetSellerProfile failed",
-				"fn", "CreateUpdateFinance",
+				"fn", "createUpdateFinance",
 				"sellerId", sellerFinance.SellerId,
 				"error", iFuture.Error().Reason())
 		} else {
@@ -824,7 +823,7 @@ func (pipeline *Pipeline) CreateUpdateFinance(ctx context.Context, sellerFinance
 		iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *newSellerFinance).Get()
 		if iFuture.Error() != nil {
 			log.GLog.Logger.Error("SellerFinanceRepository.Save failed",
-				"fn", "CreateUpdateFinance",
+				"fn", "createUpdateFinance",
 				"sellerId", newSellerFinance.SellerId,
 				"startAt", startAt,
 				"endAt", endAt,
