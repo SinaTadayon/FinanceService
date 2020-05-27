@@ -64,10 +64,8 @@ type Config struct {
 	}
 
 	Mongo struct {
+		URI                      string `env:"FINANCE_SERVICE_MONGO_URI"`
 		User                     string `env:"FINANCE_SERVICE_MONGO_USER"`
-		Pass                     string `env:"FINANCE_SERVICE_MONGO_PASS"`
-		Host                     string `env:"FINANCE_SERVICE_MONGO_HOST"`
-		Port                     int    `env:"FINANCE_SERVICE_MONGO_PORT"`
 		Database                 string `env:"FINANCE_SERVICE_MONGO_DB_NAME"`
 		SellerCollection         string `env:"FINANCE_SERVICE_MONGO_SELLER_COLLECTION_NAME"`
 		FinanceTriggerCollection string `env:"FINANCE_SERVICE_MONGO_FINANCE_TRIGGER_COLLECTION_NAME"`
@@ -81,6 +79,8 @@ type Config struct {
 		WriteConcernW            string `env:"FINANCE_SERVICE_MONGO_WRITE_CONCERN_W"`
 		WriteConcernJ            string `env:"FINANCE_SERVICE_MONGO_WRITE_CONCERN_J"`
 		RetryWrite               bool   `env:"FINANCE_SERVICE_MONGO_RETRY_WRITE"`
+		ReadConcern              string `env:"FINANCE_SERVICE_MONGO_READ_CONCERN"`
+		ReadPreferred            string `env:"FINANCE_SERVICE_MONGO_READ_PREFERRED"`
 	}
 }
 

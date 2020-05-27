@@ -38,9 +38,8 @@ func TestMain(m *testing.M) {
 
 	// store in mongo
 	mongoConf := &mongoadapter.MongoConfig{
-		Host:     config.Mongo.Host,
-		Port:     config.Mongo.Port,
-		Username: config.Mongo.User,
+		ConnectUri: config.Mongo.URI,
+		Username:   config.Mongo.User,
 		//Password:     App.Cfg.Mongo.Pass,
 		ConnTimeout:     time.Duration(config.Mongo.ConnectionTimeout) * time.Second,
 		ReadTimeout:     time.Duration(config.Mongo.ReadTimeout) * time.Second,
@@ -51,6 +50,8 @@ func TestMain(m *testing.M) {
 		WriteConcernW:   config.Mongo.WriteConcernW,
 		WriteConcernJ:   config.Mongo.WriteConcernJ,
 		RetryWrites:     config.Mongo.RetryWrite,
+		ReadConcern:     config.Mongo.ReadConcern,
+		ReadPreference:  config.Mongo.ReadPreferred,
 	}
 
 	mongoAdapter, err := mongoadapter.NewMongo(mongoConf)
@@ -89,7 +90,7 @@ func TestUpdateFinanceRepository(t *testing.T) {
 	finance1.Status = "PAYMENT_IN_PROGRESS"
 	iFuture = financeRepository.Save(ctx, *finance1).Get()
 	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
-	require.Equal(t, iFuture.Data().(*entities.SellerFinance).Status, "PAYMENT_IN_PROGRESS")
+	require.Equal(t, entities.FinanceState("PAYMENT_IN_PROGRESS"), iFuture.Data().(*entities.SellerFinance).Status)
 }
 
 func TestUpdateFinanceRepository_Failed(t *testing.T) {
@@ -306,7 +307,7 @@ func TestFindByFilterRepository(t *testing.T) {
 	}).Get()
 
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, "PAYMENT_IN_PROGRESS", iFuture.Data().([]*entities.SellerFinance)[0].Status)
+	require.Equal(t, entities.FinanceState("PAYMENT_IN_PROGRESS"), iFuture.Data().([]*entities.SellerFinance)[0].Status)
 }
 
 func TestFindByFilterWithSortFinanceRepository(t *testing.T) {
@@ -382,6 +383,7 @@ func removeCollection() {
 }
 
 func createFinance() *entities.SellerFinance {
+	timestamp := time.Now().UTC()
 	return &entities.SellerFinance{
 		FId:        "",
 		SellerId:   100002,
@@ -607,9 +609,9 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						OrderCreatedAt:  time.Now(),
-						SubPkgCreatedAt: time.Now(),
-						SubPkgUpdatedAt: time.Now(),
+						OrderCreatedAt:  &timestamp,
+						SubPkgCreatedAt: &timestamp,
+						SubPkgUpdatedAt: &timestamp,
 						DeletedAt:       nil,
 					},
 					{
@@ -760,9 +762,9 @@ func createFinance() *entities.SellerFinance {
 								},
 							},
 						},
-						OrderCreatedAt:  time.Now(),
-						SubPkgCreatedAt: time.Now(),
-						SubPkgUpdatedAt: time.Now(),
+						OrderCreatedAt:  &timestamp,
+						SubPkgCreatedAt: &timestamp,
+						SubPkgUpdatedAt: &timestamp,
 						DeletedAt:       nil,
 					},
 				},

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"go.mongodb.org/mongo-driver/x/bsonx"
 
@@ -34,6 +35,8 @@ type MongoConfig struct {
 	WriteConcernW   string
 	WriteConcernJ   string
 	RetryWrites     bool
+	ReadConcern     string
+	ReadPreference  string
 	ConnectUri      string
 }
 
@@ -146,6 +149,42 @@ func NewMongo(Config *MongoConfig) (*Mongo, error) {
 				writeConcernOptions = append(writeConcernOptions, writeconcern.WTimeout(Config.WriteTimeout))
 				clientOptions.SetWriteConcern(writeconcern.New(writeConcernOptions...))
 			}
+		}
+
+		if Config.ReadConcern != "" {
+			rc := &readconcern.ReadConcern{}
+			switch Config.ReadConcern {
+			case "majority":
+				rc = readconcern.Majority()
+			case "available":
+				rc = readconcern.Available()
+			case "linearizable":
+				rc = readconcern.Linearizable()
+			case "snapshot":
+				rc = readconcern.Snapshot()
+			default:
+				rc = readconcern.Local()
+			}
+
+			clientOptions.SetReadConcern(rc)
+		}
+
+		if Config.ReadPreference != "" {
+			rp := &readpref.ReadPref{}
+			switch Config.ReadPreference {
+			case "primaryPreferred":
+				rp = readpref.PrimaryPreferred()
+			case "secondary":
+				rp = readpref.Secondary()
+			case "secondaryPreferred":
+				rp = readpref.SecondaryPreferred()
+			case "nearest":
+				rp = readpref.Nearest()
+			default:
+				rp = readpref.Primary()
+			}
+
+			clientOptions.SetReadPreference(rp)
 		}
 
 		client, err := mongo.Connect(ctx, clientOptions)
@@ -489,8 +528,8 @@ func (m *Mongo) Migrate(db, migrationColl string, migrationUniqueKey string, fn 
 		err := fn(m.conn)
 		if err == nil {
 			_, err := m.InsertOne(db, migrationColl, &bson.M{
-				"key" : migrationUniqueKey,
-				"createdAt" : time.Now().UTC(),
+				"key":       migrationUniqueKey,
+				"createdAt": time.Now().UTC(),
 			})
 			if err != nil {
 				return err

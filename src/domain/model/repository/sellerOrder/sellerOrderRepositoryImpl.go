@@ -61,7 +61,7 @@ func (repo iSellerOrderRepositoryImpl) SaveOrder(ctx context.Context, triggerHis
 	updateResult, err := repo.mongoAdapter.UpdateOne(repo.database, repo.collection, bson.D{
 		{"deletedAt", nil},
 		{"fid", order.FId},
-		{"ordersInfo.triggerHistory", triggerHistoryId}},
+		{"ordersInfo.triggerHistoryId", triggerHistoryId}},
 		bson.D{{"$push", bson.D{{"ordersInfo.$.orders", order}}}})
 
 	if err != nil {

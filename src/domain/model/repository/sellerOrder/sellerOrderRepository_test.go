@@ -41,9 +41,8 @@ func TestMain(m *testing.M) {
 
 	// store in mongo
 	mongoConf := &mongoadapter.MongoConfig{
-		Host:     config.Mongo.Host,
-		Port:     config.Mongo.Port,
-		Username: config.Mongo.User,
+		ConnectUri: config.Mongo.URI,
+		Username:   config.Mongo.User,
 		//Password:     App.Cfg.Mongo.Pass,
 		ConnTimeout:     time.Duration(config.Mongo.ConnectionTimeout) * time.Second,
 		ReadTimeout:     time.Duration(config.Mongo.ReadTimeout) * time.Second,
@@ -54,6 +53,8 @@ func TestMain(m *testing.M) {
 		WriteConcernW:   config.Mongo.WriteConcernW,
 		WriteConcernJ:   config.Mongo.WriteConcernJ,
 		RetryWrites:     config.Mongo.RetryWrite,
+		ReadConcern:     config.Mongo.ReadConcern,
+		ReadPreference:  config.Mongo.ReadPreferred,
 	}
 
 	mongoAdapter, err = mongoadapter.NewMongo(mongoConf)

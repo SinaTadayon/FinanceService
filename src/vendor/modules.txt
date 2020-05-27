@@ -74,7 +74,7 @@ github.com/xdg/stringprep
 gitlab.faza.io/go-framework/acl
 # gitlab.faza.io/go-framework/logger v0.0.12
 gitlab.faza.io/go-framework/logger
-# gitlab.faza.io/go-framework/mongoadapter v0.1.2
+# gitlab.faza.io/go-framework/mongoadapter v0.1.3
 gitlab.faza.io/go-framework/mongoadapter
 # gitlab.faza.io/protos/finance-proto v0.0.1-rc2
 gitlab.faza.io/protos/finance-proto

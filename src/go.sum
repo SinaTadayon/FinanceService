@@ -173,8 +173,8 @@ gitlab.faza.io/go-framework/logger v0.0.12 h1:gTz1M4jJtqMcz3XyYTHraEO5imHfEGSJkj
 gitlab.faza.io/go-framework/logger v0.0.12/go.mod h1:nB18r4xYKyF6DWB18wzqv0rAnyGevbNmKfwkMdBJviI=
 gitlab.faza.io/go-framework/mongoadapter v0.0.6/go.mod h1:QVQUMgtEeUTTkCNp0S4/wNiH6cwsv8BM4E+wyFuarWQ=
 gitlab.faza.io/go-framework/mongoadapter v0.0.10/go.mod h1:cd15CIUT4zvQxlMuG4Mp6d9RyEcyiK5f9HqRy20X/FI=
-gitlab.faza.io/go-framework/mongoadapter v0.1.2 h1:Jk2nyKEaHMv/Gz9tWR5zMzzrsj+Lqz5WjaEzRditRAc=
-gitlab.faza.io/go-framework/mongoadapter v0.1.2/go.mod h1:I2P53ob+HawPnnNP0qeyijNgaOqhw9cnXOqHCDNdJYA=
+gitlab.faza.io/go-framework/mongoadapter v0.1.3 h1:OJ9vat4NwH9rgtGDnRltn8EniNkgqihECs6T1VrEM3A=
+gitlab.faza.io/go-framework/mongoadapter v0.1.3/go.mod h1:I2P53ob+HawPnnNP0qeyijNgaOqhw9cnXOqHCDNdJYA=
 gitlab.faza.io/protos/finance-proto v0.0.1-rc2 h1:Fl3k8J0Ev0oeNJa9CYuWBXZbXPMKboZWfdV2bhYAocI=
 gitlab.faza.io/protos/finance-proto v0.0.1-rc2/go.mod h1:OCT8Lks4bSZgARU6BxQZnARW1afOFTZ8izkAyonxApk=
 gitlab.faza.io/protos/order v0.0.83-rs4 h1:gu1QNUezOxwNWz7vVfEZRRz2AY1JtGf3uKocdB7MeB4=

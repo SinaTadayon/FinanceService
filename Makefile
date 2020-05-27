@@ -35,6 +35,8 @@ endif
 	sleep 2
 	PORT=$(PORT) docker build -t $(TAG) -f Dockerfile .
 	PORT=$(PORT) DOCKERIP=$(DOCKERIPADDR) docker-compose up -d
+# 	sleep 2
+# 	PORT=$(PORT) docker exec  mongo1 /usr/bin/mongo localhost:52301 --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo1:52301'},{_id:1,host:'mongo2:52302'},{_id:2,host:'mongo3:52303'}]})" >/dev/null 2>&1
 
 compose-debug:
 ifeq (,$(wildcard src/.env))
@@ -52,6 +54,9 @@ endif
 	sleep 2
 	PORT=$(PORT) docker build -t $(TAG) -f Dockerfile_dev .
 	PORT=$(PORT) DOCKERIP=$(DOCKERIPADDR) docker-compose up -d
+# 	sleep 2
+# 	PORT=$(PORT) docker exec  mongo1 /usr/bin/mongo localhost:52301 --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo1:52301'},{_id:1,host:'mongo2:52302'},{_id:2,host:'mongo3:52303'}]})" >/dev/null 2>&1
+
 
 image-dev:
 ifndef PORT

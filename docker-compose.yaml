@@ -14,6 +14,8 @@ services:
       - src/.env
     depends_on:
       - mongo
+#      - mongo2
+#      - mongo3
       - userservice
 #      - orderservice
 #      - paymentservice
@@ -191,5 +193,26 @@ services:
     ports:
       - 8081:8081
 
-#networks:
-#  payment-transfer:
+#  mongo1:
+#    image: registry.faza.io/mongo:4.2.2
+#    restart: unless-stopped
+#    container_name: mongo1
+#    command: /usr/bin/mongod --bind_ip_all --replSet=rs0 --port 52301
+#    ports:
+#      - 52301:52301
+#
+#  mongo2:
+#    image: registry.faza.io/mongo:4.2.2
+#    restart: unless-stopped
+#    container_name: mongo2
+#    command: /usr/bin/mongod --bind_ip_all --replSet=rs0 --port 52302
+#    ports:
+#      - 52302:52302
+#
+#  mongo3:
+#    image: registry.faza.io/mongo:4.2.2
+#    restart: unless-stopped
+#    container_name: mongo3
+#    command: /usr/bin/mongod --bind_ip_all --replSet=rs0 --port 52303
+#    ports:
+#      - 52303:52303
