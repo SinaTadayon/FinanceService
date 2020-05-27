@@ -12,7 +12,7 @@ type Config struct {
 	App struct {
 		ServiceMode           string `env:"FINANCE_SERVICE_MODE"`
 		PrometheusPort        int    `env:"PROMETHEUS_PORT"`
-		ServiceTestAPIEnabled bool   `env:"FINANCE_SERVER_TEST_API_ENABLED=true"`
+		ServiceTestAPIEnabled bool   `env:"FINANCE_SERVER_TEST_API_ENABLED"`
 
 		FinancePaymentSchedulerTimeUint            string `env:"FINANCE_PAYMENT_SCHEDULER_TIME_UNIT"`
 		FinancePaymentSchedulerInterval            int    `env:"FINANCE_PAYMENT_SCHEDULER_INTERVAL"`

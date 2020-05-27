@@ -328,11 +328,15 @@ func main() {
 		OrderSchedulerTimeUnit, OrderSchedulerTriggerTimeUnit)
 
 	ctx, _ := context.WithCancel(context.Background())
-	if err := orderScheduler.SchedulerStart(ctx); err != nil {
+	if err := orderScheduler.SchedulerInit(ctx); err != nil {
 		log.GLog.Logger.Error("orderScheduler.SchedulerStart failed",
 			"fn", "main",
 			"error", err)
 		os.Exit(1)
+	}
+
+	if !app.Globals.Config.App.ServiceTestAPIEnabled {
+		orderScheduler.SchedulerStart(ctx)
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -464,7 +468,9 @@ func main() {
 		PaymentSchedulerWorkerTimeout,
 		stateList...)
 
-	paymentScheduler.Scheduler(context.Background())
+	if !app.Globals.Config.App.ServiceTestAPIEnabled {
+		paymentScheduler.Scheduler(context.Background())
+	}
 
 	// listen and serve prometheus scraper
 	go func() {

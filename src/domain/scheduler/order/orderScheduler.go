@@ -50,16 +50,11 @@ func NewOrderScheduler(schedulerInterval, schedulerStewardTimeout, schedulerWork
 	}
 }
 
-func (scheduler OrderScheduler) SchedulerStart(ctx context.Context) error {
-
-	if err := scheduler.init(ctx); err != nil {
-		return err
-	}
+func (scheduler OrderScheduler) SchedulerStart(ctx context.Context) {
 	go scheduler.scheduleProcess(ctx)
-	return nil
 }
 
-func (scheduler OrderScheduler) init(ctx context.Context) error {
+func (scheduler OrderScheduler) SchedulerInit(ctx context.Context) error {
 
 	var isTriggerNotFoundFlag = false
 	var activeTrigger *entities.FinanceTrigger = nil

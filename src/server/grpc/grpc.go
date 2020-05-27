@@ -74,7 +74,7 @@ func (server Server) TestSellerFinance_OrderCollectionRequestHandler(ctx context
 			return nil, status.Error(codes.Code(future.BadRequest), "Request Invalid")
 		}
 
-		startAt = temp
+		endAt = temp
 	} else {
 		log.GLog.Logger.Error("EndAt is empty",
 			"fn", "TestSellerFinance_OrderCollectionRequestHandler",
@@ -374,229 +374,229 @@ func convertFinanceToRPC(finances []*entities.SellerFinance) []*finance_proto.Se
 					UpdatedAt: finance.Payment.TransferResult.UpdatedAt.Format(utils.ISO8601),
 				}
 			}
+		}
 
-			if finance.OrdersInfo != nil {
-				protoFinance.Orders = make([]*finance_proto.SellerOrder, 0, len(finance.OrdersInfo[0].Orders))
-				for _, order := range finance.OrdersInfo[0].Orders {
-					protoOrder := &finance_proto.SellerOrder{
-						OId: order.OId,
-						ShipmentAmount: &finance_proto.Money{
-							Amount:   order.ShipmentAmount.Amount,
-							Currency: order.ShipmentAmount.Currency,
+		if finance.OrdersInfo != nil {
+			protoFinance.Orders = make([]*finance_proto.SellerOrder, 0, len(finance.OrdersInfo[0].Orders))
+			for _, order := range finance.OrdersInfo[0].Orders {
+				protoOrder := &finance_proto.SellerOrder{
+					OId: order.OId,
+					ShipmentAmount: &finance_proto.Money{
+						Amount:   order.ShipmentAmount.Amount,
+						Currency: order.ShipmentAmount.Currency,
+					},
+					RawShippingNet: &finance_proto.Money{
+						Amount:   order.RawShippingNet.Amount,
+						Currency: order.RawShippingNet.Currency,
+					},
+					RoundupShippingNet: &finance_proto.Money{
+						Amount:   order.RoundupShippingNet.Amount,
+						Currency: order.RoundupShippingNet.Currency,
+					},
+					IsAlreadyShippingPayed: order.IsAlreadyShippingPayed,
+					Items:                  nil,
+					OrderCreatedAt:         order.OrderCreatedAt.Format(utils.ISO8601),
+					SubPkgCreatedAt:        order.SubPkgCreatedAt.Format(utils.ISO8601),
+					SubPkgUpdatedAt:        order.SubPkgUpdatedAt.Format(utils.ISO8601),
+				}
+
+				protoOrder.Items = make([]*finance_proto.SellerItem, 0, len(order.Items))
+				for _, item := range order.Items {
+					protoItem := &finance_proto.SellerItem{
+						SId:         item.SId,
+						SKU:         item.SKU,
+						InventoryId: item.InventoryId,
+						Title:       item.Title,
+						Brand:       item.Brand,
+						Guaranty:    item.Guaranty,
+						Category:    item.Category,
+						Image:       item.Image,
+						Returnable:  item.Returnable,
+						Quantity:    item.Quantity,
+						Attributes:  nil,
+						Invoice: &finance_proto.SellerItemInvoice{
+							Commission: nil,
+							Share:      nil,
+							SSO:        nil,
+							VAT:        nil,
 						},
-						RawShippingNet: &finance_proto.Money{
-							Amount:   order.RawShippingNet.Amount,
-							Currency: order.RawShippingNet.Currency,
-						},
-						RoundupShippingNet: &finance_proto.Money{
-							Amount:   order.RoundupShippingNet.Amount,
-							Currency: order.RoundupShippingNet.Currency,
-						},
-						IsAlreadyShippingPayed: order.IsAlreadyShippingPayed,
-						Items:                  nil,
-						OrderCreatedAt:         order.OrderCreatedAt.Format(utils.ISO8601),
-						SubPkgCreatedAt:        order.SubPkgCreatedAt.Format(utils.ISO8601),
-						SubPkgUpdatedAt:        order.SubPkgUpdatedAt.Format(utils.ISO8601),
 					}
 
-					protoOrder.Items = make([]*finance_proto.SellerItem, 0, len(order.Items))
-					for _, item := range order.Items {
-						protoItem := &finance_proto.SellerItem{
-							SId:         item.SId,
-							SKU:         item.SKU,
-							InventoryId: item.InventoryId,
-							Title:       item.Title,
-							Brand:       item.Brand,
-							Guaranty:    item.Guaranty,
-							Category:    item.Category,
-							Image:       item.Image,
-							Returnable:  item.Returnable,
-							Quantity:    item.Quantity,
-							Attributes:  nil,
-							Invoice: &finance_proto.SellerItemInvoice{
-								Commission: nil,
-								Share:      nil,
-								SSO:        nil,
-								VAT:        nil,
+					if item.Attributes != nil {
+						protoItem.Attributes = make(map[string]*finance_proto.Attribute, len(item.Attributes))
+						for attrKey, attribute := range item.Attributes {
+							keyTranslates := make(map[string]string, len(attribute.KeyTranslate))
+							for keyTran, value := range attribute.KeyTranslate {
+								keyTranslates[keyTran] = value
+							}
+							valTranslates := make(map[string]string, len(attribute.ValueTranslate))
+							for valTran, value := range attribute.ValueTranslate {
+								valTranslates[valTran] = value
+							}
+							protoItem.Attributes[attrKey] = &finance_proto.Attribute{
+								KeyTranslate:   keyTranslates,
+								ValueTranslate: valTranslates,
+							}
+						}
+					}
+
+					if item.Invoice.Commission != nil {
+						protoItem.Invoice.Commission = &finance_proto.SellerItemCommission{
+							ItemCommission:    item.Invoice.Commission.ItemCommission,
+							RawUnitPrice:      nil,
+							RoundupUnitPrice:  nil,
+							RawTotalPrice:     nil,
+							RoundupTotalPrice: nil,
+						}
+
+						if item.Invoice.Commission.RawUnitPrice != nil {
+							protoItem.Invoice.Commission.RawUnitPrice = &finance_proto.Money{
+								Amount:   item.Invoice.Commission.RawUnitPrice.Amount,
+								Currency: item.Invoice.Commission.RawUnitPrice.Currency,
+							}
+						}
+
+						if item.Invoice.Commission.RoundupUnitPrice != nil {
+							protoItem.Invoice.Commission.RoundupUnitPrice = &finance_proto.Money{
+								Amount:   item.Invoice.Commission.RoundupUnitPrice.Amount,
+								Currency: item.Invoice.Commission.RoundupUnitPrice.Currency,
+							}
+						}
+
+						if item.Invoice.Commission.RawTotalPrice != nil {
+							protoItem.Invoice.Commission.RawTotalPrice = &finance_proto.Money{
+								Amount:   item.Invoice.Commission.RawTotalPrice.Amount,
+								Currency: item.Invoice.Commission.RawTotalPrice.Currency,
+							}
+						}
+
+						if item.Invoice.Commission.RoundupTotalPrice != nil {
+							protoItem.Invoice.Commission.RoundupTotalPrice = &finance_proto.Money{
+								Amount:   item.Invoice.Commission.RoundupTotalPrice.Amount,
+								Currency: item.Invoice.Commission.RoundupTotalPrice.Currency,
+							}
+						}
+					}
+
+					if item.Invoice.Share != nil {
+						protoItem.Invoice.Share = &finance_proto.SellerItemShare{
+							RawItemNet: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RawItemNet.Amount,
+								Currency: item.Invoice.Share.RawItemNet.Currency,
+							},
+							RoundupItemNet: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RoundupItemNet.Amount,
+								Currency: item.Invoice.Share.RoundupItemNet.Currency,
+							},
+							RawTotalNet: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RawTotalNet.Amount,
+								Currency: item.Invoice.Share.RawTotalNet.Currency,
+							},
+							RoundupTotalNet: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RoundupTotalNet.Amount,
+								Currency: item.Invoice.Share.RoundupTotalNet.Currency,
+							},
+							RawUnitSellerShare: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RawUnitSellerShare.Amount,
+								Currency: item.Invoice.Share.RawUnitSellerShare.Currency,
+							},
+							RoundupUnitSellerShare: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RoundupUnitSellerShare.Amount,
+								Currency: item.Invoice.Share.RoundupUnitSellerShare.Currency,
+							},
+							RawTotalSellerShare: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RawTotalSellerShare.Amount,
+								Currency: item.Invoice.Share.RawTotalSellerShare.Currency,
+							},
+							RoundupTotalSellerShare: &finance_proto.Money{
+								Amount:   item.Invoice.Share.RoundupTotalSellerShare.Amount,
+								Currency: item.Invoice.Share.RoundupTotalSellerShare.Currency,
 							},
 						}
-
-						if item.Attributes != nil {
-							protoItem.Attributes = make(map[string]*finance_proto.Attribute, len(item.Attributes))
-							for attrKey, attribute := range item.Attributes {
-								keyTranslates := make(map[string]string, len(attribute.KeyTranslate))
-								for keyTran, value := range attribute.KeyTranslate {
-									keyTranslates[keyTran] = value
-								}
-								valTranslates := make(map[string]string, len(attribute.ValueTranslate))
-								for valTran, value := range attribute.ValueTranslate {
-									valTranslates[valTran] = value
-								}
-								protoItem.Attributes[attrKey] = &finance_proto.Attribute{
-									KeyTranslate:   keyTranslates,
-									ValueTranslate: valTranslates,
-								}
-							}
-						}
-
-						if item.Invoice.Commission != nil {
-							protoItem.Invoice.Commission = &finance_proto.SellerItemCommission{
-								ItemCommission:    item.Invoice.Commission.ItemCommission,
-								RawUnitPrice:      nil,
-								RoundupUnitPrice:  nil,
-								RawTotalPrice:     nil,
-								RoundupTotalPrice: nil,
-							}
-
-							if item.Invoice.Commission.RawUnitPrice != nil {
-								protoItem.Invoice.Commission.RawUnitPrice = &finance_proto.Money{
-									Amount:   item.Invoice.Commission.RawUnitPrice.Amount,
-									Currency: item.Invoice.Commission.RawUnitPrice.Currency,
-								}
-							}
-
-							if item.Invoice.Commission.RoundupUnitPrice != nil {
-								protoItem.Invoice.Commission.RoundupUnitPrice = &finance_proto.Money{
-									Amount:   item.Invoice.Commission.RoundupUnitPrice.Amount,
-									Currency: item.Invoice.Commission.RoundupUnitPrice.Currency,
-								}
-							}
-
-							if item.Invoice.Commission.RawTotalPrice != nil {
-								protoItem.Invoice.Commission.RawTotalPrice = &finance_proto.Money{
-									Amount:   item.Invoice.Commission.RawTotalPrice.Amount,
-									Currency: item.Invoice.Commission.RawTotalPrice.Currency,
-								}
-							}
-
-							if item.Invoice.Commission.RoundupTotalPrice != nil {
-								protoItem.Invoice.Commission.RoundupTotalPrice = &finance_proto.Money{
-									Amount:   item.Invoice.Commission.RoundupTotalPrice.Amount,
-									Currency: item.Invoice.Commission.RoundupTotalPrice.Currency,
-								}
-							}
-						}
-
-						if item.Invoice.Share != nil {
-							protoItem.Invoice.Share = &finance_proto.SellerItemShare{
-								RawItemNet: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RawItemNet.Amount,
-									Currency: item.Invoice.Share.RawItemNet.Currency,
-								},
-								RoundupItemNet: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RoundupItemNet.Amount,
-									Currency: item.Invoice.Share.RoundupItemNet.Currency,
-								},
-								RawTotalNet: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RawTotalNet.Amount,
-									Currency: item.Invoice.Share.RawTotalNet.Currency,
-								},
-								RoundupTotalNet: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RoundupTotalNet.Amount,
-									Currency: item.Invoice.Share.RoundupTotalNet.Currency,
-								},
-								RawUnitSellerShare: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RawUnitSellerShare.Amount,
-									Currency: item.Invoice.Share.RawUnitSellerShare.Currency,
-								},
-								RoundupUnitSellerShare: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RoundupUnitSellerShare.Amount,
-									Currency: item.Invoice.Share.RoundupUnitSellerShare.Currency,
-								},
-								RawTotalSellerShare: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RawTotalSellerShare.Amount,
-									Currency: item.Invoice.Share.RawTotalSellerShare.Currency,
-								},
-								RoundupTotalSellerShare: &finance_proto.Money{
-									Amount:   item.Invoice.Share.RoundupTotalSellerShare.Amount,
-									Currency: item.Invoice.Share.RoundupTotalSellerShare.Currency,
-								},
-							}
-						}
-
-						if item.Invoice.SSO != nil {
-							protoItem.Invoice.SSO = &finance_proto.SellerItemSSO{
-								Rate:              item.Invoice.SSO.Rate,
-								IsObliged:         item.Invoice.SSO.IsObliged,
-								RawUnitPrice:      nil,
-								RoundupUnitPrice:  nil,
-								RawTotalPrice:     nil,
-								RoundupTotalPrice: nil,
-							}
-
-							if item.Invoice.SSO.RawUnitPrice != nil {
-								protoItem.Invoice.SSO.RawUnitPrice = &finance_proto.Money{
-									Amount:   item.Invoice.SSO.RawUnitPrice.Amount,
-									Currency: item.Invoice.SSO.RawUnitPrice.Currency,
-								}
-							}
-
-							if item.Invoice.SSO.RoundupUnitPrice != nil {
-								protoItem.Invoice.SSO.RoundupUnitPrice = &finance_proto.Money{
-									Amount:   item.Invoice.SSO.RoundupUnitPrice.Amount,
-									Currency: item.Invoice.SSO.RoundupUnitPrice.Currency,
-								}
-							}
-
-							if item.Invoice.SSO.RawTotalPrice != nil {
-								protoItem.Invoice.SSO.RawTotalPrice = &finance_proto.Money{
-									Amount:   item.Invoice.SSO.RawTotalPrice.Amount,
-									Currency: item.Invoice.SSO.RawTotalPrice.Currency,
-								}
-							}
-
-							if item.Invoice.SSO.RoundupTotalPrice != nil {
-								protoItem.Invoice.SSO.RoundupTotalPrice = &finance_proto.Money{
-									Amount:   item.Invoice.SSO.RoundupTotalPrice.Amount,
-									Currency: item.Invoice.SSO.RoundupTotalPrice.Currency,
-								}
-							}
-						}
-
-						if item.Invoice.VAT != nil {
-							protoItem.Invoice.VAT = &finance_proto.SellerItemVAT{
-								Rate:              item.Invoice.VAT.Rate,
-								IsObliged:         item.Invoice.VAT.IsObliged,
-								RawUnitPrice:      nil,
-								RoundupUnitPrice:  nil,
-								RawTotalPrice:     nil,
-								RoundupTotalPrice: nil,
-							}
-
-							if item.Invoice.VAT.RawUnitPrice != nil {
-								protoItem.Invoice.VAT.RawUnitPrice = &finance_proto.Money{
-									Amount:   item.Invoice.VAT.RawUnitPrice.Amount,
-									Currency: item.Invoice.VAT.RawUnitPrice.Currency,
-								}
-							}
-
-							if item.Invoice.VAT.RoundupUnitPrice != nil {
-								protoItem.Invoice.VAT.RoundupUnitPrice = &finance_proto.Money{
-									Amount:   item.Invoice.VAT.RoundupUnitPrice.Amount,
-									Currency: item.Invoice.VAT.RoundupUnitPrice.Currency,
-								}
-							}
-
-							if item.Invoice.VAT.RawTotalPrice != nil {
-								protoItem.Invoice.VAT.RawTotalPrice = &finance_proto.Money{
-									Amount:   item.Invoice.VAT.RawTotalPrice.Amount,
-									Currency: item.Invoice.VAT.RawTotalPrice.Currency,
-								}
-							}
-
-							if item.Invoice.VAT.RoundupTotalPrice != nil {
-								protoItem.Invoice.VAT.RoundupTotalPrice = &finance_proto.Money{
-									Amount:   item.Invoice.VAT.RoundupTotalPrice.Amount,
-									Currency: item.Invoice.VAT.RoundupTotalPrice.Currency,
-								}
-							}
-						}
-
-						protoOrder.Items = append(protoOrder.Items, protoItem)
 					}
 
-					protoFinance.Orders = append(protoFinance.Orders, protoOrder)
+					if item.Invoice.SSO != nil {
+						protoItem.Invoice.SSO = &finance_proto.SellerItemSSO{
+							Rate:              item.Invoice.SSO.Rate,
+							IsObliged:         item.Invoice.SSO.IsObliged,
+							RawUnitPrice:      nil,
+							RoundupUnitPrice:  nil,
+							RawTotalPrice:     nil,
+							RoundupTotalPrice: nil,
+						}
+
+						if item.Invoice.SSO.RawUnitPrice != nil {
+							protoItem.Invoice.SSO.RawUnitPrice = &finance_proto.Money{
+								Amount:   item.Invoice.SSO.RawUnitPrice.Amount,
+								Currency: item.Invoice.SSO.RawUnitPrice.Currency,
+							}
+						}
+
+						if item.Invoice.SSO.RoundupUnitPrice != nil {
+							protoItem.Invoice.SSO.RoundupUnitPrice = &finance_proto.Money{
+								Amount:   item.Invoice.SSO.RoundupUnitPrice.Amount,
+								Currency: item.Invoice.SSO.RoundupUnitPrice.Currency,
+							}
+						}
+
+						if item.Invoice.SSO.RawTotalPrice != nil {
+							protoItem.Invoice.SSO.RawTotalPrice = &finance_proto.Money{
+								Amount:   item.Invoice.SSO.RawTotalPrice.Amount,
+								Currency: item.Invoice.SSO.RawTotalPrice.Currency,
+							}
+						}
+
+						if item.Invoice.SSO.RoundupTotalPrice != nil {
+							protoItem.Invoice.SSO.RoundupTotalPrice = &finance_proto.Money{
+								Amount:   item.Invoice.SSO.RoundupTotalPrice.Amount,
+								Currency: item.Invoice.SSO.RoundupTotalPrice.Currency,
+							}
+						}
+					}
+
+					if item.Invoice.VAT != nil {
+						protoItem.Invoice.VAT = &finance_proto.SellerItemVAT{
+							Rate:              item.Invoice.VAT.Rate,
+							IsObliged:         item.Invoice.VAT.IsObliged,
+							RawUnitPrice:      nil,
+							RoundupUnitPrice:  nil,
+							RawTotalPrice:     nil,
+							RoundupTotalPrice: nil,
+						}
+
+						if item.Invoice.VAT.RawUnitPrice != nil {
+							protoItem.Invoice.VAT.RawUnitPrice = &finance_proto.Money{
+								Amount:   item.Invoice.VAT.RawUnitPrice.Amount,
+								Currency: item.Invoice.VAT.RawUnitPrice.Currency,
+							}
+						}
+
+						if item.Invoice.VAT.RoundupUnitPrice != nil {
+							protoItem.Invoice.VAT.RoundupUnitPrice = &finance_proto.Money{
+								Amount:   item.Invoice.VAT.RoundupUnitPrice.Amount,
+								Currency: item.Invoice.VAT.RoundupUnitPrice.Currency,
+							}
+						}
+
+						if item.Invoice.VAT.RawTotalPrice != nil {
+							protoItem.Invoice.VAT.RawTotalPrice = &finance_proto.Money{
+								Amount:   item.Invoice.VAT.RawTotalPrice.Amount,
+								Currency: item.Invoice.VAT.RawTotalPrice.Currency,
+							}
+						}
+
+						if item.Invoice.VAT.RoundupTotalPrice != nil {
+							protoItem.Invoice.VAT.RoundupTotalPrice = &finance_proto.Money{
+								Amount:   item.Invoice.VAT.RoundupTotalPrice.Amount,
+								Currency: item.Invoice.VAT.RoundupTotalPrice.Currency,
+							}
+						}
+					}
+
+					protoOrder.Items = append(protoOrder.Items, protoItem)
 				}
+
+				protoFinance.Orders = append(protoFinance.Orders, protoOrder)
 			}
 		}
 

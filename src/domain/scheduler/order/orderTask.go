@@ -98,7 +98,7 @@ func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerH
 		isSuccessFlag := true
 		for processResult := range resultStream {
 			if !processResult.Result {
-				if processResult.ErrType != NoError {
+				if processResult.ErrType != NoError && processResult.ErrType != DataError {
 					cancel()
 					isSuccessFlag = false
 					break
@@ -513,12 +513,7 @@ func (pipeline *Pipeline) reduceOrders(ctx context.Context, orderStream OrderRea
 						"sellerId", sellerOrder.SellerId,
 						"sid", item.SId,
 						"inventoryId", item.InventoryId)
-					return nil, &ProcessResult{
-						Function:      ReduceOrderFn,
-						SellerFinance: nil,
-						ErrType:       DataError,
-						Result:        false,
-					}
+					continue
 				}
 
 				validItems = append(validItems, item)
@@ -531,12 +526,7 @@ func (pipeline *Pipeline) reduceOrders(ctx context.Context, orderStream OrderRea
 					"fn", "reduceOrders",
 					"oid", sellerOrder.OId,
 					"sellerId", sellerOrder.SellerId)
-				return nil, &ProcessResult{
-					Function:      ReduceOrderFn,
-					SellerFinance: nil,
-					ErrType:       DataError,
-					Result:        false,
-				}
+				continue
 			}
 		}
 
