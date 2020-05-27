@@ -69,7 +69,7 @@ func (order *iOrderServiceImpl) CloseConnection() {
 }
 
 func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filterState FilterState,
-	startTimestamp, endTimestamp time.Time, page, perPage uint32) future.IFuture {
+	startAt, endAt time.Time, page, perPage uint32) future.IFuture {
 
 	if err := order.ConnectToOrderService(); err != nil {
 		return future.Factory().SetCapacity(1).
@@ -85,10 +85,10 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 			msgReq := &orderProto.MessageRequest{
 				Time: ptypes.TimestampNow(),
 				Meta: &orderProto.RequestMetadata{
-					Page:           page,
-					PerPage:        perPage,
-					StartTimestamp: startTimestamp.Format(ISO8601),
-					EndTimestamp:   endTimestamp.Format(ISO8601),
+					Page:    page,
+					PerPage: perPage,
+					StartAt: startAt.Format(ISO8601),
+					EndAt:   endAt.Format(ISO8601),
 					Filters: []*orderProto.MetaFilter{
 						{
 							Type:  string(OrderStateFilterType),
@@ -118,8 +118,8 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 		log.GLog.Logger.FromContext(ctx).Error("request to order service grpc timeout",
 			"fn", "GetFinanceOrderItems",
 			"state", filterState,
-			"startTimestamp", startTimestamp.Format(ISO8601),
-			"endTimestamp", endTimestamp.Format(ISO8601),
+			"startAt", startAt.Format(ISO8601),
+			"endAt", endAt.Format(ISO8601),
 			"page", page,
 			"perPage", perPage)
 		return future.FactorySync().
@@ -132,8 +132,8 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 			log.GLog.Logger.Error("FinanceOrderItems order service failed",
 				"fn", "GetFinanceOrderItems",
 				"state", filterState,
-				"startTimestamp", startTimestamp.Format(ISO8601),
-				"endTimestamp", endTimestamp.Format(ISO8601),
+				"startAt", startAt.Format(ISO8601),
+				"endAt", endAt.Format(ISO8601),
 				"page", page,
 				"perPage", perPage,
 				"error", e)
@@ -145,8 +145,8 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 		log.GLog.Logger.Debug("Order FinanceOrderItems success",
 			"fn", "GetFinanceOrderItems",
 			"state", filterState,
-			"startTimestamp", startTimestamp.Format(ISO8601),
-			"endTimestamp", endTimestamp.Format(ISO8601),
+			"startAt", startAt.Format(ISO8601),
+			"endAt", endAt.Format(ISO8601),
 			"page", page,
 			"perPage", perPage)
 
@@ -161,8 +161,8 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 			log.GLog.Logger.Error("Could not unmarshal FinanceOrderItemDetailList from request anything field",
 				"fn", "GetFinanceOrderItems",
 				"state", filterState,
-				"startTimestamp", startTimestamp.Format(ISO8601),
-				"endTimestamp", endTimestamp.Format(ISO8601),
+				"startAt", startAt.Format(ISO8601),
+				"endAt", endAt.Format(ISO8601),
 				"page", page,
 				"perPage", perPage,
 				"error", err)
@@ -177,8 +177,8 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 				log.GLog.Logger.Error("FinanceOrderItems of order service failed",
 					"fn", "GetFinanceOrderItems",
 					"state", filterState,
-					"startTimestamp", startTimestamp.Format(ISO8601),
-					"endTimestamp", endTimestamp.Format(ISO8601),
+					"startAt", startAt.Format(ISO8601),
+					"endAt", endAt.Format(ISO8601),
 					"page", page,
 					"perPage", perPage,
 					"error", err)

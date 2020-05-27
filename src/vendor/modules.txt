@@ -78,7 +78,7 @@ gitlab.faza.io/go-framework/logger
 gitlab.faza.io/go-framework/mongoadapter
 # gitlab.faza.io/protos/finance-proto v0.0.1-rc2
 gitlab.faza.io/protos/finance-proto
-# gitlab.faza.io/protos/order v0.0.81-rc4
+# gitlab.faza.io/protos/order v0.0.83-rs4
 gitlab.faza.io/protos/order
 # gitlab.faza.io/protos/payment-transfer-proto v0.0.14
 gitlab.faza.io/protos/payment-transfer-proto

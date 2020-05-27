@@ -6,7 +6,8 @@ package ordersrv;
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
-message ReasonsListRequest {}
+message ReasonsListRequest {
+}
 
 message ReasonsListResponse {
     repeated ReasonDetail reasons = 1;
@@ -14,7 +15,7 @@ message ReasonsListResponse {
 
 message ResponseMetadata {
     uint32 total = 1;
-    uint32 page =  2;
+    uint32 page = 2;
     uint32 perPage = 3;
 }
 
@@ -56,12 +57,12 @@ message RequestMetadata {
     uint32 page = 6;
     uint32 perPage = 7;
     string ipAddress = 8;
-    string startTimestamp = 9;
-    string endTimestamp = 10;
+    string startAt = 9;
+    string endAt = 10;
     MetaAction action = 11;
     repeated MetaSorts sorts = 12;
     repeated MetaFilter filters = 13;
-    map<string,string> ext = 14;
+    map<string, string> ext = 14;
 }
 
 message MetaAction {
@@ -95,12 +96,12 @@ message ActionResponse {
 }
 
 message ReasonDetail {
-	string  key             = 1;
-	string  translation     = 2;
-    bool    hasDescription  = 3;
-    bool    cancel          = 4;
-    bool    return          = 5;
-    bool    isActive        = 6;
+    string key = 1;
+    string translation = 2;
+    bool hasDescription = 3;
+    bool cancel = 4;
+    bool return = 5;
+    bool isActive = 6;
     enum Responsible {
         NONE = 0;
         BUYER = 1;
@@ -110,16 +111,16 @@ message ReasonDetail {
 }
 
 message Reason {
-	string key          = 1;
-	string description  = 2;
+    string key = 1;
+    string description = 2;
 }
 
 message ActionData {
     message Subpackage {
         uint64 SID = 1;
         message Item {
-            string  inventoryId = 1;
-            int32   quantity = 2;
+            string inventoryId = 1;
+            int32 quantity = 2;
             repeated Reason reasons = 3;
         }
         repeated Item items = 2;
@@ -154,11 +155,10 @@ message SchedulerActionRequest {
     repeated Order orders = 1;
 }
 
-
 /////////////////////////////////////////////////////////////
 // seller messages
 message SellerOrderList {
-    uint64 PID  = 1;
+    uint64 PID = 1;
     message ItemList {
         uint64 OID = 1;
         string RequestAt = 2;
@@ -193,7 +193,7 @@ message SellerOrderDetail {
         uint64 SID = 1;
         string sku = 2;
         string status = 3;
-        int32  sIdx = 4;
+        int32 sIdx = 4;
         string inventoryId = 5;
         string title = 6;
         string brand = 7;
@@ -206,14 +206,14 @@ message SellerOrderDetail {
             map<string, string> keyTranslates = 1;
             map<string, string> valueTranslates = 2;
         }
-        map<string,Attribute> attributes = 13;
+        map<string, Attribute> attributes = 13;
         message Invoice {
             uint64 unit = 1;
             uint64 total = 2;
             uint64 original = 3;
             uint64 special = 4;
             uint64 discount = 5;
-            float  sellerCommission = 6;
+            float sellerCommission = 6;
             string currency = 7;
         };
         Invoice invoice = 14;
@@ -229,6 +229,8 @@ message SellerOrderDetail {
             string UpdatedAt = 8;
         }
         ShipmentInfo shipmentDetail = 15;
+        ReasonDetail cancellationReason = 16;
+        ReasonDetail returnReason = 17;
     }
 
     repeated ItemDetail items = 6;
@@ -319,31 +321,31 @@ message SellerAllOrderReports {
 }
 
 message SellerReturnOrderList {
-    uint64 PID  = 1;
+    uint64 PID = 1;
     message ItemList {
         uint64 OID = 1;
-//        uint64 SID = 2;
-//        string sku = 3;
-//        string inventoryId = 4;
+        //        uint64 SID = 2;
+        //        string sku = 3;
+        //        string inventoryId = 4;
         string requestAt = 5;
-//        string returnRequestAt = 6;
+        //        string returnRequestAt = 6;
         uint64 amount = 7;
-//        string title = 8;
-//        string brand = 9;
-//        string category = 10;
-//        int32 quantity = 11;
-//        message ShipmentAddress {
-//            string firstName = 1;
-//            string lastName = 2;
-//            string address = 3;
-//            string phone = 4;
-//            string mobile = 5;
-//            string country = 6;
-//            string city = 7;
-//            string province = 8;
-//            string neighbourhood = 9;
-//        }
-//        ShipmentAddress address = 12;
+        //        string title = 8;
+        //        string brand = 9;
+        //        string category = 10;
+        //        int32 quantity = 11;
+        //        message ShipmentAddress {
+        //            string firstName = 1;
+        //            string lastName = 2;
+        //            string address = 3;
+        //            string phone = 4;
+        //            string mobile = 5;
+        //            string country = 6;
+        //            string city = 7;
+        //            string province = 8;
+        //            string neighbourhood = 9;
+        //        }
+        //        ShipmentAddress address = 12;
     };
     repeated ItemList items = 2;
 }
@@ -366,6 +368,7 @@ message SellerReturnOrderDetail {
         string lat = 10;
         string long = 11;
         string zipCode = 12;
+        uint64 buyerId = 13;
     }
     ShipmentAddress address = 6;
 
@@ -373,7 +376,7 @@ message SellerReturnOrderDetail {
         uint64 SID = 1;
         string sku = 2;
         string status = 3;
-        int32  sIdx = 4;
+        int32 sIdx = 4;
         message Detail {
             string inventoryId = 1;
             string title = 2;
@@ -387,7 +390,7 @@ message SellerReturnOrderDetail {
                 map<string, string> keyTranslates = 1;
                 map<string, string> valueTranslates = 2;
             }
-            map<string,Attribute> attributes = 9;
+            map<string, Attribute> attributes = 9;
             message Invoice {
                 uint64 unit = 1;
                 uint64 total = 2;
@@ -414,6 +417,7 @@ message SellerReturnOrderDetail {
         }
 
         Detail detail = 5;
+        ReasonDetail returnReason = 6;
     }
 
     repeated Item items = 7;
@@ -465,7 +469,7 @@ message BuyerOrderDetailList {
             message Item {
                 uint64 SID = 1;
                 string status = 2;
-                int32  sIdx = 3;
+                int32 sIdx = 3;
                 bool isCancelable = 4;
                 bool isReturnable = 5;
                 bool isReturnCancelable = 6;
@@ -479,7 +483,7 @@ message BuyerOrderDetailList {
                     map<string, string> keyTranslates = 1;
                     map<string, string> valueTranslates = 2;
                 }
-                map<string,Attribute> attributes = 13;
+                map<string, Attribute> attributes = 13;
                 message Invoice {
                     uint64 unit = 1;
                     uint64 total = 2;
@@ -511,8 +515,8 @@ message BuyerOrderDetailList {
 
 message BuyerAllOrderReports {
     uint64 buyerId = 1;
-    int32  orders = 2;
-    int32  returnOrders = 3;
+    int32 orders = 2;
+    int32 returnOrders = 3;
 }
 
 message BuyerReturnOrderReports {
@@ -576,7 +580,7 @@ message BuyerReturnOrderDetailList {
                     map<string, string> keyTranslates = 1;
                     map<string, string> valueTranslates = 2;
                 }
-                map<string,Attribute> attributes = 12;
+                map<string, Attribute> attributes = 12;
                 message Invoice {
                     uint64 unit = 1;
                     uint64 total = 2;
@@ -640,7 +644,7 @@ message BuyerReturnOrderItemDetailList {
                 map<string, string> keyTranslates = 1;
                 map<string, string> valueTranslates = 2;
             }
-            map<string,Attribute> attributes = 12;
+            map<string, Attribute> attributes = 12;
             message Invoice {
                 uint64 unit = 1;
                 uint64 total = 2;
@@ -705,8 +709,8 @@ message OperatorOrderDetail {
 
     message BillingInfo {
         uint64 BuyerId = 1;
-        string firstName= 2;
-        string lastName= 3;
+        string firstName = 2;
+        string lastName = 3;
         string phone = 4;
         string mobile = 5;
         string nationalId = 6;
@@ -771,8 +775,8 @@ message OperatorOrderDetail {
                 map<string, string> keyTranslates = 1;
                 map<string, string> valueTranslates = 2;
             }
-            map<string,Attribute> attributes = 4;
-            int32  quantity   = 5;
+            map<string, Attribute> attributes = 4;
+            int32 quantity = 5;
             message Invoice {
                 uint64 unit = 1;
                 uint64 total = 2;

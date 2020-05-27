@@ -17,7 +17,7 @@ require (
 	gitlab.faza.io/go-framework/logger v0.0.12
 	gitlab.faza.io/go-framework/mongoadapter v0.1.2
 	gitlab.faza.io/protos/finance-proto v0.0.1-rc2
-	gitlab.faza.io/protos/order v0.0.81-rc4
+	gitlab.faza.io/protos/order v0.0.83-rs4
 	gitlab.faza.io/protos/payment-transfer-proto v0.0.14
 	gitlab.faza.io/protos/user v0.0.49
 	gitlab.faza.io/services/user-app-client v0.0.24

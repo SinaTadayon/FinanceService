@@ -177,8 +177,8 @@ gitlab.faza.io/go-framework/mongoadapter v0.1.2 h1:Jk2nyKEaHMv/Gz9tWR5zMzzrsj+Lq
 gitlab.faza.io/go-framework/mongoadapter v0.1.2/go.mod h1:I2P53ob+HawPnnNP0qeyijNgaOqhw9cnXOqHCDNdJYA=
 gitlab.faza.io/protos/finance-proto v0.0.1-rc2 h1:Fl3k8J0Ev0oeNJa9CYuWBXZbXPMKboZWfdV2bhYAocI=
 gitlab.faza.io/protos/finance-proto v0.0.1-rc2/go.mod h1:OCT8Lks4bSZgARU6BxQZnARW1afOFTZ8izkAyonxApk=
-gitlab.faza.io/protos/order v0.0.81-rc4 h1:0Cx58mz/dAcDwn05GoZa2RVe7jI/6gYz2fNKmUSbRhQ=
-gitlab.faza.io/protos/order v0.0.81-rc4/go.mod h1:mdK2jO7EiUBmd7x86Vp2g/cJ3W63G+q49vo+z7ABS1w=
+gitlab.faza.io/protos/order v0.0.83-rs4 h1:gu1QNUezOxwNWz7vVfEZRRz2AY1JtGf3uKocdB7MeB4=
+gitlab.faza.io/protos/order v0.0.83-rs4/go.mod h1:mdK2jO7EiUBmd7x86Vp2g/cJ3W63G+q49vo+z7ABS1w=
 gitlab.faza.io/protos/payment-transfer-proto v0.0.14 h1:tU+K36QYEomzq9wiYBnjHUH5hg0Avvea/9D70Rwmdw4=
 gitlab.faza.io/protos/payment-transfer-proto v0.0.14/go.mod h1:LmQi7EPQJuYbcuxPISIJBsjyuz9E2QPgmVylSxRQPxE=
 gitlab.faza.io/protos/user v0.0.46/go.mod h1:w6omD0TOMlJfOKcNTne7hlKN5FUOBPJzexzFCZmoyQY=
