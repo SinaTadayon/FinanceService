@@ -35,6 +35,7 @@ func (scheduler OrderScheduler) TestOrderTask(ctx context.Context, startAt, endA
 	testTriggerHistory := iFutureData.Data().(*entities.TriggerHistory)
 
 	scheduler.financeTriggerInterval = endAt.Sub(startAt)
+	scheduler.financeTriggerDuration = scheduler.financeTriggerInterval
 	iFutureData = scheduler.OrderSchedulerTask(ctx, *testTriggerHistory).Get()
 	if iFutureData.Error() != nil {
 		return future.FactorySyncDataOf(iFutureData).BuildAndSend()
