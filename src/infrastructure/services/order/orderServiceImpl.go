@@ -115,7 +115,7 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 		timeoutTimer.Stop()
 		break
 	case <-timeoutTimer.C:
-		log.GLog.Logger.FromContext(ctx).Error("request to order service grpc timeout",
+		log.GLog.Logger.Error("request to order service grpc timeout",
 			"fn", "GetFinanceOrderItems",
 			"state", filterState,
 			"startAt", startAt.Format(ISO8601),
@@ -138,7 +138,7 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 				"perPage", perPage,
 				"error", e)
 			return future.FactorySync().
-				SetError(future.NotAccepted, "Get Finance OrderItem Failed", errors.New("Order Service Timeout")).
+				SetError(future.InternalError, e.Error(), errors.Wrap(e, "FinanceOrderItems order service failed")).
 				BuildAndSend()
 		}
 	} else if response, ok := obj.(*orderProto.MessageResponse); ok {
@@ -167,7 +167,7 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 				"perPage", perPage,
 				"error", err)
 			return future.FactorySync().
-				SetError(future.InternalError, "Get Finance OrderItem Failed", errors.New("FinanceOrderItemDetailList unmarshal failed")).
+				SetError(future.InternalError, "Get Finance OrderItem Failed", errors.Wrap(err, "FinanceOrderItemDetailList unmarshal failed")).
 				BuildAndSend()
 		}
 
@@ -183,7 +183,7 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 					"perPage", perPage,
 					"error", err)
 				return future.FactorySync().
-					SetError(future.NotAccepted, "Finance OrderItemDetail Invalid", errors.New("Finance OrderItemDetail Invalid")).
+					SetError(future.NotAccepted, "Finance OrderItemDetail Invalid", errors.Wrap(err, "Finance OrderItemDetail Invalid")).
 					BuildAndSend()
 			}
 
@@ -196,7 +196,7 @@ func (order *iOrderServiceImpl) GetFinanceOrderItems(ctx context.Context, filter
 	}
 
 	return future.FactorySync().
-		SetError(future.NotAccepted, "Get FinanceOrderItemDetail Failed", errors.New("Get FinanceOrderItemDetail Failed")).
+		SetError(future.InternalError, "Unknown Error", errors.New("Unknown Error")).
 		BuildAndSend()
 }
 

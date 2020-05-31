@@ -8,6 +8,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"strconv"
 	"sync"
 	"time"
@@ -19,11 +20,16 @@ type iPaymentServiceImpl struct {
 	serverAddress        string
 	serverPort           int
 	timeout              int
+	contextInfo          map[string]string
 	mux                  sync.Mutex
 }
 
 func NewPaymentService(address string, port int, timeout int) IPaymentService {
-	return &iPaymentServiceImpl{nil, nil, address, port, timeout, sync.Mutex{}}
+	var contextInfo = map[string]string{
+		"internal_request": "true",
+	}
+
+	return &iPaymentServiceImpl{nil, nil, address, port, timeout, contextInfo, sync.Mutex{}}
 }
 
 func (payment *iPaymentServiceImpl) ConnectToPaymentService() error {
@@ -113,11 +119,11 @@ func (payment *iPaymentServiceImpl) SingleTransferMoney(ctx context.Context, req
 		timeoutTimer.Stop()
 		break
 	case <-timeoutTimer.C:
-		log.GLog.Logger.FromContext(ctx).Error("request to TransferOne of payment service, grpc timeout",
+		log.GLog.Logger.Error("request to TransferOne of payment service, grpc timeout",
 			"fn", "SingleTransferMoney",
 			"request", request)
 		return future.FactorySync().
-			SetError(future.NotAccepted, "Get Finance OrderItem Failed", errors.New("Order Service Timeout")).
+			SetError(future.NotAccepted, "payment service transferOne failed", errors.New("payment service timeout")).
 			BuildAndSend()
 	}
 
@@ -128,7 +134,7 @@ func (payment *iPaymentServiceImpl) SingleTransferMoney(ctx context.Context, req
 				"request", request,
 				"error", e)
 			return future.FactorySync().
-				SetError(future.NotAccepted, "Payment TransferOne Failed", errors.New("Payment Service Timeout")).
+				SetError(future.InternalError, e.Error(), errors.Wrap(e, "TransferOne payment service failed")).
 				BuildAndSend()
 		}
 	} else if response, ok := obj.(*paymentProto.TransferOneResponse); ok {
@@ -144,7 +150,7 @@ func (payment *iPaymentServiceImpl) SingleTransferMoney(ctx context.Context, req
 	}
 
 	return future.FactorySync().
-		SetError(future.NotAccepted, "Payment TransferOne Failed", errors.New("Payment TransferOne Failed")).
+		SetError(future.InternalError, "Unknown Error", errors.New("Unknown Error")).
 		BuildAndSend()
 }
 
@@ -159,7 +165,7 @@ func (payment *iPaymentServiceImpl) GetSingleTransferMoneyResult(ctx context.Con
 			BuildAndSend()
 	}
 
-	ctx = context.WithValue(ctx, "internal_request", true)
+	ctx = metadata.NewOutgoingContext(ctx, metadata.New(payment.contextInfo))
 	timeoutTimer := time.NewTimer(time.Duration(payment.timeout) * time.Second)
 
 	paymentFn := func() <-chan interface{} {
@@ -216,7 +222,7 @@ func (payment *iPaymentServiceImpl) GetSingleTransferMoneyResult(ctx context.Con
 				"transferId", transferId,
 				"error", e)
 			return future.FactorySync().
-				SetError(future.NotAccepted, "Get TransferResult Money Failed", errors.New("Payment Service Timeout")).
+				SetError(future.InternalError, e.Error(), errors.Wrap(e, "Get TransferResult Money Failed")).
 				BuildAndSend()
 		}
 	} else if response, ok := obj.(*paymentProto.TransfersListFullDetailResponse); ok {
@@ -256,7 +262,7 @@ func (payment *iPaymentServiceImpl) GetSingleTransferMoneyResult(ctx context.Con
 	}
 
 	return future.FactorySync().
-		SetError(future.NotAccepted, "Get FinanceOrderItemDetail Failed", errors.New("Get FinanceOrderItemDetail Failed")).
+		SetError(future.InternalError, "Unknown Error", errors.New("Unknown Error")).
 		BuildAndSend()
 }
 
