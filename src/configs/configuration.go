@@ -81,6 +81,9 @@ type Config struct {
 		RetryWrite               bool   `env:"FINANCE_SERVICE_MONGO_RETRY_WRITE"`
 		ReadConcern              string `env:"FINANCE_SERVICE_MONGO_READ_CONCERN"`
 		ReadPreferred            string `env:"FINANCE_SERVICE_MONGO_READ_PREFERRED"`
+		HeartBeatInterval        int    `env:"FINANCE_SERVICE_MONGO_HEARTBEAT_INTERVAL"`
+		ServerSelectionTimeout   int    `env:"FINANCE_SERVICE_MONGO_SERVER_SELECTION_TIMEOUT"`
+		RetryConnect             int    `env:"FINANCE_SERVICE_MONGO_RETRY_CONNECT"`
 	}
 }
 

@@ -198,7 +198,7 @@ func (scheduler OrderScheduler) fetchOrders(ctx context.Context, startAt, endAt 
 			if iFuture.Error() != nil {
 				if iFuture.Error().Code() != future.NotFound {
 					log.GLog.Logger.Error("GetFinanceOrderItems from order service failed",
-						"fn", "fetchOrders", "error", iFuture.Error().Reason())
+						"fn", "fetchOrders", "error", iFuture.Error())
 
 					resultStream <- &ProcessResult{
 						Function:      FetchOrderFn,
@@ -336,10 +336,6 @@ func (scheduler OrderScheduler) fanInPipelineStreams(ctx context.Context, pipeli
 			}
 
 			resultReaderStream, pipelineTaskFn := scheduler.executePipeline(ctx, pipelineChannel)
-			//CreateUpdateFinanceTask := func() {
-			//	pipelineTaskFn(ctx, pipelineChannel)
-			//}
-
 			if err := app.Globals.WorkerPool.SubmitTask(pipelineTaskFn); err != nil {
 				log.GLog.Logger.Error("submit pipelineTaskFn to WorkerPool.SubmitTask failed",
 					"fn", "fanInPipelineStreams", "error", err)
@@ -622,6 +618,7 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 
 			newOrderInfo.Orders = make([]*entities.SellerOrder, 0, len(sellerFinance.OrdersInfo[0].Orders))
 
+			var sids = make([]uint64, 0, len(sellerFinance.OrdersInfo[0].Orders)*2)
 			for _, newOrder := range sellerFinance.OrdersInfo[0].Orders {
 				collectOrders := make([]*entities.SellerOrder, 0, 1)
 				for _, orderInfo := range foundSellerFinance.OrdersInfo {
@@ -651,6 +648,7 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 
 						if !itemFindFlag {
 							diffItems = append(diffItems, newItem)
+							sids = append(sids, newItem.SId)
 						} else {
 							log.GLog.Logger.Warn("duplicate order subpackage found",
 								"fn", "createUpdateFinance",
@@ -699,7 +697,7 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 					"fn", "createUpdateFinance",
 					"fid", foundSellerFinance.FId,
 					"sellerId", foundSellerFinance.SellerId,
-					"error", iFuture.Error().Reason())
+					"error", iFuture.Error())
 
 				return &ProcessResult{
 					Function:      CreateUpdateFinanceFn,
@@ -708,6 +706,12 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 					Result:        false,
 				}
 			}
+
+			log.GLog.Logger.Info("Updating seller finance success",
+				"fn", "createUpdateFinance",
+				"fid", foundSellerFinance.FId,
+				"sellerId", foundSellerFinance.SellerId,
+				"sids", sids)
 
 			return &ProcessResult{
 				Function:      CreateUpdateFinanceFn,
@@ -741,12 +745,19 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 				DeletedAt: nil,
 			}
 
+			sids := make([]uint64, 0, len(sellerFinance.OrdersInfo[0].Orders)*2)
+			for _, order := range sellerFinance.OrdersInfo[0].Orders {
+				for _, item := range order.Items {
+					sids = append(sids, item.SId)
+				}
+			}
+
 			iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
 			if iFuture.Error() != nil {
 				log.GLog.Logger.Error("UserService.GetSellerProfile failed",
 					"fn", "createUpdateFinance",
 					"sellerId", sellerFinance.SellerId,
-					"error", iFuture.Error().Reason())
+					"error", iFuture.Error())
 			} else {
 				newSellerFinance.SellerInfo = iFuture.Data().(*entities.SellerProfile)
 			}
@@ -756,9 +767,9 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 				log.GLog.Logger.Error("SellerFinanceRepository.Save failed",
 					"fn", "createUpdateFinance",
 					"sellerId", newSellerFinance.SellerId,
-					"startAt", startAt,
-					"endAt", endAt,
-					"error", iFuture.Error().Reason())
+					"startAt", startAt.Format(utils.ISO8601),
+					"endAt", endAt.Format(utils.ISO8601),
+					"error", iFuture.Error())
 
 				return &ProcessResult{
 					Function:      CreateUpdateFinanceFn,
@@ -767,6 +778,15 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 					Result:        false,
 				}
 			}
+
+			newSellerFinance = iFuture.Data().(*entities.SellerFinance)
+			log.GLog.Logger.Info("create seller finance success",
+				"fn", "createUpdateFinance",
+				"fid", newSellerFinance.FId,
+				"sellerId", newSellerFinance.SellerId,
+				"startAt", startAt.Format(utils.ISO8601),
+				"endAt", endAt.Format(utils.ISO8601),
+				"sids", sids)
 
 			return &ProcessResult{
 				Function:      CreateUpdateFinanceFn,
@@ -805,7 +825,7 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 			log.GLog.Logger.Error("UserService.GetSellerProfile failed",
 				"fn", "createUpdateFinance",
 				"sellerId", sellerFinance.SellerId,
-				"error", iFuture.Error().Reason())
+				"error", iFuture.Error())
 		} else {
 			newSellerFinance.SellerInfo = iFuture.Data().(*entities.SellerProfile)
 		}
@@ -815,9 +835,9 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 			log.GLog.Logger.Error("SellerFinanceRepository.Save failed",
 				"fn", "createUpdateFinance",
 				"sellerId", newSellerFinance.SellerId,
-				"startAt", startAt,
-				"endAt", endAt,
-				"error", iFuture.Error().Reason())
+				"startAt", startAt.Format(utils.ISO8601),
+				"endAt", endAt.Format(utils.ISO8601),
+				"error", iFuture.Error())
 
 			return &ProcessResult{
 				Function:      CreateUpdateFinanceFn,
@@ -826,6 +846,22 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 				Result:        false,
 			}
 		}
+
+		sids := make([]uint64, 0, len(sellerFinance.OrdersInfo[0].Orders)*2)
+		for _, order := range sellerFinance.OrdersInfo[0].Orders {
+			for _, item := range order.Items {
+				sids = append(sids, item.SId)
+			}
+		}
+
+		newSellerFinance = iFuture.Data().(*entities.SellerFinance)
+		log.GLog.Logger.Info("create seller finance success",
+			"fn", "createUpdateFinance",
+			"fid", newSellerFinance.FId,
+			"sellerId", newSellerFinance.SellerId,
+			"startAt", startAt.Format(utils.ISO8601),
+			"endAt", endAt.Format(utils.ISO8601),
+			"sids", sids)
 
 		return &ProcessResult{
 			Function:      CreateUpdateFinanceFn,

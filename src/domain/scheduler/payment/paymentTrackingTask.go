@@ -303,6 +303,8 @@ func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceRe
 					sellerFinance.Payment.TransferResult.UpdatedAt = time.Now().UTC()
 				}
 
+				sellerFinance.Payment.UpdatedAt = sellerFinance.Payment.TransferResult.UpdatedAt
+
 				if transferResult.Pending == 0 {
 					log.GLog.Logger.Debug("finance transfer money complete",
 						"fn", "financePaymentTracking",

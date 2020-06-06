@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+const (
+	defaultPerPageSize int64 = 32
+)
+
 type startWardFn func(ctx context.Context, pulseInterval time.Duration, scheduleInterval time.Duration) (heartbeat <-chan interface{})
 type startStewardFn func(ctx context.Context, pulseInterval time.Duration) (heartbeat <-chan interface{})
 
@@ -80,7 +84,7 @@ func (scheduler OrderScheduler) SchedulerInit(ctx context.Context) error {
 			if iFuture.Error().Code() != future.NotFound {
 				log.GLog.Logger.Error("TriggerRepository.FindActiveTrigger failed",
 					"fn", "init",
-					"error", iFuture.Error().Reason())
+					"error", iFuture.Error())
 				return iFuture.Error()
 			}
 		} else {
@@ -89,16 +93,17 @@ func (scheduler OrderScheduler) SchedulerInit(ctx context.Context) error {
 			activeTrigger.IsEnable = false
 			iFuture = app.Globals.TriggerRepository.Update(ctx, *activeTrigger).Get()
 			if iFuture.Error() != nil {
-				log.GLog.Logger.Error("TriggerRepository.Update active trigger failed",
+				log.GLog.Logger.Error("TriggerRepository.Update seller active trigger failed",
 					"fn", "init",
 					"trigger", activeTrigger,
-					"error", iFuture.Error().Reason())
+					"error", iFuture.Error())
 				return iFuture.Error()
 			}
 
-			log.GLog.Logger.Info("disable active trigger success",
+			log.GLog.Logger.Info("disable seller active trigger success",
 				"fn", "init",
-				"trigger", activeTrigger)
+				"activeTrigger", activeTrigger)
+
 		}
 
 		var triggerAt time.Time
@@ -146,7 +151,7 @@ func (scheduler OrderScheduler) SchedulerInit(ctx context.Context) error {
 			log.GLog.Logger.Error("TriggerRepository.Save new trigger failed",
 				"fn", "init",
 				"trigger", newTrigger,
-				"error", iFuture.Error().Reason())
+				"error", iFuture.Error())
 			return iFuture.Error()
 		}
 
@@ -157,7 +162,7 @@ func (scheduler OrderScheduler) SchedulerInit(ctx context.Context) error {
 					"fn", "init",
 					"activeTrigger", activeTrigger,
 					"trigger", newTrigger,
-					"error", iFuture.Error().Reason())
+					"error", iFuture.Error())
 				return err
 			} else {
 				log.GLog.Logger.Info("updateSellerFinance With NewTriggerConfig success",
@@ -267,7 +272,7 @@ func (scheduler OrderScheduler) abandonedTriggerHistoryHandler(ctx context.Conte
 		iFuture := app.Globals.TriggerHistoryRepository.FindByFilterWithPage(ctx, func() interface{} {
 			return bson.D{{"runMode", entities.TriggerRunModeRunning},
 				{"deletedAt", nil}}
-		}, int64(i+1), 16).Get()
+		}, int64(i+1), defaultPerPageSize).Get()
 
 		if iFuture.Error() != nil {
 			if iFuture.Error().Code() != future.NotFound {
@@ -283,13 +288,13 @@ func (scheduler OrderScheduler) abandonedTriggerHistoryHandler(ctx context.Conte
 
 		historyResult := iFuture.Data().(trigger_history_repository.HistoryPageableResult)
 
-		if historyResult.TotalCount%16 != 0 {
-			availablePages = (int(historyResult.TotalCount) / 16) + 1
+		if historyResult.TotalCount%defaultPerPageSize != 0 {
+			availablePages = (int(historyResult.TotalCount) / int(defaultPerPageSize)) + 1
 		} else {
-			availablePages = int(historyResult.TotalCount) / 16
+			availablePages = int(historyResult.TotalCount) / int(defaultPerPageSize)
 		}
 
-		if historyResult.TotalCount < 16 {
+		if historyResult.TotalCount < defaultPerPageSize {
 			availablePages = 1
 		}
 
@@ -385,8 +390,8 @@ func (scheduler OrderScheduler) updateSellerFinanceWithNewTriggerConfig(ctx cont
 					log.GLog.Logger.Error("shrink of finance's endAt failed",
 						"fn", "updateSellerFinanceWithNewTriggerConfig",
 						"fid", finance.FId,
-						"startAt", finance.StartAt,
-						"endAt", finance.EndAt,
+						"startAt", finance.StartAt.Format(utils.ISO8601),
+						"endAt", finance.EndAt.Format(utils.ISO8601),
 						"error", iFuture.Error().Reason())
 					return iFuture.Error()
 				}
@@ -394,8 +399,8 @@ func (scheduler OrderScheduler) updateSellerFinanceWithNewTriggerConfig(ctx cont
 				log.GLog.Logger.Debug("shrink of finance's endAt success",
 					"fn", "updateSellerFinanceWithNewTriggerConfig",
 					"fid", finance.FId,
-					"startAt", finance.StartAt,
-					"endAt", finance.EndAt)
+					"startAt", finance.StartAt.Format(utils.ISO8601),
+					"endAt", finance.EndAt.Format(utils.ISO8601))
 			}
 		}
 	} else {
@@ -432,7 +437,7 @@ func (scheduler OrderScheduler) missedFireTriggerHandler(ctx context.Context, ac
 			log.GLog.Logger.Error("TriggerHistoryRepository.CountWithFilter failed",
 				"fn", "missedFireTriggerHandler",
 				"activeTrigger", activeTrigger,
-				"error", iFuture.Error().Reason())
+				"error", iFuture.Error())
 			return missedFireCount, iFuture.Error()
 		}
 
@@ -682,7 +687,7 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		log.GLog.Logger.Debug("triggerAt greater than timestamp",
 			"fn", "doProcess",
 			"triggerName", trigger.Name,
-			"triggerAt", trigger.TriggerAt)
+			"triggerAt", trigger.TriggerAt.Format(utils.ISO8601))
 		return
 	}
 
@@ -711,11 +716,9 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		log.GLog.Logger.Error("TriggerRepository.Update failed",
 			"fn", "doProcess",
 			"trigger", trigger,
-			"error", iFuture.Error().Reason())
+			"error", iFuture.Error())
 		return
 	}
-
-	//updatedTrigger := iFuture.Data().(*entities.FinanceTrigger)
 
 	triggerHistory := &entities.TriggerHistory{
 		TriggerName:  trigger.Name,

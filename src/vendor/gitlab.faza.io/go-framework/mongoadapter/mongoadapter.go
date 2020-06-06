@@ -2,19 +2,19 @@ package mongoadapter
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"go.mongodb.org/mongo-driver/x/bsonx"
+	"sync"
 
 	"strconv"
 	"time"
 
-	"github.com/matryer/resync"
 	"github.com/rs/xid"
 	//"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -22,22 +22,25 @@ import (
 )
 
 type MongoConfig struct {
-	Host            string
-	Port            int
-	Username        string
-	Password        string
-	ConnTimeout     time.Duration
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	MaxConnIdleTime time.Duration
-	MaxPoolSize     uint64
-	MinPoolSize     uint64
-	WriteConcernW   string
-	WriteConcernJ   string
-	RetryWrites     bool
-	ReadConcern     string
-	ReadPreference  string
-	ConnectUri      string
+	Host                   string
+	Port                   int
+	Username               string
+	Password               string
+	ConnTimeout            time.Duration
+	ReadTimeout            time.Duration
+	WriteTimeout           time.Duration
+	MaxConnIdleTime        time.Duration
+	HeartbeatInterval      time.Duration
+	ServerSelectionTimeout time.Duration
+	RetryConnect           uint64
+	MaxPoolSize            uint64
+	MinPoolSize            uint64
+	WriteConcernW          string
+	WriteConcernJ          string
+	RetryWrites            bool
+	ReadConcern            string
+	ReadPreference         string
+	ConnectUri             string
 }
 
 type Mongo struct {
@@ -54,8 +57,9 @@ type TotalCount struct {
 // using sync package to ensure our instantiation
 // of mongo under high concurrency does happen
 // only and only once
-var mongoOnceCollection map[string]*resync.Once
-var mongoInstanceCollection map[string]*Mongo
+//var mongoOnceCollection map[string]*resync.Once
+var mongoInstanceCollection = make(map[string]*Mongo, 4)
+var mutex sync.Mutex
 
 // NewMongo returns an instance of Mongo with an established connection. It uses the Ping()
 // method to ensure the healthiness of the connection, in case Ping() returns error, the method
@@ -77,153 +81,169 @@ func NewMongo(Config *MongoConfig) (*Mongo, error) {
 	if Config.ConnectUri != "" {
 		uri = Config.ConnectUri
 	}
-	if mongoOnceCollection == nil {
-		mongoOnceCollection = make(map[string]*resync.Once)
-	}
-	if mongoInstanceCollection == nil {
-		mongoInstanceCollection = make(map[string]*Mongo)
-	}
-	if _, ok := mongoOnceCollection[uri]; !ok {
-		mongoOnceCollection[uri] = &resync.Once{}
-	}
 
 	// we do a check to see if our global app
 	// container already has an instance of Mongo
 	// or not
-	if _, ok := mongoInstanceCollection[uri]; ok {
-		return mongoInstanceCollection[uri], nil
+	if _, ok := mongoInstanceCollection[uri]; !ok {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if _, ok = mongoInstanceCollection[uri]; !ok {
+			adapter, err := mongoAdapterFactory(Config, auth, uri)
+			if err != nil {
+				return nil, err
+			}
+			mongoInstanceCollection[uri] = adapter
+			return adapter, nil
+		}
 	}
 
-	var mainErr error
+	return mongoInstanceCollection[uri], nil
+}
 
-	mongoOnceCollection[uri].Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), Config.ConnTimeout*time.Second)
-		defer cancel()
-		var uid = xid.New()
-		var mongoUri = fmt.Sprintf("mongodb://%v%v:%v", auth, Config.Host, Config.Port)
-		if Config.ConnectUri != "" {
-			mongoUri = Config.ConnectUri
-		}
-		clientOptions := options.Client().ApplyURI(mongoUri)
+func mongoAdapterFactory(Config *MongoConfig, auth, uri string) (*Mongo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), Config.ConnTimeout*time.Second)
+	defer cancel()
+	var uid = xid.New()
+	var mongoUri = fmt.Sprintf("mongodb://%v%v:%v", auth, Config.Host, Config.Port)
+	if Config.ConnectUri != "" {
+		mongoUri = Config.ConnectUri
+	}
+	clientOptions := options.Client().ApplyURI(mongoUri)
 
-		if Config.MaxConnIdleTime != 0 {
-			maxConnIdleTime := Config.MaxConnIdleTime * time.Second
-			clientOptions.MaxConnIdleTime = &maxConnIdleTime
-		}
+	if Config.MaxConnIdleTime > 0 {
+		maxConnIdleTime := Config.MaxConnIdleTime * time.Second
+		clientOptions.MaxConnIdleTime = &maxConnIdleTime
+	}
 
-		if Config.MaxPoolSize != 0 {
-			clientOptions.MaxPoolSize = &Config.MaxPoolSize
-		}
+	if Config.MaxPoolSize > 0 {
+		clientOptions.MaxPoolSize = &Config.MaxPoolSize
+	}
 
-		if Config.MinPoolSize != 0 {
-			clientOptions.MinPoolSize = &Config.MinPoolSize
-		}
+	if Config.MinPoolSize > 0 {
+		clientOptions.MinPoolSize = &Config.MinPoolSize
+	}
 
-		clientOptions.SetRetryWrites(Config.RetryWrites)
+	clientOptions.SetRetryWrites(Config.RetryWrites)
 
-		if Config.WriteConcernW != "" || Config.WriteConcernJ != "" {
-			var writeConcernOptions = make([]writeconcern.Option, 0, 2)
-			if Config.WriteConcernW != "" {
-				if Config.WriteConcernW == "majority" {
-					writeConcernOptions = append(writeConcernOptions, writeconcern.WMajority())
-				} else {
-					w, err := strconv.Atoi(Config.WriteConcernW)
-					if err != nil {
-						mainErr = errors.New("WriteConcernW config invalid, got error: " + err.Error())
-						return
-					}
-					writeConcernOptions = append(writeConcernOptions, writeconcern.W(w))
+	if Config.HeartbeatInterval > 0 {
+		clientOptions.SetHeartbeatInterval(Config.HeartbeatInterval)
+	}
+
+	if Config.ServerSelectionTimeout > 0 {
+		clientOptions.SetServerSelectionTimeout(Config.ServerSelectionTimeout)
+	}
+
+	if Config.WriteConcernW != "" || Config.WriteConcernJ != "" {
+		var writeConcernOptions = make([]writeconcern.Option, 0, 2)
+		if Config.WriteConcernW != "" {
+			if Config.WriteConcernW == "majority" {
+				writeConcernOptions = append(writeConcernOptions, writeconcern.WMajority())
+			} else {
+				w, err := strconv.Atoi(Config.WriteConcernW)
+				if err != nil {
+					return nil, errors.Wrap(err, "WriteConcernW config invalid")
 				}
-			}
-
-			if Config.WriteConcernJ != "" {
-				if j, err := strconv.ParseBool(Config.WriteConcernJ); err != nil {
-					mainErr = errors.New("Config.WriteConcernJ config invalid, got error: " + err.Error())
-					return
-				} else {
-					writeConcernOptions = append(writeConcernOptions, writeconcern.J(j))
-				}
-			}
-
-			if len(writeConcernOptions) != 0 {
-				writeConcernOptions = append(writeConcernOptions, writeconcern.WTimeout(Config.WriteTimeout))
-				clientOptions.SetWriteConcern(writeconcern.New(writeConcernOptions...))
+				writeConcernOptions = append(writeConcernOptions, writeconcern.W(w))
 			}
 		}
 
-		if Config.ReadConcern != "" {
-			rc := &readconcern.ReadConcern{}
-			switch Config.ReadConcern {
-			case "majority":
-				rc = readconcern.Majority()
-			case "available":
-				rc = readconcern.Available()
-			case "linearizable":
-				rc = readconcern.Linearizable()
-			case "snapshot":
-				rc = readconcern.Snapshot()
-			default:
-				rc = readconcern.Local()
+		if Config.WriteConcernJ != "" {
+			if j, err := strconv.ParseBool(Config.WriteConcernJ); err != nil {
+				return nil, errors.Wrap(err, "Config.WriteConcernJ config invalid")
+			} else {
+				writeConcernOptions = append(writeConcernOptions, writeconcern.J(j))
 			}
-
-			clientOptions.SetReadConcern(rc)
 		}
 
-		if Config.ReadPreference != "" {
-			rp := &readpref.ReadPref{}
-			switch Config.ReadPreference {
-			case "primaryPreferred":
-				rp = readpref.PrimaryPreferred()
-			case "secondary":
-				rp = readpref.Secondary()
-			case "secondaryPreferred":
-				rp = readpref.SecondaryPreferred()
-			case "nearest":
-				rp = readpref.Nearest()
-			default:
-				rp = readpref.Primary()
-			}
+		if len(writeConcernOptions) != 0 {
+			writeConcernOptions = append(writeConcernOptions, writeconcern.WTimeout(Config.WriteTimeout))
+			clientOptions.SetWriteConcern(writeconcern.New(writeConcernOptions...))
+		}
+	}
 
-			clientOptions.SetReadPreference(rp)
+	if Config.ReadConcern != "" {
+		rc := &readconcern.ReadConcern{}
+		switch Config.ReadConcern {
+		case "majority":
+			rc = readconcern.Majority()
+		case "available":
+			rc = readconcern.Available()
+		case "linearizable":
+			rc = readconcern.Linearizable()
+		case "snapshot":
+			rc = readconcern.Snapshot()
+		default:
+			rc = readconcern.Local()
 		}
 
-		client, err := mongo.Connect(ctx, clientOptions)
-		if err != nil {
-			mainErr = errors.New("failed to Connect() to mongo, got error: " + err.Error())
-			return
+		clientOptions.SetReadConcern(rc)
+	}
+
+	if Config.ReadPreference != "" {
+		rp := &readpref.ReadPref{}
+		switch Config.ReadPreference {
+		case "primaryPreferred":
+			rp = readpref.PrimaryPreferred()
+		case "secondary":
+			rp = readpref.Secondary()
+		case "secondaryPreferred":
+			rp = readpref.SecondaryPreferred()
+		case "nearest":
+			rp = readpref.Nearest()
+		default:
+			rp = readpref.Primary()
+		}
+
+		clientOptions.SetReadPreference(rp)
+	}
+
+	var retryErr error = nil
+	var client *mongo.Client = nil
+	if Config.RetryConnect == 0 {
+		Config.RetryConnect = 1
+	}
+
+	for i := 1; i <= int(Config.RetryConnect); i++ {
+		client, retryErr = mongo.Connect(ctx, clientOptions)
+		if retryErr != nil {
+			time.Sleep(1 * time.Second)
+			continue
 		}
 
 		// Check the connection
 		var ctx2, _ = context.WithTimeout(context.Background(), Config.ConnTimeout*time.Second)
-		err = client.Ping(ctx2, nil)
+		retryErr = client.Ping(ctx2, nil)
 
-		if err != nil {
-			mainErr = errors.New("testing MongoDB connection with Ping() method failed, got error: " + err.Error())
-			return
+		if retryErr != nil {
+			time.Sleep(1 * time.Second)
+			continue
 		}
 
-		if Config.ReadTimeout == 0 {
-			Config.ReadTimeout = 5
-		}
-
-		if Config.WriteTimeout == 0 {
-			Config.WriteTimeout = 5
-		}
-
-		mongoInstanceCollection[uri] = &Mongo{
-			ID:           uid.String(),
-			readTimeout:  time.Duration(Config.ReadTimeout),
-			writeTimeout: time.Duration(Config.WriteTimeout),
-			conn:         client,
-		}
-
-		return
-	})
-
-	if mainErr != nil {
-		return nil, mainErr
+		retryErr = nil
+		break
 	}
-	return mongoInstanceCollection[uri], nil
+
+	if retryErr != nil {
+		return nil, errors.Wrap(retryErr, "MongoDB connection failed")
+	}
+
+	if Config.ReadTimeout == 0 {
+		Config.ReadTimeout = 5
+	}
+
+	if Config.WriteTimeout == 0 {
+		Config.WriteTimeout = 5
+	}
+
+	mongoAdapter := &Mongo{
+		ID:           uid.String(),
+		readTimeout:  Config.ReadTimeout,
+		writeTimeout: Config.WriteTimeout,
+		conn:         client,
+	}
+
+	return mongoAdapter, nil
 }
 
 // Destroy() closes the connection to Mongo (of current mongoInstance) for the
@@ -235,9 +255,6 @@ func Destroy(host string, port int) {
 	if _, ok := mongoInstanceCollection[uri]; ok {
 		_ = mongoInstanceCollection[uri].conn.Disconnect(context.Background())
 		delete(mongoInstanceCollection, uri)
-	}
-	if _, ok := mongoOnceCollection[uri]; ok {
-		mongoOnceCollection[uri].Reset()
 	}
 }
 
