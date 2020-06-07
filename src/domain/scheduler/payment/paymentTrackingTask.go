@@ -355,7 +355,7 @@ func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, selle
 		Currency:           sellerFinance.Invoice.ShareRoundupTotal.Currency,
 		ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
 		ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
-		PaymentDescription: "",
+		PaymentDescription: sellerFinance.FId + "پرداخت صورت حساب شماره ",
 		PaymentType:        payment_service.SellerPayment,
 	}
 
