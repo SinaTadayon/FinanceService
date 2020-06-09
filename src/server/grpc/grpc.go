@@ -40,6 +40,20 @@ func NewServer(address string, port uint16, orderScheduler order_scheduler.Order
 	}
 }
 
+func (server Server) HandleRequest(context.Context, *finance_proto.RequestMessage) (*finance_proto.ResponseMessage, error) {
+	panic("not implemented")
+
+	// todo : authorize context
+
+	// todo : checkout data from request and do validation
+
+	// todo : pass data into multiplexer on future data pipe
+
+	// todo : return response from multiplxer
+
+	return nil, nil
+}
+
 func (server Server) TestSellerFinance_OrderCollectionRequestHandler(ctx context.Context, req *finance_proto.OrderCollectionRequest) (*finance_proto.OrderCollectionResponse, error) {
 	if !app.Globals.Config.App.ServiceTestAPIEnabled {
 		return nil, status.Error(409, "Request Invalid")

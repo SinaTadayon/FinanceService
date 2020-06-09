@@ -2,7 +2,10 @@ syntax = "proto3";
 
 package financesrv;
 
+import "message.proto";
+
 service FinanceService {
+    rpc HandleRequest (RequestMessage) returns (ResponseMessage);
     rpc TestSellerFinance_OrderCollectionRequestHandler (OrderCollectionRequest) returns (OrderCollectionResponse);
     rpc TestSellerFinance_MoneyTransferRequestHandler (MoneyTransferRequest) returns (MoneyTransferResponse);
 }
@@ -12,7 +15,7 @@ message MoneyTransferRequest {
 }
 
 message MoneyTransferResponse {
-    repeated SellerFinance finances= 1;
+    repeated SellerFinance finances = 1;
 }
 
 message OrderCollectionRequest {
@@ -22,7 +25,7 @@ message OrderCollectionRequest {
 }
 
 message OrderCollectionResponse {
-    repeated SellerFinance finances= 1;
+    repeated SellerFinance finances = 1;
 }
 
 message SellerFinance {
@@ -40,7 +43,7 @@ message SellerFinance {
 }
 
 message SellerProfile {
-    message GeneralInfo{
+    message GeneralInfo {
         string ShopDisplayName = 1;
         string Type = 2;
         string Email = 3;
@@ -52,7 +55,7 @@ message SellerProfile {
         string Neighborhood = 9;
         string PostalAddress = 10;
         string PostalCode = 11;
-        bool   IsVATObliged = 12;
+        bool IsVATObliged = 12;
         string VATCertificationImageURL = 13;
     }
 
@@ -103,13 +106,13 @@ message SellerItem {
     string Image = 8;
     bool Returnable = 9;
     int32 Quantity = 10;
-    map<string,Attribute> attributes = 11;
+    map<string, Attribute> attributes = 11;
     SellerItemInvoice Invoice = 12;
 }
 
 message Attribute {
-    map<string,string> KeyTranslate = 1;
-    map<string,string> ValueTranslate = 2;
+    map<string, string> KeyTranslate = 1;
+    map<string, string> ValueTranslate = 2;
 }
 
 message SellerItemInvoice {

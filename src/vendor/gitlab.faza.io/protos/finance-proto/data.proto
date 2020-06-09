@@ -1,0 +1,23 @@
+//
+// This file contains data which will be serialized into
+// request data body, or response data body for specified user types
+syntax = "proto3";
+
+package financesrv;
+
+//=================== Seller
+
+message SellerFinanceList {
+    uint64 FID = 1; // finance-id
+    string StartDate = 2;
+    string EndDate = 3;
+    string PaymentStatus = 4;
+    string Total = 5;
+    // todo - defines actions which will be illustrated in detail development
+}
+
+//=================== Buyer
+
+//=================== Operator
+
+
