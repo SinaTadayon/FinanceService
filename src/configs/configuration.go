@@ -44,6 +44,8 @@ type Config struct {
 		Port    int    `env:"FINANCE_SERVER_PORT"`
 	}
 
+	GRPCMultiplexer GRPCMultiplexerConfig
+
 	UserService struct {
 		Address string `env:"USER_SERVICE_ADDRESS"`
 		Port    int    `env:"USER_SERVICE_PORT"`
@@ -85,6 +87,12 @@ type Config struct {
 		ServerSelectionTimeout   int    `env:"FINANCE_SERVICE_MONGO_SERVER_SELECTION_TIMEOUT"`
 		RetryConnect             int    `env:"FINANCE_SERVICE_MONGO_RETRY_CONNECT"`
 	}
+}
+
+type GRPCMultiplexerConfig struct {
+	MapSize           int64  `env:"RPC_MUX_MAP_SIZE"`
+	RateLimitTimeUnit string `env:"RPC_MUX_RATE_LIMIT_TIME_UNIT"`
+	RateLimit         int64  `env:"PRC_MUX_RATE_LIMIT"`
 }
 
 func LoadConfig(path string) (*Config, error) {

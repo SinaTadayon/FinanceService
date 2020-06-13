@@ -8,12 +8,14 @@ import (
 	"gitlab.faza.io/go-framework/logger"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
 	"gitlab.faza.io/services/finance/app"
+	"gitlab.faza.io/services/finance/domain/handler/imp"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	payment_scheduler "gitlab.faza.io/services/finance/domain/scheduler/payment"
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"gitlab.faza.io/services/finance/server/grpc_mux"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -30,28 +32,61 @@ type Server struct {
 	orderScheduler order_scheduler.OrderScheduler
 	address        string
 	port           uint16
+	mux            grpc_mux.IServerMux
 }
 
-func NewServer(address string, port uint16, orderScheduler order_scheduler.OrderScheduler) Server {
+func NewServer(address string, port uint16, orderScheduler order_scheduler.OrderScheduler, mux grpc_mux.IServerMux) Server {
 	return Server{
 		orderScheduler: orderScheduler,
 		address:        address,
 		port:           port,
+		mux:            mux,
 	}
 }
 
-func (server Server) HandleRequest(context.Context, *finance_proto.RequestMessage) (*finance_proto.ResponseMessage, error) {
-	panic("not implemented")
+func (server Server) HandleRequest(ctx context.Context, req *finance_proto.RequestMessage) (*finance_proto.ResponseMessage, error) {
+	log.GLog.Logger.Info("Start handling request",
+		"fn", "HandleRequest",
+		"uid", req.Header.UID,
+		"utp", req.Header.UTP,
+		"method", req.Name,
+		"type", req.Type,
+		"time", req.Time)
 
-	// todo : authorize context
+	var utp, method string
 
-	// todo : checkout data from request and do validation
+	utp = req.Header.UTP
+	method = req.Name
 
-	// todo : pass data into multiplexer on future data pipe
+	if utp == "" || method == "" {
+		log.GLog.Logger.Error("undfined user or method type",
+			"fn", "HandleRequest",
+			"uid", req.Header.UID,
+			"time", req.Time,
+			"error", err)
 
-	// todo : return response from multiplxer
+		return nil, status.Error(codes.Code(future.BadRequest), "user type or method is undefined")
+	}
 
-	return nil, nil
+	res, err := server.mux.Handle(ctx, utp, method, req)
+
+	if err != nil {
+		log.GLog.Logger.Error("Got error on handling request",
+			"fn", "HandleRequest",
+			"uid", req.Header.UID,
+			"utp", req.Header.UTP,
+			"method", req.Name,
+			"type", req.Type,
+			"time", req.Time,
+			"error", err)
+
+		if _, ok := status.FromError(err); !ok {
+			return nil, status.Error(codes.Code(future.InternalError), err.Error())
+		}
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (server Server) TestSellerFinance_OrderCollectionRequestHandler(ctx context.Context, req *finance_proto.OrderCollectionRequest) (*finance_proto.OrderCollectionResponse, error) {
@@ -181,6 +216,14 @@ func (server Server) Start() error {
 
 	// enable grpc prometheus interceptors to log timing info for grpc APIs
 	grpc_prometheus.EnableHandlingTimeHistogram()
+
+	// register handler over there
+	hand := imp.NewSellerFinanceListHandler(app.Globals.SellerFinanceRepository)
+	err = server.mux.RegHandler(grpc_mux.SellerUserType, grpc_mux.SellerFinanceListMethod, hand)
+	if err != nil {
+		log.GLog.Logger.Error("GRPC server register method on mux field", "fn", "Start", "error", err.Error())
+		return err
+	}
 
 	//Start GRPC server and register the server
 	grpcServer := grpc.NewServer(uIntOpt, sIntOpt)
