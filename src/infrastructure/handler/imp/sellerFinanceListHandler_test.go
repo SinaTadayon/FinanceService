@@ -10,7 +10,6 @@ import (
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
-	"gitlab.faza.io/services/finance/infrastructure/future"
 	"gitlab.faza.io/services/finance/infrastructure/handler"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
@@ -110,11 +109,7 @@ func TestSellerFinanceListHandler_Handle(t *testing.T) {
 		Body: nil,
 	}
 
-	fr := future.FactorySync().
-		SetData(&req).
-		BuildAndSend()
-
-	res := sellerFinanceHandler.Handle(fr).Get()
+	res := sellerFinanceHandler.Handle(&req).Get()
 
 	require.Nil(t, res.Error())
 	resp := res.Data().(*finance_proto.ResponseMessage)
@@ -123,8 +118,7 @@ func TestSellerFinanceListHandler_Handle(t *testing.T) {
 	body := finance_proto.SellerFinanceListCollection{}
 	err := proto.Unmarshal(resp.Data.Value, &body)
 	require.Nil(t, err)
-	require.Equal(t, finance.FId, body.Items[0].FID)
-	require.Equal(t, "30000", body.Items[0].Total.Amount)
+	require.Equal(t, finance.Payment.TransferRequest.TotalPrice.Amount, body.Items[0].Total.Amount)
 }
 
 func removeCollection() {
@@ -136,7 +130,7 @@ func removeCollection() {
 func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
 	return &entities.SellerFinance{
-		FId:        "1233312",
+		FId:        "",
 		SellerId:   100002,
 		Version:    1,
 		DocVersion: entities.FinanceDocumentVersion,

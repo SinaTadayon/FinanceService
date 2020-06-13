@@ -57,11 +57,7 @@ func (s *ServerMux) Handle(ctx context.Context, utp string, method string, req *
 		errMessage := fmt.Sprintf("Undefined user type %s or method %s", utp, method)
 		return nil, status.Error(codes.Code(future.BadRequest), errMessage)
 	} else {
-		iFuture := future.FactorySync().
-			SetData(req).
-			BuildAndSend()
-
-		result := hand.Handle(iFuture).Get()
+		result := hand.Handle(req).Get()
 
 		if result.Error() != nil {
 			log.GLog.Logger.Error(result.Error().Message(),

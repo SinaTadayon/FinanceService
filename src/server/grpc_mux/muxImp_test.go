@@ -41,7 +41,7 @@ func TestServerMux(t *testing.T) {
 	req := finance_proto.RequestMessage{
 		Name:   "test",
 		Type:   "test",
-		Time:   nil,
+		Time:   "",
 		Header: nil,
 		Body:   nil,
 	}
@@ -61,7 +61,7 @@ func TestError(t *testing.T) {
 	req := finance_proto.RequestMessage{
 		Name:   "test",
 		Type:   "test",
-		Time:   nil,
+		Time:   "",
 		Header: nil,
 		Body:   nil,
 	}
@@ -82,8 +82,8 @@ func NewMockHandler() handler.IHandler {
 	return new(handlerMock)
 }
 
-func (h handlerMock) Handle(f future.IFuture) future.IFuture {
-	req := f.Get().Data().(*finance_proto.RequestMessage)
+func (h handlerMock) Handle(f interface{}) future.IFuture {
+	req := f.(*finance_proto.RequestMessage)
 	fmt.Println("request name is", req.Name)
 
 	res := finance_proto.ResponseMessage{

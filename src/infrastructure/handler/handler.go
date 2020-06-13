@@ -5,5 +5,6 @@ package handler
 import "gitlab.faza.io/services/finance/infrastructure/future"
 
 type IHandler interface {
-	Handle(future.IFuture) future.IFuture
+	// todo pass interface value instead of feature
+	Handle(interface{}) future.IFuture
 }

@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/pkg/errors"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
@@ -14,7 +13,6 @@ import (
 	handler2 "gitlab.faza.io/services/finance/infrastructure/handler"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"strconv"
 )
 
 const (
@@ -40,12 +38,12 @@ func NewSellerFinanceListHandler(repo finance_repository.ISellerFinanceRepositor
 	return &handler
 }
 
-func (s sellerFinanceListHandler) Handle(iFuture future.IFuture) future.IFuture {
+func (s sellerFinanceListHandler) Handle(input interface{}) future.IFuture {
 	var (
 		sortName string
 		sortDire int
 	)
-	req := iFuture.Get().Data().(*finance_proto.RequestMessage)
+	req := input.(*finance_proto.RequestMessage)
 
 	if req.Header.Sorts.Name == "" {
 		sortName = ""
@@ -79,10 +77,6 @@ func (s sellerFinanceListHandler) Handle(iFuture future.IFuture) future.IFuture 
 	items := make([]*finance_proto.SellerFinanceList, dbResult.TotalCount)
 
 	for _, item := range dbResult.SellerFinances {
-		if item == nil {
-			continue
-		}
-
 		var (
 			paymentStatus string
 			total         finance_proto.Money
@@ -90,10 +84,7 @@ func (s sellerFinanceListHandler) Handle(iFuture future.IFuture) future.IFuture 
 			endAt         string
 		)
 
-		paymentStatus, total, err := resolveFinanceStat(item)
-		if err != nil {
-			return err
-		}
+		paymentStatus, total = resolveFinanceStat(item)
 
 		if item.StartAt != nil {
 			startAt = item.StartAt.Format(utils.ISO8601)
@@ -143,73 +134,31 @@ func (s sellerFinanceListHandler) Handle(iFuture future.IFuture) future.IFuture 
 	return future.FactorySync().SetData(&response).BuildAndSend()
 }
 
-func resolveFinanceStat(item *entities.SellerFinance) (paymentStatus string, total finance_proto.Money, error future.IFuture) {
+func resolveFinanceStat(item *entities.SellerFinance) (paymentStatus string, total finance_proto.Money) {
 	switch item.Status {
 	case entities.FinanceOrderCollectionStatus:
 		paymentStatus = string(paymentCalculation)
-		total = finance_proto.Money{
-			Amount:   "-1",
-			Currency: "",
-		}
 
 	case entities.FinancePaymentProcessStatus:
 		paymentStatus = string(paymentPending)
-		if item.Payment.Status == entities.TransferPendingState {
-			total = finance_proto.Money{
-				Amount:   item.Payment.TransferRequest.TotalPrice.Amount,
-				Currency: item.Payment.TransferRequest.TotalPrice.Currency,
-			}
-		} else {
-			total = finance_proto.Money{
-				Amount:   "-1",
-				Currency: "",
-			}
-		}
 
 	case entities.FinanceClosedStatus:
 		switch item.Payment.Status {
 		case entities.TransferSuccessState:
 			paymentStatus = string(paymentSucceed)
-			total = finance_proto.Money{
-				Amount:   item.Payment.TransferResult.SuccessTransfer.Amount,
-				Currency: item.Payment.TransferResult.SuccessTransfer.Currency,
-			}
 
 		case entities.TransferFailedState:
 			paymentStatus = string(paymentFailed)
-			total = finance_proto.Money{
-				Amount:   item.Payment.TransferResult.FailedTransfer.Amount,
-				Currency: item.Payment.TransferResult.FailedTransfer.Currency,
-			}
 
 		case entities.TransferPartialState:
-			var partialPayedValue = "-1"
 			paymentStatus = string(paymentPartial)
+		}
+	}
 
-			success, err := strconv.ParseInt(item.Payment.TransferResult.SuccessTransfer.Amount, 10, 64)
-			if err != nil {
-				return paymentStatus, total, future.FactorySync().
-					SetError(future.InternalError, "Invalid value for payment success transfer amount", errors.Errorf("Invalid value for payment success transfer amount")).
-					BuildAndSend()
-			}
-
-			failed, err := strconv.ParseInt(item.Payment.TransferResult.FailedTransfer.Amount, 10, 64)
-			if err != nil {
-				return paymentStatus, total, future.FactorySync().
-					SetError(future.InternalError, "Invalid value for payment failed transfer amount", errors.Errorf("Invalid value for payment success transfer amount")).
-					BuildAndSend()
-			}
-
-			if success > failed {
-				partialPayedValue = strconv.FormatInt(success-failed, 10)
-			} else {
-				partialPayedValue = strconv.FormatInt(success-failed, 10)
-			}
-
-			total = finance_proto.Money{
-				Amount:   partialPayedValue,
-				Currency: item.Payment.TransferRequest.TotalPrice.Currency,
-			}
+	if item.Payment.TransferRequest != nil {
+		total = finance_proto.Money{
+			Amount:   item.Payment.TransferRequest.TotalPrice.Amount,
+			Currency: item.Payment.TransferRequest.TotalPrice.Currency,
 		}
 	}
 
