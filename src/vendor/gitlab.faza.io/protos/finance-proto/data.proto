@@ -5,15 +5,22 @@ syntax = "proto3";
 
 package financesrv;
 
+import "finance.proto";
+
 //=================== Seller
 
 message SellerFinanceList {
-    uint64 FID = 1; // finance-id
-    string StartDate = 2;
-    string EndDate = 3;
-    string PaymentStatus = 4;
-    string Total = 5;
-    // todo - defines actions which will be illustrated in detail development
+    string FID = 1; // finance-id
+    uint64 UID = 2;
+    string StartDate = 3;
+    string EndDate = 4;
+    string PaymentStatus = 5;
+    Money Total = 6;
+}
+
+message SellerFinanceListCollection {
+    repeated SellerFinanceList items = 1;
+    uint64 total = 2;
 }
 
 //=================== Buyer

@@ -3,14 +3,13 @@ syntax = "proto3";
 package financesrv;
 
 import "google/protobuf/any.proto";
-import "google/protobuf/timestamp.proto";
 
 //=================== Request
 
 message RequestMessage {
     string Name = 1;
     string Type = 2;
-    google.protobuf.Timestamp time = 3;
+    string time = 3;
     ReqMeta Header = 4;
     google.protobuf.Any Body = 5;
 }
@@ -18,14 +17,14 @@ message RequestMessage {
 message ReqMeta {
     string UTP = 1; // user-type ex["seller", "buyer", etc..] - purpose => used in multiplexer
     uint64 UID = 2; // user-id
-    uint64 FID = 3; // finance-id
+    string FID = 3; // finance-id
     uint32 page = 4;
     uint32 perPage = 5;
     string ipAddress = 6;
     string startAt = 7;
     string endAt = 8;
-    repeated RequestMetaSorts sorts = 9;
-    repeated RequestMetaFilter filters = 10;
+    RequestMetaSorts sorts = 9;
+    RequestMetaFilter filters = 10;
 }
 
 //=================== Response
@@ -40,7 +39,11 @@ message ResponseMessage {
 
 message RequestMetaSorts {
     string name = 1;
-    string direction = 2;
+    uint32 dir = 2;
+    enum direction {
+        Descending = 0;
+        Ascending = 1;
+    }
 }
 
 message RequestMetaFilter {

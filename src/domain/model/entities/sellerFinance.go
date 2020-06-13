@@ -26,7 +26,7 @@ const (
 )
 
 type SellerFinance struct {
-	ID         primitive.ObjectID `bson:"-"`
+	ID         primitive.ObjectID `bson:"_id"`
 	FId        string             `bson:"fid"`
 	SellerId   uint64             `bson:"sellerId"`
 	Version    uint64             `bson:"version"`

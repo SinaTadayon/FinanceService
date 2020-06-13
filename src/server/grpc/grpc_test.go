@@ -1,27 +1,38 @@
-package finance_repository
+package grpc
 
 import (
 	"context"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
+	finance_proto "gitlab.faza.io/protos/finance-proto"
+	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
+	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
+	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
-	"go.mongodb.org/mongo-driver/bson"
+	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"gitlab.faza.io/services/finance/server/grpc_mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/grpc"
 	"os"
 	"testing"
 	"time"
 )
 
-var financeRepository ISellerFinanceRepository
+var (
+	financeRepository finance_repository.ISellerFinanceRepository
+	cli               finance_proto.FinanceServiceClient
+)
 
 func TestMain(m *testing.M) {
 	var err error
 	var path string
 	if os.Getenv("APP_MODE") == "dev" {
-		path = "../../../../testdata/.env"
+		path = "../../testdata/.env"
 	} else {
 		path = ""
 	}
@@ -63,7 +74,22 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	financeRepository = NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
+	financeRepository = finance_repository.NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
+	app.Globals.SellerFinanceRepository = financeRepository
+
+	mux := grpc_mux.NewServerMux(config.GRPCMultiplexer)
+	grpcServer := NewServer(config.GRPCServer.Address, uint16(config.GRPCServer.Port), order_scheduler.OrderScheduler{}, mux)
+	go func() {
+		if err := grpcServer.Start(); err != nil {
+			os.Exit(1)
+		}
+	}()
+
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.GRPCServer.Address, config.GRPCServer.Port), grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		panic(err)
+	}
+	cli = finance_proto.NewFinanceServiceClient(conn)
 
 	// Running Tests
 	code := m.Run()
@@ -71,311 +97,47 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestSaveFinanceRepository(t *testing.T) {
+func TestServer_HandleRequest_SellerFinanceList(t *testing.T) {
 	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Save(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
-	require.NotEmpty(t, iFuture.Data().(*entities.SellerFinance).FId, "financeRepository.Save failed, fid not generated")
+	fin := createFinance()
+	ifu := financeRepository.Insert(context.Background(), *fin).Get()
+
+	require.Nil(t, ifu.Error())
+
+	req := finance_proto.RequestMessage{
+		Name: string(grpc_mux.SellerFinanceListMethod),
+		Type: "",
+		Time: time.Now().Format(utils.ISO8601),
+		Header: &finance_proto.ReqMeta{
+			UTP:       string(grpc_mux.SellerUserType),
+			UID:       fin.SellerId,
+			FID:       fin.FId,
+			Page:      1,
+			PerPage:   2,
+			IpAddress: "",
+			StartAt:   "",
+			EndAt:     "",
+			Sorts: &finance_proto.RequestMetaSorts{
+				Name: "fid",
+				Dir:  uint32(finance_proto.RequestMetaSorts_Descending),
+			},
+			Filters: nil,
+		},
+		Body: nil,
+	}
+
+	res, err := cli.HandleRequest(context.Background(), &req)
+
+	require.Nil(t, err)
+	require.Equal(t, uint32(1), res.Meta.Total)
+
+	body := finance_proto.SellerFinanceListCollection{}
+	err = proto.Unmarshal(res.Data.Value, &body)
+	require.Nil(t, err)
+	require.Equal(t, fin.FId, body.Items[0].FID)
 }
 
-func TestUpdateFinanceRepository(t *testing.T) {
-
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Save(ctx, *finance).Get()
-	finance1 := iFuture.Data().(*entities.SellerFinance)
-	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
-	require.NotEmpty(t, finance1.FId, "financeRepository.Save failed, fid not generated")
-
-	finance1.Status = "PAYMENT_IN_PROGRESS"
-	iFuture = financeRepository.Save(ctx, *finance1).Get()
-	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
-	require.Equal(t, entities.FinanceState("PAYMENT_IN_PROGRESS"), iFuture.Data().(*entities.SellerFinance).Status)
-}
-
-func TestUpdateFinanceRepository_Failed(t *testing.T) {
-
-	defer removeCollection()
-	finance := createFinance()
-	timeTmp := time.Now().UTC()
-	finance.DeletedAt = &timeTmp
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Save(ctx, *finance).Get()
-	finance1 := iFuture.Data().(*entities.SellerFinance)
-	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
-	require.NotEmpty(t, finance1.FId, "financeRepository.Save failed, fid not generated")
-
-	finance1.Status = "PAYMENT_IN_PROGRESS"
-	iFuture = financeRepository.Save(ctx, *finance1).Get()
-	require.Error(t, iFuture.Error())
-}
-
-func TestInsertFinanceRepository_Success(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error(), "financeRepository.Insert failed")
-	require.NotEmpty(t, iFuture.Data().(*entities.SellerFinance).FId, "financeRepository.Insert failed, fid not generated")
-}
-
-func TestFindAllFinanceRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindAll(ctx).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 3, len(iFuture.Data().([]*entities.SellerFinance)))
-}
-
-func TestFindAllWithSortFinanceRepository(t *testing.T) {
-
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	fid := iFuture.Data().(*entities.SellerFinance).FId
-
-	iFuture = financeRepository.FindAllWithSort(ctx, "fid", -1).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, iFuture.Data().([]*entities.SellerFinance)[0].FId, fid)
-}
-
-func TestFindAllWithPageAndPerPageRepository_success(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindAllWithPage(ctx, 2, 2).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 1, len(iFuture.Data().(FinancePageableResult).SellerFinances))
-}
-
-func TestFindAllWithPageAndPerPageRepository_failed(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindAllWithPage(ctx, 2000, 2001).Get()
-	require.NotNil(t, iFuture.Error())
-	require.Equal(t, ErrorPageNotAvailable, iFuture.Error().Reason())
-}
-
-func TestFindAllWithPageAndPerPageAndSortRepository_success(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	fid := iFuture.Data().(*entities.SellerFinance).FId
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindAllWithPageAndSort(ctx, 1, 2, "fid", 1).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 2, len(iFuture.Data().(FinancePageableResult).SellerFinances))
-	require.Equal(t, fid, iFuture.Data().(FinancePageableResult).SellerFinances[0].FId)
-}
-
-func TestFindByIdRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindById(ctx, iFuture.Data().(*entities.SellerFinance).FId).Get()
-	require.Nil(t, iFuture.Error())
-	require.NotNil(t, iFuture.Data())
-}
-
-func TestExistsByIdRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.ExistsById(ctx, iFuture.Data().(*entities.SellerFinance).FId).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, true, iFuture.Data().(bool))
-}
-
-func TestCountRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Count(ctx).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, int64(2), iFuture.Data().(int64))
-}
-
-func TestDeleteFinanceRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	finance1 := iFuture.Data().(*entities.SellerFinance)
-
-	iFuture = financeRepository.Delete(ctx, *finance1).Get()
-	require.Nil(t, iFuture.Error())
-	require.NotNil(t, iFuture.Data().(*entities.SellerFinance).DeletedAt)
-}
-
-func TestDeleteAllRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.DeleteAll(ctx).Get()
-	require.Nil(t, iFuture.Error())
-}
-
-func TestRemoveFinanceRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Remove(ctx, *(iFuture.Data().(*entities.SellerFinance))).Get()
-	require.Nil(t, iFuture.Error())
-}
-
-func TestFindByFilterRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	finance.Status = "PAYMENT_IN_PROGRESS"
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindByFilter(ctx, func() interface{} {
-		return bson.D{{"status", "PAYMENT_IN_PROGRESS"}, {"deletedAt", nil}}
-	}).Get()
-
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, entities.FinanceState("PAYMENT_IN_PROGRESS"), iFuture.Data().([]*entities.SellerFinance)[0].Status)
-}
-
-func TestFindByFilterWithSortFinanceRepository(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	finance.Status = "PAYMENT_IN_PROGRESS"
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	fid := iFuture.Data().(*entities.SellerFinance).FId
-
-	finance.Status = "PAYMENT_IN_PROGRESS"
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindByFilterWithSort(ctx, func() (interface{}, string, int) {
-		return bson.D{{"status", "PAYMENT_IN_PROGRESS"}, {"deletedAt", nil}}, "fid", 1
-	}).Get()
-
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, fid, iFuture.Data().([]*entities.SellerFinance)[0].FId)
-}
-
-func TestFindByFilterWithPageAndPerPageRepository_success(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindByFilterWithPage(ctx, func() interface{} {
-		return bson.D{{}, {"deletedAt", nil}}
-	}, 2, 2).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 1, len(iFuture.Data().(FinancePageableResult).SellerFinances))
-}
-
-func TestFindByFilterWithPageAndPerPageAndSortRepository_success(t *testing.T) {
-	defer removeCollection()
-	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-	fid := iFuture.Data().(*entities.SellerFinance).FId
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.NotNil(t, iFuture.Error())
-
-	iFuture = financeRepository.FindByFilterWithPageAndSort(ctx, func() (interface{}, string, int) {
-		return bson.D{{"fid", finance.FId}}, "", 0
-	}, 1, 2).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 1, len(iFuture.Data().(FinancePageableResult).SellerFinances))
-	require.Equal(t, fid, iFuture.Data().(FinancePageableResult).SellerFinances[0].FId)
-}
-
+// db related stofs
 func removeCollection() {
 	ctx, _ := context.WithCancel(context.Background())
 	if err := financeRepository.RemoveAll(ctx); err != nil {
@@ -792,10 +554,13 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "1650000",
 					Currency: "IRR",
 				},
-				FailedTransfer: nil,
-				CreatedAt:      time.Now(),
+				FailedTransfer: &entities.Money{
+					Amount:   "1620000",
+					Currency: "IRR",
+				},
+				CreatedAt: time.Now(),
 			},
-			Status:    "Success",
+			Status:    entities.TransferPartialState,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},

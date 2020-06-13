@@ -3,7 +3,7 @@ package grpc_mux
 import (
 	"context"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
-	"gitlab.faza.io/services/finance/domain/handler"
+	"gitlab.faza.io/services/finance/infrastructure/handler"
 )
 
 const (

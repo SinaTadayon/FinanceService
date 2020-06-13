@@ -8,11 +8,11 @@ import (
 	"gitlab.faza.io/go-framework/logger"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
 	"gitlab.faza.io/services/finance/app"
-	"gitlab.faza.io/services/finance/domain/handler/imp"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	payment_scheduler "gitlab.faza.io/services/finance/domain/scheduler/payment"
 	"gitlab.faza.io/services/finance/infrastructure/future"
+	"gitlab.faza.io/services/finance/infrastructure/handler/imp"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/server/grpc_mux"
@@ -62,8 +62,7 @@ func (server Server) HandleRequest(ctx context.Context, req *finance_proto.Reque
 		log.GLog.Logger.Error("undfined user or method type",
 			"fn", "HandleRequest",
 			"uid", req.Header.UID,
-			"time", req.Time,
-			"error", err)
+			"time", req.Time)
 
 		return nil, status.Error(codes.Code(future.BadRequest), "user type or method is undefined")
 	}
