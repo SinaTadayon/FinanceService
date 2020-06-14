@@ -74,7 +74,7 @@ func (s sellerFinanceListHandler) Handle(input interface{}) future.IFuture {
 	}
 
 	dbResult := res.Data().(finance_repository.FinancePageableResult)
-	items := make([]*finance_proto.SellerFinanceList, dbResult.TotalCount)
+	items := make([]*finance_proto.SellerFinanceList, 0, len(dbResult.SellerFinances))
 
 	for _, item := range dbResult.SellerFinances {
 		var (
@@ -107,7 +107,7 @@ func (s sellerFinanceListHandler) Handle(input interface{}) future.IFuture {
 	}
 
 	coll := finance_proto.SellerFinanceListCollection{
-		Items: removeNils(items),
+		Items: items,
 		Total: uint64(dbResult.TotalCount),
 	}
 
@@ -163,16 +163,4 @@ func resolveFinanceStat(item *entities.SellerFinance) (paymentStatus string, tot
 	}
 
 	return
-}
-
-func removeNils(sl []*finance_proto.SellerFinanceList) []*finance_proto.SellerFinanceList {
-	dl := make([]*finance_proto.SellerFinanceList, 0, len(sl))
-
-	for _, item := range sl {
-		if item != nil {
-			dl = append(dl, item)
-		}
-	}
-
-	return dl
 }
