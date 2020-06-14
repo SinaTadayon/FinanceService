@@ -5,6 +5,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"gitlab.faza.io/go-framework/acl"
 	"gitlab.faza.io/go-framework/logger"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
 	"gitlab.faza.io/services/finance/app"
@@ -45,6 +46,30 @@ func NewServer(address string, port uint16, orderScheduler order_scheduler.Order
 }
 
 func (server Server) HandleRequest(ctx context.Context, req *finance_proto.RequestMessage) (*finance_proto.ResponseMessage, error) {
+	var (
+		utp    string
+		method string
+	)
+
+	iFuture := app.Globals.UserService.AuthenticateContextToken(ctx).Get()
+	if iFuture.Error() != nil {
+		log.GLog.Logger.Error("UserService.AuthenticateContextToken failed",
+			"fn", "HandleRequest", "error", iFuture.Error().Reason())
+		return nil, status.Error(codes.Code(iFuture.Error().Code()), iFuture.Error().Message())
+	}
+
+	userAcl := iFuture.Data().(*acl.Acl)
+	if uint64(userAcl.User().UserID) != req.Header.UID {
+		log.GLog.Logger.Error("request userId mismatch with token userId", "fn", "HandleRequest",
+			"userId", req.Header.UID, "token", userAcl.User().UserID)
+		return nil, status.Error(codes.Code(future.Forbidden), "User Not Authorized")
+	}
+
+	if ctx.Value(string(utils.CtxUserID)) == nil {
+		ctx = context.WithValue(ctx, string(utils.CtxUserID), uint64(req.Header.UID))
+		ctx = context.WithValue(ctx, string(utils.CtxUserACL), userAcl)
+	}
+
 	log.GLog.Logger.Info("Start handling request",
 		"fn", "HandleRequest",
 		"uid", req.Header.UID,
@@ -52,8 +77,6 @@ func (server Server) HandleRequest(ctx context.Context, req *finance_proto.Reque
 		"method", req.Name,
 		"type", req.Type,
 		"time", req.Time)
-
-	var utp, method string
 
 	utp = req.Header.UTP
 	method = req.Name
