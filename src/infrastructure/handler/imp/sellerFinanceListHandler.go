@@ -88,6 +88,8 @@ func (s sellerFinanceListHandler) Handle(input interface{}) future.IFuture {
 
 		if item.StartAt != nil {
 			startAt = item.StartAt.Format(utils.ISO8601)
+		} else {
+			startAt = item.CreatedAt.Format(utils.ISO8601)
 		}
 
 		if item.EndAt != nil {
