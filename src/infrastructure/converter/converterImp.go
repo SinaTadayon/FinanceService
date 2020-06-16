@@ -109,7 +109,7 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 	if len(input.SellerFinances) > 0 {
 		item0 := input.SellerFinances[0]
 
-		if item0.Status != entities.FinanceOrderCollectionStatus || item0.Invoice != nil {
+		if item0.Status != entities.FinanceOrderCollectionStatus && item0.Invoice != nil {
 			if item0.Invoice.CommissionRoundupTotal != nil {
 				financeInvoice.Commission = &financesrv.Money{
 					Amount:   item0.Invoice.CommissionRoundupTotal.Amount,
@@ -173,21 +173,16 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 		//=============== find out type of payment
 		if fi.OrderInfo.Order.IsAlreadyShippingPayed == false {
 			if _, ok := history[fi.OrderInfo.Order.OId]; !ok {
-				share := financesrv.SellerFinanceOrderItemList_SellerShare{
-					RoundupTotal: &financesrv.Money{
-						Amount:   fi.OrderInfo.Order.RoundupShippingNet.Amount,
-						Currency: fi.OrderInfo.Order.RoundupShippingNet.Currency,
-					},
-					RoundupUnit: nil,
-				}
-
 				item := financesrv.SellerFinanceOrderItemList{
 					PaymentType:   string(Shipment),
 					OrderId:       fi.OrderInfo.Order.OId,
 					OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
 					Quantity:      fi.OrderInfo.Order.Item.Quantity,
 					SKU:           fi.OrderInfo.Order.Item.SKU,
-					Share:         &share,
+					ShippingFee: &financesrv.Money{
+						Amount:   fi.OrderInfo.Order.RoundupShippingNet.Amount,
+						Currency: fi.OrderInfo.Order.RoundupShippingNet.Currency,
+					},
 				}
 
 				//=============== add a row for shipment amount

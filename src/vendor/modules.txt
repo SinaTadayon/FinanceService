@@ -74,7 +74,7 @@ gitlab.faza.io/go-framework/acl
 gitlab.faza.io/go-framework/logger
 # gitlab.faza.io/go-framework/mongoadapter v0.1.4
 gitlab.faza.io/go-framework/mongoadapter
-# gitlab.faza.io/protos/finance-proto v0.0.2-rs9
+# gitlab.faza.io/protos/finance-proto v0.0.2-rs10
 gitlab.faza.io/protos/finance-proto
 # gitlab.faza.io/protos/order v0.0.83-rs4
 gitlab.faza.io/protos/order

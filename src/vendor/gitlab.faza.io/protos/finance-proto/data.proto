@@ -64,6 +64,7 @@ message SellerFinanceOrderItemList {
     RatedMoney SSO = 13;
     RatedMoney VAT = 14;
     SellerCommission Commission = 15;
+    Money ShippingFee = 16;
 }
 
 message SellerFinanceOrderItemCollection {
