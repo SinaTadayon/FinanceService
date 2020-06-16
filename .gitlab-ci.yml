@@ -62,10 +62,15 @@ stages:
   tags:
     - go-service
   script:
-    - ssh root@staging-swarm-manager1.faza.io "cd /root/faza-stack/apps/ && TAG=$CI_COMMIT_REF_NAME SERVICE=$CI_PROJECT_NAME bash deploy-stg.sh 2> /dev/null";
-      sleep 5;
+    - >
+      if [ "$CI_COMMIT_REF_NAME" == "prelive" ]; then
+        ssh -o StrictHostKeyChecking=no root@prelive-swarm-manager1.bazlia.com "cd /bazlia/apps/ && TAG=$CI_COMMIT_REF_NAME SERVICE=$CI_PROJECT_NAME bash deploy-prelive.sh 2> /dev/null";
+      else
+        ssh root@staging-swarm-manager1.faza.io "cd /root/faza-stack/apps/ && TAG=$CI_COMMIT_REF_NAME SERVICE=$CI_PROJECT_NAME bash deploy-stg.sh 2> /dev/null";
+      fi
   when: on_success
   dependencies:
     - 4-push_image
   only:
     - staging
+    - prelive
