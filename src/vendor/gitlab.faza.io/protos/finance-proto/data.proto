@@ -20,40 +20,64 @@ message SellerFinanceList {
 
 message SellerFinanceListCollection {
     repeated SellerFinanceList items = 1;
-    uint64 total = 2;
 }
 
 message SellerFinanceOrderItemList {
-    int32 Payment = 1;
-    enum PaymentType {
-        Sell = 0;
-        Transfer = 1;
-    }
+    string PaymentType = 1; // Shipment, Purchase
     uint64 OrderId = 2;
-    string Title = 3;
-    string Date = 4;
-    int32 Quantity = 5;
-    string OrderItemId = 6;
-    // total items
-    Money Amount = 7;
-    RatedMoney SSO = 8;
-    RatedMoney VAT = 9;
-    RatedMoney Commission = 10;
-    // per item value
-    Money PiAmount = 11;
-    RatedMoney PiSSO = 12;
-    RatedMoney PiVAT = 13;
-    RatedMoney PiCommission = 14;
-}
 
-message RatedMoney {
-    Money Val = 1;
-    float Rate = 2;
+    // item
+    message attribute {
+        map<string, string> key_trans = 2;
+        map<string, string> value_trans = 3;
+    }
+
+    string Title = 3;
+    string Brand = 4;
+    string Category = 5;
+    string Guaranty = 6;
+    map<string, attribute> Attribute = 8;
+
+    string OrderCreateAt = 9;
+    int32 Quantity = 10;
+    string SKU = 11;
+
+    message SellerShare {
+        Money RoundupUnit = 1;
+        Money RoundupTotal = 2;
+    }
+
+    message SellerCommission {
+        float Rate = 1;
+        Money RoundupUnit = 2;
+        Money RoundupTotal = 3;
+    }
+
+    message RatedMoney {
+        float Rate = 1;
+        bool IsObliged = 2;
+        Money RoundupUnit = 3;
+        Money RoundupTotal = 4;
+    }
+
+    SellerShare share = 12;
+    RatedMoney SSO = 13;
+    RatedMoney VAT = 14;
+    SellerCommission Commission = 15;
 }
 
 message SellerFinanceOrderItemCollection {
     repeated SellerFinanceOrderItemList items = 1;
-    uint64 total = 2;
+
+    message SellerFinanceInvoice {
+        Money Share = 1;
+        Money SSO = 2;
+        Money VAT = 3;
+        Money Commission = 4;
+        Money Shipment = 5;
+    }
+
+    SellerFinanceInvoice FinanceInvoice = 2;
 }
 
 //=================== Buyer

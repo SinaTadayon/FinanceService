@@ -12,14 +12,20 @@ import (
 )
 
 const (
+	// payment status
 	paymentCalculation paymentStatus = "Calculation"
 	paymentPending     paymentStatus = "Pending"
 	paymentSucceed     paymentStatus = "Succeed"
 	paymentFailed      paymentStatus = "Failed"
 	paymentPartial     paymentStatus = "Partial"
+
+	// payment types
+	Shipment paymentType = "Shipment"
+	Purchase paymentType = "Purchase"
 )
 
 type (
+	paymentType   string
 	paymentStatus string
 	Converter     ConverterT
 )
@@ -87,7 +93,6 @@ func convertFinancePageableResultToSellerFinanceListCollection(input finance_rep
 
 	coll := financesrv.SellerFinanceListCollection{
 		Items: items,
-		Total: uint64(input.TotalCount),
 	}
 
 	return coll, nil
@@ -96,20 +101,56 @@ func convertFinancePageableResultToSellerFinanceListCollection(input finance_rep
 func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrderItem.SellerOrderItems) (financesrv.SellerFinanceOrderItemCollection, error) {
 	history := make(map[uint64]bool, 0)
 	output := financesrv.SellerFinanceOrderItemCollection{
-		Total: uint64(input.Total),
 		Items: make([]*financesrv.SellerFinanceOrderItemList, 0, len(input.SellerFinances)),
 	}
 
+	var financeInvoice financesrv.SellerFinanceOrderItemCollection_SellerFinanceInvoice
+
+	if len(input.SellerFinances) > 0 {
+		item0 := input.SellerFinances[0]
+
+		if item0.Status == entities.FinanceOrderCollectionStatus && item0.Invoice != nil {
+			if item0.Invoice.CommissionRoundupTotal != nil {
+				financeInvoice.Commission = &financesrv.Money{
+					Amount:   item0.Invoice.CommissionRoundupTotal.Amount,
+					Currency: item0.Invoice.CommissionRoundupTotal.Currency,
+				}
+			}
+
+			if item0.Invoice.ShareRoundupTotal != nil {
+				financeInvoice.Share = &financesrv.Money{
+					Amount:   item0.Invoice.ShareRoundupTotal.Amount,
+					Currency: item0.Invoice.ShareRoundupTotal.Currency,
+				}
+			}
+
+			if item0.Invoice.ShipmentRoundupTotal != nil {
+				financeInvoice.Shipment = &financesrv.Money{
+					Amount:   item0.Invoice.ShipmentRoundupTotal.Amount,
+					Currency: item0.Invoice.ShipmentRoundupTotal.Currency,
+				}
+			}
+
+			if item0.Invoice.VATRoundupTotal != nil {
+				financeInvoice.VAT = &financesrv.Money{
+					Amount:   item0.Invoice.VATRoundupTotal.Amount,
+					Currency: item0.Invoice.VATRoundupTotal.Currency,
+				}
+			}
+		}
+	}
+
+	output.FinanceInvoice = &financeInvoice
 	for _, fi := range input.SellerFinances {
 		//=============== the collecting data didn't have any calculated value
 		if fi.Status == entities.FinanceOrderCollectionStatus {
 			item := financesrv.SellerFinanceOrderItemList{
-				Payment:     int32(financesrv.SellerFinanceOrderItemList_Sell),
-				OrderId:     fi.OrderInfo.Order.OId,
-				Title:       fi.OrderInfo.Order.Item.Title,
-				Date:        fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
-				Quantity:    fi.OrderInfo.Order.Item.Quantity,
-				OrderItemId: fi.OrderInfo.Order.Item.InventoryId,
+				PaymentType:   string(Purchase),
+				OrderId:       fi.OrderInfo.Order.OId,
+				Title:         fi.OrderInfo.Order.Item.Title,
+				OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
+				Quantity:      fi.OrderInfo.Order.Item.Quantity,
+				SKU:           fi.OrderInfo.Order.Item.SKU,
 			}
 
 			output.Items = append(output.Items, &item)
@@ -119,18 +160,21 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 		//=============== find out type of payment
 		if fi.OrderInfo.Order.IsAlreadyShippingPayed == false {
 			if _, ok := history[fi.OrderInfo.Order.OId]; !ok {
-				amount := financesrv.Money{
-					Amount:   fi.OrderInfo.Order.RoundupShippingNet.Amount,
-					Currency: fi.OrderInfo.Order.RoundupShippingNet.Currency,
+				share := financesrv.SellerFinanceOrderItemList_SellerShare{
+					RoundupTotal: &financesrv.Money{
+						Amount:   fi.OrderInfo.Order.RoundupShippingNet.Amount,
+						Currency: fi.OrderInfo.Order.RoundupShippingNet.Currency,
+					},
+					RoundupUnit: nil,
 				}
 
 				item := financesrv.SellerFinanceOrderItemList{
-					Payment:     int32(financesrv.SellerFinanceOrderItemList_Transfer),
-					OrderId:     fi.OrderInfo.Order.OId,
-					Date:        fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
-					Quantity:    fi.OrderInfo.Order.Item.Quantity,
-					OrderItemId: fi.OrderInfo.Order.Item.InventoryId,
-					Amount:      &amount,
+					PaymentType:   string(Shipment),
+					OrderId:       fi.OrderInfo.Order.OId,
+					OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
+					Quantity:      fi.OrderInfo.Order.Item.Quantity,
+					SKU:           fi.OrderInfo.Order.Item.InventoryId,
+					Share:         &share,
 				}
 
 				//=============== add a row for shipment amount
@@ -141,97 +185,83 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 
 		//=============== invoice and variables for dto
 		invoice := fi.OrderInfo.Order.Item.Invoice
-		var amount, piAmount financesrv.Money
-		var sso, vat, commission, piSso, piVat, piCommission financesrv.RatedMoney
+		var share financesrv.SellerFinanceOrderItemList_SellerShare
+		var commission financesrv.SellerFinanceOrderItemList_SellerCommission
+		var sso, vat financesrv.SellerFinanceOrderItemList_RatedMoney
 
 		//=============== share amount
-		if invoice.Share.RoundupTotalSellerShare != nil {
-			amount = financesrv.Money{
-				Amount:   invoice.Share.RoundupTotalSellerShare.Amount,
-				Currency: invoice.Share.RoundupTotalSellerShare.Currency,
-			}
-		}
-
-		if invoice.Share.RoundupUnitSellerShare != nil {
-			piAmount = financesrv.Money{
-				Amount:   invoice.Share.RoundupUnitSellerShare.Amount,
-				Currency: invoice.Share.RoundupUnitSellerShare.Currency,
+		if invoice.Share.RoundupTotalSellerShare != nil && invoice.Share.RoundupUnitSellerShare != nil {
+			share = financesrv.SellerFinanceOrderItemList_SellerShare{
+				RoundupTotal: &financesrv.Money{
+					Amount:   invoice.Share.RoundupTotalSellerShare.Amount,
+					Currency: invoice.Share.RoundupTotalSellerShare.Currency,
+				},
+				RoundupUnit: &financesrv.Money{
+					Amount:   invoice.Share.RoundupUnitSellerShare.Amount,
+					Currency: invoice.Share.RoundupUnitSellerShare.Currency,
+				},
 			}
 		}
 
 		//=============== sso per item and total package
 		if invoice.SSO.Rate != 0 && invoice.SSO.RoundupTotalPrice != nil && invoice.SSO.RoundupUnitPrice != nil {
-			sso = financesrv.RatedMoney{
-				Val: &financesrv.Money{
-					Amount:   invoice.SSO.RoundupTotalPrice.Amount,
-					Currency: invoice.SSO.RoundupTotalPrice.Currency,
-				},
-				Rate: invoice.SSO.Rate,
-			}
-
-			piSso = financesrv.RatedMoney{
-				Val: &financesrv.Money{
+			sso = financesrv.SellerFinanceOrderItemList_RatedMoney{
+				Rate:      invoice.SSO.Rate,
+				IsObliged: invoice.SSO.IsObliged,
+				RoundupUnit: &financesrv.Money{
 					Amount:   invoice.SSO.RoundupUnitPrice.Amount,
 					Currency: invoice.SSO.RoundupUnitPrice.Currency,
 				},
-				Rate: invoice.SSO.Rate,
+				RoundupTotal: &financesrv.Money{
+					Amount:   invoice.SSO.RoundupTotalPrice.Amount,
+					Currency: invoice.SSO.RoundupTotalPrice.Currency,
+				},
 			}
 		}
 
 		//=============== vat per item and total package
 		if invoice.VAT.Rate != 0 && invoice.VAT.RoundupTotalPrice != nil && invoice.VAT.RoundupUnitPrice != nil {
-			vat = financesrv.RatedMoney{
-				Val: &financesrv.Money{
-					Amount:   invoice.VAT.RoundupTotalPrice.Amount,
-					Currency: invoice.VAT.RoundupTotalPrice.Currency,
-				},
-				Rate: invoice.VAT.Rate,
-			}
-
-			piVat = financesrv.RatedMoney{
-				Val: &financesrv.Money{
+			vat = financesrv.SellerFinanceOrderItemList_RatedMoney{
+				Rate:      invoice.VAT.Rate,
+				IsObliged: invoice.VAT.IsObliged,
+				RoundupUnit: &financesrv.Money{
 					Amount:   invoice.VAT.RoundupUnitPrice.Amount,
 					Currency: invoice.VAT.RoundupUnitPrice.Currency,
 				},
-				Rate: invoice.VAT.Rate,
+				RoundupTotal: &financesrv.Money{
+					Amount:   invoice.VAT.RoundupTotalPrice.Amount,
+					Currency: invoice.VAT.RoundupTotalPrice.Currency,
+				},
 			}
 		}
 
 		//=============== commission per item and total package
 		if invoice.Commission.ItemCommission != 0 && invoice.Commission.RoundupTotalPrice != nil && invoice.Commission.RoundupUnitPrice != nil {
-			commission = financesrv.RatedMoney{
-				Val: &financesrv.Money{
-					Amount:   invoice.Commission.RoundupTotalPrice.Amount,
-					Currency: invoice.Commission.RoundupTotalPrice.Currency,
-				},
+			commission = financesrv.SellerFinanceOrderItemList_SellerCommission{
 				Rate: invoice.Commission.ItemCommission,
-			}
-
-			piCommission = financesrv.RatedMoney{
-				Val: &financesrv.Money{
+				RoundupUnit: &financesrv.Money{
 					Amount:   invoice.Commission.RoundupUnitPrice.Amount,
 					Currency: invoice.Commission.RoundupUnitPrice.Currency,
 				},
-				Rate: invoice.Commission.ItemCommission,
+				RoundupTotal: &financesrv.Money{
+					Amount:   invoice.Commission.RoundupTotalPrice.Amount,
+					Currency: invoice.Commission.RoundupTotalPrice.Currency,
+				},
 			}
 		}
 
 		//=============== final item
 		item := financesrv.SellerFinanceOrderItemList{
-			Payment:      int32(financesrv.SellerFinanceOrderItemList_Sell),
-			OrderId:      fi.OrderInfo.Order.OId,
-			Title:        fi.OrderInfo.Order.Item.Title,
-			Date:         fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
-			Quantity:     fi.OrderInfo.Order.Item.Quantity,
-			OrderItemId:  fi.OrderInfo.Order.Item.InventoryId,
-			Amount:       &amount,
-			SSO:          &sso,
-			VAT:          &vat,
-			Commission:   &commission,
-			PiAmount:     &piAmount,
-			PiSSO:        &piSso,
-			PiVAT:        &piVat,
-			PiCommission: &piCommission,
+			PaymentType:   string(Purchase),
+			OrderId:       fi.OrderInfo.Order.OId,
+			Title:         fi.OrderInfo.Order.Item.Title,
+			OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
+			Quantity:      fi.OrderInfo.Order.Item.Quantity,
+			SKU:           fi.OrderInfo.Order.Item.SKU,
+			Share:         &share,
+			SSO:           &sso,
+			VAT:           &vat,
+			Commission:    &commission,
 		}
 
 		output.Items = append(output.Items, &item)

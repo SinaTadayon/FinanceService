@@ -120,7 +120,7 @@ func (s sellerFinanceOrderItemListHandler) Handle(input interface{}) future.IFut
 	responseMessage := finance_proto.ResponseMessage{
 		Entity: "SellerFinanceOrderItemCollection",
 		Meta: &finance_proto.ResponseMetadata{
-			Total:   uint32(response.Total),
+			Total:   uint32(len(dbResult.SellerFinances)),
 			Page:    req.Header.Page,
 			PerPage: req.Header.PerPage,
 		},

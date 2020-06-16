@@ -91,7 +91,7 @@ func (s sellerFinanceListHandler) Handle(input interface{}) future.IFuture {
 	response := finance_proto.ResponseMessage{
 		Entity: "SellerFinanceListCollection",
 		Meta: &finance_proto.ResponseMetadata{
-			Total:   uint32(coll.Total),
+			Total:   uint32(len(coll.Items)),
 			Page:    req.Header.Page,
 			PerPage: req.Header.PerPage,
 		},

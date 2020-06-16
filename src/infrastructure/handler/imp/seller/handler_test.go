@@ -125,8 +125,8 @@ func TestSellerFinanceOrderItemListHandler_Handle(t *testing.T) {
 	body := finance_proto.SellerFinanceOrderItemCollection{}
 	err := proto.Unmarshal(resp.Data.Value, &body)
 	require.Nil(t, err)
-	require.Equal(t, body.Items[0].Payment, int32(1))
-	require.Equal(t, body.Items[1].Payment, int32(0))
+	require.Equal(t, body.Items[0].PaymentType, "Shipment")
+	require.Equal(t, body.Items[1].PaymentType, "Purchase")
 }
 
 func TestSellerFinanceListHandler_Handle(t *testing.T) {

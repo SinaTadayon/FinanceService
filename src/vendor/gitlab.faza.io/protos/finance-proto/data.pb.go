@@ -20,31 +20,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type SellerFinanceOrderItemList_PaymentType int32
-
-const (
-	SellerFinanceOrderItemList_Sell     SellerFinanceOrderItemList_PaymentType = 0
-	SellerFinanceOrderItemList_Transfer SellerFinanceOrderItemList_PaymentType = 1
-)
-
-var SellerFinanceOrderItemList_PaymentType_name = map[int32]string{
-	0: "Sell",
-	1: "Transfer",
-}
-
-var SellerFinanceOrderItemList_PaymentType_value = map[string]int32{
-	"Sell":     0,
-	"Transfer": 1,
-}
-
-func (x SellerFinanceOrderItemList_PaymentType) String() string {
-	return proto.EnumName(SellerFinanceOrderItemList_PaymentType_name, int32(x))
-}
-
-func (SellerFinanceOrderItemList_PaymentType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_871986018790d2fd, []int{2, 0}
-}
-
 type SellerFinanceList struct {
 	FID                  string   `protobuf:"bytes,1,opt,name=FID,proto3" json:"FID"`
 	UID                  uint64   `protobuf:"varint,2,opt,name=UID,proto3" json:"UID"`
@@ -126,7 +101,6 @@ func (m *SellerFinanceList) GetTotal() *Money {
 
 type SellerFinanceListCollection struct {
 	Items                []*SellerFinanceList `protobuf:"bytes,1,rep,name=items,proto3" json:"items"`
-	Total                uint64               `protobuf:"varint,2,opt,name=total,proto3" json:"total"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -164,33 +138,24 @@ func (m *SellerFinanceListCollection) GetItems() []*SellerFinanceList {
 	return nil
 }
 
-func (m *SellerFinanceListCollection) GetTotal() uint64 {
-	if m != nil {
-		return m.Total
-	}
-	return 0
-}
-
 type SellerFinanceOrderItemList struct {
-	Payment     int32  `protobuf:"varint,1,opt,name=Payment,proto3" json:"Payment"`
-	OrderId     uint64 `protobuf:"varint,2,opt,name=OrderId,proto3" json:"OrderId"`
-	Title       string `protobuf:"bytes,3,opt,name=Title,proto3" json:"Title"`
-	Date        string `protobuf:"bytes,4,opt,name=Date,proto3" json:"Date"`
-	Quantity    int32  `protobuf:"varint,5,opt,name=Quantity,proto3" json:"Quantity"`
-	OrderItemId string `protobuf:"bytes,6,opt,name=OrderItemId,proto3" json:"OrderItemId"`
-	// total items
-	Amount     *Money      `protobuf:"bytes,7,opt,name=Amount,proto3" json:"Amount"`
-	SSO        *RatedMoney `protobuf:"bytes,8,opt,name=SSO,proto3" json:"SSO"`
-	VAT        *RatedMoney `protobuf:"bytes,9,opt,name=VAT,proto3" json:"VAT"`
-	Commission *RatedMoney `protobuf:"bytes,10,opt,name=Commission,proto3" json:"Commission"`
-	// per item value
-	PiAmount             *Money      `protobuf:"bytes,11,opt,name=PiAmount,proto3" json:"PiAmount"`
-	PiSSO                *RatedMoney `protobuf:"bytes,12,opt,name=PiSSO,proto3" json:"PiSSO"`
-	PiVAT                *RatedMoney `protobuf:"bytes,13,opt,name=PiVAT,proto3" json:"PiVAT"`
-	PiCommission         *RatedMoney `protobuf:"bytes,14,opt,name=PiCommission,proto3" json:"PiCommission"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	PaymentType          string                                          `protobuf:"bytes,1,opt,name=PaymentType,proto3" json:"PaymentType"`
+	OrderId              uint64                                          `protobuf:"varint,2,opt,name=OrderId,proto3" json:"OrderId"`
+	Title                string                                          `protobuf:"bytes,3,opt,name=Title,proto3" json:"Title"`
+	Brand                string                                          `protobuf:"bytes,4,opt,name=Brand,proto3" json:"Brand"`
+	Category             string                                          `protobuf:"bytes,5,opt,name=Category,proto3" json:"Category"`
+	Guaranty             string                                          `protobuf:"bytes,6,opt,name=Guaranty,proto3" json:"Guaranty"`
+	Attribute            map[string]*SellerFinanceOrderItemListAttribute `protobuf:"bytes,8,rep,name=Attribute,proto3" json:"Attribute" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	OrderCreateAt        string                                          `protobuf:"bytes,9,opt,name=OrderCreateAt,proto3" json:"OrderCreateAt"`
+	Quantity             int32                                           `protobuf:"varint,10,opt,name=Quantity,proto3" json:"Quantity"`
+	SKU                  string                                          `protobuf:"bytes,11,opt,name=SKU,proto3" json:"SKU"`
+	Share                *SellerFinanceOrderItemList_SellerShare         `protobuf:"bytes,12,opt,name=share,proto3" json:"share"`
+	SSO                  *SellerFinanceOrderItemList_RatedMoney          `protobuf:"bytes,13,opt,name=SSO,proto3" json:"SSO"`
+	VAT                  *SellerFinanceOrderItemList_RatedMoney          `protobuf:"bytes,14,opt,name=VAT,proto3" json:"VAT"`
+	Commission           *SellerFinanceOrderItemList_SellerCommission    `protobuf:"bytes,15,opt,name=Commission,proto3" json:"Commission"`
+	XXX_NoUnkeyedLiteral struct{}                                        `json:"-"`
+	XXX_unrecognized     []byte                                          `json:"-"`
+	XXX_sizecache        int32                                           `json:"-"`
 }
 
 func (m *SellerFinanceOrderItemList) Reset()         { *m = SellerFinanceOrderItemList{} }
@@ -218,11 +183,11 @@ func (m *SellerFinanceOrderItemList) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SellerFinanceOrderItemList proto.InternalMessageInfo
 
-func (m *SellerFinanceOrderItemList) GetPayment() int32 {
+func (m *SellerFinanceOrderItemList) GetPaymentType() string {
 	if m != nil {
-		return m.Payment
+		return m.PaymentType
 	}
-	return 0
+	return ""
 }
 
 func (m *SellerFinanceOrderItemList) GetOrderId() uint64 {
@@ -239,9 +204,37 @@ func (m *SellerFinanceOrderItemList) GetTitle() string {
 	return ""
 }
 
-func (m *SellerFinanceOrderItemList) GetDate() string {
+func (m *SellerFinanceOrderItemList) GetBrand() string {
 	if m != nil {
-		return m.Date
+		return m.Brand
+	}
+	return ""
+}
+
+func (m *SellerFinanceOrderItemList) GetCategory() string {
+	if m != nil {
+		return m.Category
+	}
+	return ""
+}
+
+func (m *SellerFinanceOrderItemList) GetGuaranty() string {
+	if m != nil {
+		return m.Guaranty
+	}
+	return ""
+}
+
+func (m *SellerFinanceOrderItemList) GetAttribute() map[string]*SellerFinanceOrderItemListAttribute {
+	if m != nil {
+		return m.Attribute
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemList) GetOrderCreateAt() string {
+	if m != nil {
+		return m.OrderCreateAt
 	}
 	return ""
 }
@@ -253,129 +246,273 @@ func (m *SellerFinanceOrderItemList) GetQuantity() int32 {
 	return 0
 }
 
-func (m *SellerFinanceOrderItemList) GetOrderItemId() string {
+func (m *SellerFinanceOrderItemList) GetSKU() string {
 	if m != nil {
-		return m.OrderItemId
+		return m.SKU
 	}
 	return ""
 }
 
-func (m *SellerFinanceOrderItemList) GetAmount() *Money {
+func (m *SellerFinanceOrderItemList) GetShare() *SellerFinanceOrderItemList_SellerShare {
 	if m != nil {
-		return m.Amount
+		return m.Share
 	}
 	return nil
 }
 
-func (m *SellerFinanceOrderItemList) GetSSO() *RatedMoney {
+func (m *SellerFinanceOrderItemList) GetSSO() *SellerFinanceOrderItemList_RatedMoney {
 	if m != nil {
 		return m.SSO
 	}
 	return nil
 }
 
-func (m *SellerFinanceOrderItemList) GetVAT() *RatedMoney {
+func (m *SellerFinanceOrderItemList) GetVAT() *SellerFinanceOrderItemList_RatedMoney {
 	if m != nil {
 		return m.VAT
 	}
 	return nil
 }
 
-func (m *SellerFinanceOrderItemList) GetCommission() *RatedMoney {
+func (m *SellerFinanceOrderItemList) GetCommission() *SellerFinanceOrderItemList_SellerCommission {
 	if m != nil {
 		return m.Commission
 	}
 	return nil
 }
 
-func (m *SellerFinanceOrderItemList) GetPiAmount() *Money {
+// item
+type SellerFinanceOrderItemListAttribute struct {
+	KeyTrans             map[string]string `protobuf:"bytes,2,rep,name=key_trans,json=keyTrans,proto3" json:"key_trans" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	ValueTrans           map[string]string `protobuf:"bytes,3,rep,name=value_trans,json=valueTrans,proto3" json:"value_trans" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *SellerFinanceOrderItemListAttribute) Reset()         { *m = SellerFinanceOrderItemListAttribute{} }
+func (m *SellerFinanceOrderItemListAttribute) String() string { return proto.CompactTextString(m) }
+func (*SellerFinanceOrderItemListAttribute) ProtoMessage()    {}
+func (*SellerFinanceOrderItemListAttribute) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{2, 0}
+}
+
+func (m *SellerFinanceOrderItemListAttribute) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SellerFinanceOrderItemListAttribute.Unmarshal(m, b)
+}
+func (m *SellerFinanceOrderItemListAttribute) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SellerFinanceOrderItemListAttribute.Marshal(b, m, deterministic)
+}
+func (m *SellerFinanceOrderItemListAttribute) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SellerFinanceOrderItemListAttribute.Merge(m, src)
+}
+func (m *SellerFinanceOrderItemListAttribute) XXX_Size() int {
+	return xxx_messageInfo_SellerFinanceOrderItemListAttribute.Size(m)
+}
+func (m *SellerFinanceOrderItemListAttribute) XXX_DiscardUnknown() {
+	xxx_messageInfo_SellerFinanceOrderItemListAttribute.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SellerFinanceOrderItemListAttribute proto.InternalMessageInfo
+
+func (m *SellerFinanceOrderItemListAttribute) GetKeyTrans() map[string]string {
 	if m != nil {
-		return m.PiAmount
+		return m.KeyTrans
 	}
 	return nil
 }
 
-func (m *SellerFinanceOrderItemList) GetPiSSO() *RatedMoney {
+func (m *SellerFinanceOrderItemListAttribute) GetValueTrans() map[string]string {
 	if m != nil {
-		return m.PiSSO
+		return m.ValueTrans
 	}
 	return nil
 }
 
-func (m *SellerFinanceOrderItemList) GetPiVAT() *RatedMoney {
-	if m != nil {
-		return m.PiVAT
-	}
-	return nil
-}
-
-func (m *SellerFinanceOrderItemList) GetPiCommission() *RatedMoney {
-	if m != nil {
-		return m.PiCommission
-	}
-	return nil
-}
-
-type RatedMoney struct {
-	Val                  *Money   `protobuf:"bytes,1,opt,name=Val,proto3" json:"Val"`
-	Rate                 float32  `protobuf:"fixed32,2,opt,name=Rate,proto3" json:"Rate"`
+type SellerFinanceOrderItemList_SellerShare struct {
+	RoundupUnit          *Money   `protobuf:"bytes,1,opt,name=RoundupUnit,proto3" json:"RoundupUnit"`
+	RoundupTotal         *Money   `protobuf:"bytes,2,opt,name=RoundupTotal,proto3" json:"RoundupTotal"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RatedMoney) Reset()         { *m = RatedMoney{} }
-func (m *RatedMoney) String() string { return proto.CompactTextString(m) }
-func (*RatedMoney) ProtoMessage()    {}
-func (*RatedMoney) Descriptor() ([]byte, []int) {
-	return fileDescriptor_871986018790d2fd, []int{3}
+func (m *SellerFinanceOrderItemList_SellerShare) Reset() {
+	*m = SellerFinanceOrderItemList_SellerShare{}
+}
+func (m *SellerFinanceOrderItemList_SellerShare) String() string { return proto.CompactTextString(m) }
+func (*SellerFinanceOrderItemList_SellerShare) ProtoMessage()    {}
+func (*SellerFinanceOrderItemList_SellerShare) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{2, 2}
 }
 
-func (m *RatedMoney) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RatedMoney.Unmarshal(m, b)
+func (m *SellerFinanceOrderItemList_SellerShare) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SellerFinanceOrderItemList_SellerShare.Unmarshal(m, b)
 }
-func (m *RatedMoney) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RatedMoney.Marshal(b, m, deterministic)
+func (m *SellerFinanceOrderItemList_SellerShare) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SellerFinanceOrderItemList_SellerShare.Marshal(b, m, deterministic)
 }
-func (m *RatedMoney) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RatedMoney.Merge(m, src)
+func (m *SellerFinanceOrderItemList_SellerShare) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SellerFinanceOrderItemList_SellerShare.Merge(m, src)
 }
-func (m *RatedMoney) XXX_Size() int {
-	return xxx_messageInfo_RatedMoney.Size(m)
+func (m *SellerFinanceOrderItemList_SellerShare) XXX_Size() int {
+	return xxx_messageInfo_SellerFinanceOrderItemList_SellerShare.Size(m)
 }
-func (m *RatedMoney) XXX_DiscardUnknown() {
-	xxx_messageInfo_RatedMoney.DiscardUnknown(m)
+func (m *SellerFinanceOrderItemList_SellerShare) XXX_DiscardUnknown() {
+	xxx_messageInfo_SellerFinanceOrderItemList_SellerShare.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RatedMoney proto.InternalMessageInfo
+var xxx_messageInfo_SellerFinanceOrderItemList_SellerShare proto.InternalMessageInfo
 
-func (m *RatedMoney) GetVal() *Money {
+func (m *SellerFinanceOrderItemList_SellerShare) GetRoundupUnit() *Money {
 	if m != nil {
-		return m.Val
+		return m.RoundupUnit
 	}
 	return nil
 }
 
-func (m *RatedMoney) GetRate() float32 {
+func (m *SellerFinanceOrderItemList_SellerShare) GetRoundupTotal() *Money {
+	if m != nil {
+		return m.RoundupTotal
+	}
+	return nil
+}
+
+type SellerFinanceOrderItemList_SellerCommission struct {
+	Rate                 float32  `protobuf:"fixed32,1,opt,name=Rate,proto3" json:"Rate"`
+	RoundupUnit          *Money   `protobuf:"bytes,2,opt,name=RoundupUnit,proto3" json:"RoundupUnit"`
+	RoundupTotal         *Money   `protobuf:"bytes,3,opt,name=RoundupTotal,proto3" json:"RoundupTotal"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SellerFinanceOrderItemList_SellerCommission) Reset() {
+	*m = SellerFinanceOrderItemList_SellerCommission{}
+}
+func (m *SellerFinanceOrderItemList_SellerCommission) String() string {
+	return proto.CompactTextString(m)
+}
+func (*SellerFinanceOrderItemList_SellerCommission) ProtoMessage() {}
+func (*SellerFinanceOrderItemList_SellerCommission) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{2, 3}
+}
+
+func (m *SellerFinanceOrderItemList_SellerCommission) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SellerFinanceOrderItemList_SellerCommission.Unmarshal(m, b)
+}
+func (m *SellerFinanceOrderItemList_SellerCommission) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SellerFinanceOrderItemList_SellerCommission.Marshal(b, m, deterministic)
+}
+func (m *SellerFinanceOrderItemList_SellerCommission) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SellerFinanceOrderItemList_SellerCommission.Merge(m, src)
+}
+func (m *SellerFinanceOrderItemList_SellerCommission) XXX_Size() int {
+	return xxx_messageInfo_SellerFinanceOrderItemList_SellerCommission.Size(m)
+}
+func (m *SellerFinanceOrderItemList_SellerCommission) XXX_DiscardUnknown() {
+	xxx_messageInfo_SellerFinanceOrderItemList_SellerCommission.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SellerFinanceOrderItemList_SellerCommission proto.InternalMessageInfo
+
+func (m *SellerFinanceOrderItemList_SellerCommission) GetRate() float32 {
 	if m != nil {
 		return m.Rate
 	}
 	return 0
 }
 
+func (m *SellerFinanceOrderItemList_SellerCommission) GetRoundupUnit() *Money {
+	if m != nil {
+		return m.RoundupUnit
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemList_SellerCommission) GetRoundupTotal() *Money {
+	if m != nil {
+		return m.RoundupTotal
+	}
+	return nil
+}
+
+type SellerFinanceOrderItemList_RatedMoney struct {
+	Rate                 float32  `protobuf:"fixed32,1,opt,name=Rate,proto3" json:"Rate"`
+	IsObliged            bool     `protobuf:"varint,2,opt,name=IsObliged,proto3" json:"IsObliged"`
+	RoundupUnit          *Money   `protobuf:"bytes,3,opt,name=RoundupUnit,proto3" json:"RoundupUnit"`
+	RoundupTotal         *Money   `protobuf:"bytes,4,opt,name=RoundupTotal,proto3" json:"RoundupTotal"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SellerFinanceOrderItemList_RatedMoney) Reset()         { *m = SellerFinanceOrderItemList_RatedMoney{} }
+func (m *SellerFinanceOrderItemList_RatedMoney) String() string { return proto.CompactTextString(m) }
+func (*SellerFinanceOrderItemList_RatedMoney) ProtoMessage()    {}
+func (*SellerFinanceOrderItemList_RatedMoney) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{2, 4}
+}
+
+func (m *SellerFinanceOrderItemList_RatedMoney) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SellerFinanceOrderItemList_RatedMoney.Unmarshal(m, b)
+}
+func (m *SellerFinanceOrderItemList_RatedMoney) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SellerFinanceOrderItemList_RatedMoney.Marshal(b, m, deterministic)
+}
+func (m *SellerFinanceOrderItemList_RatedMoney) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SellerFinanceOrderItemList_RatedMoney.Merge(m, src)
+}
+func (m *SellerFinanceOrderItemList_RatedMoney) XXX_Size() int {
+	return xxx_messageInfo_SellerFinanceOrderItemList_RatedMoney.Size(m)
+}
+func (m *SellerFinanceOrderItemList_RatedMoney) XXX_DiscardUnknown() {
+	xxx_messageInfo_SellerFinanceOrderItemList_RatedMoney.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SellerFinanceOrderItemList_RatedMoney proto.InternalMessageInfo
+
+func (m *SellerFinanceOrderItemList_RatedMoney) GetRate() float32 {
+	if m != nil {
+		return m.Rate
+	}
+	return 0
+}
+
+func (m *SellerFinanceOrderItemList_RatedMoney) GetIsObliged() bool {
+	if m != nil {
+		return m.IsObliged
+	}
+	return false
+}
+
+func (m *SellerFinanceOrderItemList_RatedMoney) GetRoundupUnit() *Money {
+	if m != nil {
+		return m.RoundupUnit
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemList_RatedMoney) GetRoundupTotal() *Money {
+	if m != nil {
+		return m.RoundupTotal
+	}
+	return nil
+}
+
 type SellerFinanceOrderItemCollection struct {
-	Items                []*SellerFinanceOrderItemList `protobuf:"bytes,1,rep,name=items,proto3" json:"items"`
-	Total                uint64                        `protobuf:"varint,2,opt,name=total,proto3" json:"total"`
-	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
-	XXX_unrecognized     []byte                        `json:"-"`
-	XXX_sizecache        int32                         `json:"-"`
+	Items                []*SellerFinanceOrderItemList                          `protobuf:"bytes,1,rep,name=items,proto3" json:"items"`
+	FinanceInvoice       *SellerFinanceOrderItemCollection_SellerFinanceInvoice `protobuf:"bytes,2,opt,name=FinanceInvoice,proto3" json:"FinanceInvoice"`
+	XXX_NoUnkeyedLiteral struct{}                                               `json:"-"`
+	XXX_unrecognized     []byte                                                 `json:"-"`
+	XXX_sizecache        int32                                                  `json:"-"`
 }
 
 func (m *SellerFinanceOrderItemCollection) Reset()         { *m = SellerFinanceOrderItemCollection{} }
 func (m *SellerFinanceOrderItemCollection) String() string { return proto.CompactTextString(m) }
 func (*SellerFinanceOrderItemCollection) ProtoMessage()    {}
 func (*SellerFinanceOrderItemCollection) Descriptor() ([]byte, []int) {
-	return fileDescriptor_871986018790d2fd, []int{4}
+	return fileDescriptor_871986018790d2fd, []int{3}
 }
 
 func (m *SellerFinanceOrderItemCollection) XXX_Unmarshal(b []byte) error {
@@ -403,20 +540,101 @@ func (m *SellerFinanceOrderItemCollection) GetItems() []*SellerFinanceOrderItemL
 	return nil
 }
 
-func (m *SellerFinanceOrderItemCollection) GetTotal() uint64 {
+func (m *SellerFinanceOrderItemCollection) GetFinanceInvoice() *SellerFinanceOrderItemCollection_SellerFinanceInvoice {
 	if m != nil {
-		return m.Total
+		return m.FinanceInvoice
 	}
-	return 0
+	return nil
+}
+
+type SellerFinanceOrderItemCollection_SellerFinanceInvoice struct {
+	Share                *Money   `protobuf:"bytes,1,opt,name=Share,proto3" json:"Share"`
+	SSO                  *Money   `protobuf:"bytes,2,opt,name=SSO,proto3" json:"SSO"`
+	VAT                  *Money   `protobuf:"bytes,3,opt,name=VAT,proto3" json:"VAT"`
+	Commission           *Money   `protobuf:"bytes,4,opt,name=Commission,proto3" json:"Commission"`
+	Shipment             *Money   `protobuf:"bytes,5,opt,name=Shipment,proto3" json:"Shipment"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) Reset() {
+	*m = SellerFinanceOrderItemCollection_SellerFinanceInvoice{}
+}
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) String() string {
+	return proto.CompactTextString(m)
+}
+func (*SellerFinanceOrderItemCollection_SellerFinanceInvoice) ProtoMessage() {}
+func (*SellerFinanceOrderItemCollection_SellerFinanceInvoice) Descriptor() ([]byte, []int) {
+	return fileDescriptor_871986018790d2fd, []int{3, 0}
+}
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SellerFinanceOrderItemCollection_SellerFinanceInvoice.Unmarshal(m, b)
+}
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SellerFinanceOrderItemCollection_SellerFinanceInvoice.Marshal(b, m, deterministic)
+}
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SellerFinanceOrderItemCollection_SellerFinanceInvoice.Merge(m, src)
+}
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) XXX_Size() int {
+	return xxx_messageInfo_SellerFinanceOrderItemCollection_SellerFinanceInvoice.Size(m)
+}
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) XXX_DiscardUnknown() {
+	xxx_messageInfo_SellerFinanceOrderItemCollection_SellerFinanceInvoice.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SellerFinanceOrderItemCollection_SellerFinanceInvoice proto.InternalMessageInfo
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) GetShare() *Money {
+	if m != nil {
+		return m.Share
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) GetSSO() *Money {
+	if m != nil {
+		return m.SSO
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) GetVAT() *Money {
+	if m != nil {
+		return m.VAT
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) GetCommission() *Money {
+	if m != nil {
+		return m.Commission
+	}
+	return nil
+}
+
+func (m *SellerFinanceOrderItemCollection_SellerFinanceInvoice) GetShipment() *Money {
+	if m != nil {
+		return m.Shipment
+	}
+	return nil
 }
 
 func init() {
-	proto.RegisterEnum("financesrv.SellerFinanceOrderItemList_PaymentType", SellerFinanceOrderItemList_PaymentType_name, SellerFinanceOrderItemList_PaymentType_value)
 	proto.RegisterType((*SellerFinanceList)(nil), "financesrv.SellerFinanceList")
 	proto.RegisterType((*SellerFinanceListCollection)(nil), "financesrv.SellerFinanceListCollection")
 	proto.RegisterType((*SellerFinanceOrderItemList)(nil), "financesrv.SellerFinanceOrderItemList")
-	proto.RegisterType((*RatedMoney)(nil), "financesrv.RatedMoney")
+	proto.RegisterMapType((map[string]*SellerFinanceOrderItemListAttribute)(nil), "financesrv.SellerFinanceOrderItemList.AttributeEntry")
+	proto.RegisterType((*SellerFinanceOrderItemListAttribute)(nil), "financesrv.SellerFinanceOrderItemList.attribute")
+	proto.RegisterMapType((map[string]string)(nil), "financesrv.SellerFinanceOrderItemList.attribute.KeyTransEntry")
+	proto.RegisterMapType((map[string]string)(nil), "financesrv.SellerFinanceOrderItemList.attribute.ValueTransEntry")
+	proto.RegisterType((*SellerFinanceOrderItemList_SellerShare)(nil), "financesrv.SellerFinanceOrderItemList.SellerShare")
+	proto.RegisterType((*SellerFinanceOrderItemList_SellerCommission)(nil), "financesrv.SellerFinanceOrderItemList.SellerCommission")
+	proto.RegisterType((*SellerFinanceOrderItemList_RatedMoney)(nil), "financesrv.SellerFinanceOrderItemList.RatedMoney")
 	proto.RegisterType((*SellerFinanceOrderItemCollection)(nil), "financesrv.SellerFinanceOrderItemCollection")
+	proto.RegisterType((*SellerFinanceOrderItemCollection_SellerFinanceInvoice)(nil), "financesrv.SellerFinanceOrderItemCollection.SellerFinanceInvoice")
 }
 
 func init() {
@@ -424,36 +642,54 @@ func init() {
 }
 
 var fileDescriptor_871986018790d2fd = []byte{
-	// 496 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x94, 0xcd, 0x6a, 0xdb, 0x40,
-	0x10, 0xc7, 0xab, 0x58, 0xb2, 0xe5, 0x91, 0x5d, 0x9c, 0xa1, 0x94, 0xc5, 0x6d, 0x41, 0xa8, 0x5f,
-	0x2a, 0xb4, 0x3e, 0x24, 0xd0, 0x43, 0xe9, 0xc5, 0xc4, 0x09, 0x18, 0x5a, 0xe2, 0x4a, 0xaa, 0xef,
-	0xdb, 0x68, 0x43, 0x17, 0xa4, 0x55, 0x90, 0xd6, 0x01, 0xbf, 0x5c, 0xdf, 0xa4, 0xef, 0x52, 0x76,
-	0x57, 0xb6, 0x25, 0x12, 0xab, 0xb7, 0xf9, 0xf8, 0x8d, 0x76, 0x66, 0xf8, 0x8f, 0x00, 0x52, 0x2a,
-	0xe9, 0xec, 0xae, 0x2c, 0x64, 0x81, 0x70, 0xcb, 0x05, 0x15, 0x37, 0xac, 0x2a, 0xef, 0xa7, 0xe3,
-	0xda, 0x36, 0xa9, 0xe0, 0x8f, 0x05, 0xa7, 0x31, 0xcb, 0x32, 0x56, 0x5e, 0x99, 0xf8, 0x37, 0x5e,
-	0x49, 0x9c, 0x40, 0xef, 0x6a, 0xb9, 0x20, 0x96, 0x6f, 0x85, 0xc3, 0x48, 0x99, 0x2a, 0xf2, 0x73,
-	0xb9, 0x20, 0x27, 0xbe, 0x15, 0xda, 0x91, 0x32, 0xf1, 0x25, 0x0c, 0x63, 0x49, 0x4b, 0xb9, 0xa0,
-	0x92, 0x91, 0x9e, 0x26, 0x0f, 0x01, 0x24, 0x30, 0xb8, 0x14, 0xa9, 0xce, 0xd9, 0x3a, 0xb7, 0x73,
-	0xf1, 0x0d, 0x8c, 0x57, 0x74, 0x9b, 0x33, 0x21, 0x63, 0x49, 0xe5, 0xa6, 0x22, 0x8e, 0xce, 0xb7,
-	0x83, 0xf8, 0x1e, 0x9c, 0xa4, 0x90, 0x34, 0x23, 0x7d, 0xdf, 0x0a, 0xbd, 0xb3, 0xd3, 0xd9, 0x61,
-	0x84, 0xd9, 0xf7, 0x42, 0xb0, 0x6d, 0x64, 0xf2, 0xc1, 0x6f, 0x78, 0xf1, 0xa0, 0xff, 0x8b, 0x22,
-	0xcb, 0xd8, 0x8d, 0xe4, 0x85, 0xc0, 0x73, 0x70, 0xb8, 0x64, 0x79, 0x45, 0x2c, 0xbf, 0x17, 0x7a,
-	0x67, 0xaf, 0x9a, 0xdf, 0x79, 0x50, 0x17, 0x19, 0x16, 0x9f, 0x81, 0x23, 0xf5, 0xe3, 0x66, 0x5c,
-	0xe3, 0x04, 0x7f, 0x6d, 0x98, 0xb6, 0x4a, 0xae, 0xcb, 0x94, 0x95, 0x4b, 0xc9, 0x72, 0xbd, 0x33,
-	0x02, 0x83, 0x7a, 0x04, 0xbd, 0x37, 0x27, 0xda, 0xb9, 0x2a, 0x63, 0xd0, 0xb4, 0xfe, 0xe0, 0xce,
-	0x55, 0x0f, 0x25, 0x5c, 0x66, 0xbb, 0xfd, 0x19, 0x07, 0x11, 0xec, 0xc6, 0xe2, 0xb4, 0x8d, 0x53,
-	0x70, 0x7f, 0x6c, 0xa8, 0x90, 0x5c, 0x6e, 0xf5, 0xc2, 0x9c, 0x68, 0xef, 0xa3, 0x0f, 0xde, 0xbe,
-	0x95, 0x65, 0xaa, 0x37, 0x36, 0x8c, 0x9a, 0x21, 0xfc, 0x00, 0xfd, 0x79, 0x5e, 0x6c, 0x84, 0x24,
-	0x83, 0x63, 0xeb, 0xac, 0x01, 0x0c, 0xa1, 0x17, 0xc7, 0xd7, 0xc4, 0xd5, 0xdc, 0xf3, 0x26, 0x17,
-	0x51, 0xc9, 0x52, 0x03, 0x2b, 0x44, 0x91, 0xeb, 0x79, 0x42, 0x86, 0xdd, 0xe4, 0x7a, 0x9e, 0xe0,
-	0x67, 0x80, 0x8b, 0x22, 0xcf, 0x79, 0x55, 0xf1, 0x42, 0x10, 0xe8, 0x2c, 0x68, 0x90, 0xf8, 0x09,
-	0xdc, 0x15, 0xaf, 0x1b, 0xf7, 0x8e, 0x35, 0xbe, 0x47, 0xf0, 0x23, 0x38, 0x2b, 0xae, 0x9a, 0x1f,
-	0x75, 0xbe, 0x60, 0x20, 0x43, 0xab, 0x01, 0xc6, 0xff, 0xa3, 0xd5, 0x08, 0x5f, 0x60, 0xb4, 0xe2,
-	0x8d, 0x21, 0x9e, 0x76, 0x16, 0xb5, 0xd8, 0xe0, 0x2d, 0x78, 0xb5, 0x14, 0x92, 0xed, 0x1d, 0x43,
-	0x17, 0x6c, 0x25, 0xa3, 0xc9, 0x13, 0x1c, 0x81, 0x9b, 0x94, 0x54, 0x54, 0xb7, 0xac, 0x9c, 0x58,
-	0xc1, 0x25, 0xc0, 0xe1, 0x13, 0xf8, 0x1a, 0x7a, 0x6b, 0x9a, 0x69, 0x29, 0x3d, 0x3a, 0xb6, 0xca,
-	0x2a, 0xa5, 0xa8, 0x12, 0x2d, 0xab, 0x93, 0x48, 0xdb, 0xc1, 0x3d, 0xf8, 0x8f, 0xab, 0xb4, 0x71,
-	0x15, 0x5f, 0xdb, 0x57, 0xf1, 0xee, 0xe8, 0x55, 0xb4, 0x24, 0xde, 0x79, 0x1e, 0xbf, 0xfa, 0xfa,
-	0x87, 0x72, 0xfe, 0x2f, 0x00, 0x00, 0xff, 0xff, 0x15, 0x00, 0x35, 0x7b, 0x79, 0x04, 0x00, 0x00,
+	// 780 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xcb, 0x6e, 0xda, 0x4a,
+	0x18, 0x96, 0x31, 0xe4, 0xe0, 0xdf, 0x21, 0x97, 0x51, 0x16, 0x23, 0x9f, 0x1c, 0x09, 0x91, 0xa3,
+	0x73, 0xd8, 0x1c, 0x74, 0x42, 0x14, 0xb5, 0xea, 0x4d, 0xa5, 0x24, 0x69, 0x51, 0x5a, 0xa5, 0x1d,
+	0x43, 0xba, 0xe8, 0xa2, 0x9a, 0x84, 0x69, 0x62, 0x61, 0xc6, 0xc8, 0x1e, 0x90, 0xfc, 0x08, 0xdd,
+	0xf6, 0x31, 0xfa, 0x06, 0xdd, 0x74, 0xdb, 0x87, 0xe9, 0x4b, 0x54, 0x33, 0x63, 0x8c, 0x4d, 0x40,
+	0x85, 0xec, 0xe6, 0xbf, 0x7d, 0xf3, 0x5f, 0x3e, 0xff, 0x63, 0x80, 0x3e, 0x15, 0xb4, 0x31, 0x0a,
+	0x03, 0x11, 0x20, 0xf8, 0xe4, 0x71, 0xca, 0xaf, 0x59, 0x14, 0x4e, 0x9c, 0x4a, 0x72, 0xd6, 0xa6,
+	0xda, 0x77, 0x03, 0x76, 0x5d, 0xe6, 0xfb, 0x2c, 0x3c, 0xd3, 0xfa, 0xd7, 0x5e, 0x24, 0xd0, 0x0e,
+	0x98, 0x67, 0x9d, 0x13, 0x6c, 0x54, 0x8d, 0xba, 0x45, 0xe4, 0x51, 0x6a, 0x7a, 0x9d, 0x13, 0x5c,
+	0xa8, 0x1a, 0xf5, 0x22, 0x91, 0x47, 0xb4, 0x0f, 0x96, 0x2b, 0x68, 0x28, 0x4e, 0xa8, 0x60, 0xd8,
+	0x54, 0x9e, 0x33, 0x05, 0xc2, 0xf0, 0xc7, 0x29, 0xef, 0x2b, 0x5b, 0x51, 0xd9, 0xa6, 0x22, 0xfa,
+	0x1b, 0x2a, 0x6f, 0x69, 0x3c, 0x64, 0x5c, 0xb8, 0x82, 0x8a, 0x71, 0x84, 0x4b, 0xca, 0x9e, 0x57,
+	0xa2, 0x7f, 0xa1, 0xd4, 0x0d, 0x04, 0xf5, 0xf1, 0x46, 0xd5, 0xa8, 0xdb, 0xcd, 0xdd, 0xc6, 0xac,
+	0x84, 0xc6, 0x9b, 0x80, 0xb3, 0x98, 0x68, 0x7b, 0x8d, 0xc0, 0x9f, 0x77, 0xf2, 0x6f, 0x07, 0xbe,
+	0xcf, 0xae, 0x85, 0x17, 0x70, 0x74, 0x04, 0x25, 0x4f, 0xb0, 0x61, 0x84, 0x8d, 0xaa, 0x59, 0xb7,
+	0x9b, 0x7f, 0x65, 0x71, 0xee, 0xc4, 0x11, 0xed, 0x5b, 0xfb, 0xbc, 0x09, 0x4e, 0xce, 0x78, 0x11,
+	0xf6, 0x59, 0xd8, 0x11, 0x6c, 0xa8, 0xba, 0x53, 0x05, 0x3b, 0x49, 0xb6, 0x1b, 0x8f, 0x58, 0xd2,
+	0xa5, 0xac, 0x4a, 0x56, 0xaf, 0x43, 0xfa, 0x49, 0xc7, 0xa6, 0x22, 0xda, 0x83, 0x52, 0xd7, 0x13,
+	0xfe, 0xb4, 0x63, 0x5a, 0x90, 0xda, 0x17, 0x21, 0xe5, 0xfd, 0xa4, 0x57, 0x5a, 0x40, 0x0e, 0x94,
+	0xdb, 0x54, 0xb0, 0x9b, 0x20, 0x8c, 0x93, 0x26, 0xa5, 0xb2, 0xb4, 0xbd, 0x1c, 0xd3, 0x90, 0x72,
+	0x11, 0xab, 0x16, 0x59, 0x24, 0x95, 0x91, 0x0b, 0x56, 0x4b, 0x88, 0xd0, 0xbb, 0x1a, 0x0b, 0x86,
+	0xcb, 0xaa, 0xee, 0xe3, 0xa5, 0x75, 0xe7, 0x4a, 0x6b, 0xa4, 0x71, 0xa7, 0x5c, 0x84, 0x31, 0x99,
+	0xe1, 0xc8, 0xb1, 0x29, 0xd7, 0x76, 0xc8, 0xa8, 0x60, 0x2d, 0x81, 0x2d, 0x3d, 0xb6, 0x9c, 0x52,
+	0xa6, 0xf5, 0x6e, 0x4c, 0xb9, 0xf0, 0x44, 0x8c, 0xa1, 0x6a, 0xd4, 0x4b, 0x24, 0x95, 0x25, 0x85,
+	0xdc, 0xf3, 0x1e, 0xb6, 0x35, 0xa9, 0xdc, 0xf3, 0x1e, 0x7a, 0x05, 0xa5, 0xe8, 0x96, 0x86, 0x0c,
+	0x6f, 0xaa, 0x21, 0x37, 0x57, 0x4c, 0x52, 0x9b, 0x5c, 0x19, 0x49, 0x34, 0x00, 0x6a, 0x83, 0xe9,
+	0xba, 0x17, 0xb8, 0xa2, 0x70, 0x0e, 0x57, 0xc4, 0x21, 0x54, 0xb0, 0xbe, 0x26, 0x93, 0x8c, 0x96,
+	0x20, 0x97, 0xad, 0x2e, 0xde, 0xba, 0x37, 0xc8, 0x65, 0xab, 0x8b, 0xde, 0x03, 0xb4, 0x83, 0xe1,
+	0xd0, 0x8b, 0x22, 0x2f, 0xe0, 0x78, 0x5b, 0x61, 0x3d, 0x58, 0xab, 0xb0, 0x59, 0x38, 0xc9, 0x40,
+	0x39, 0x3f, 0x0a, 0x60, 0xd1, 0x74, 0x1c, 0x1f, 0xc0, 0x1a, 0xb0, 0xf8, 0xa3, 0x08, 0x29, 0x8f,
+	0x70, 0x41, 0xcd, 0xf8, 0xd9, 0x8a, 0xb7, 0xa4, 0x20, 0x8d, 0x73, 0x16, 0x77, 0x25, 0x80, 0x1e,
+	0x76, 0x79, 0x90, 0x88, 0x88, 0x82, 0x3d, 0xa1, 0xfe, 0x98, 0x25, 0xf0, 0xa6, 0x82, 0x7f, 0xbe,
+	0x36, 0xfc, 0xa5, 0xc4, 0xc8, 0x5c, 0x00, 0x93, 0x54, 0xe1, 0x3c, 0x86, 0x4a, 0xee, 0x76, 0xc9,
+	0x8e, 0x01, 0x8b, 0xa7, 0x2b, 0x67, 0xc0, 0x62, 0xf9, 0x51, 0xa8, 0x00, 0xf5, 0x09, 0x59, 0x44,
+	0x0b, 0x8f, 0x0a, 0x0f, 0x0d, 0xe7, 0x29, 0x6c, 0xcf, 0x61, 0xaf, 0x15, 0xce, 0x61, 0x2b, 0xcf,
+	0xf3, 0x05, 0xd1, 0x67, 0xd9, 0x68, 0xbb, 0xf9, 0xff, 0xba, 0xc5, 0x67, 0xef, 0x8b, 0xc1, 0xce,
+	0x50, 0x16, 0x1d, 0x81, 0x4d, 0x82, 0x31, 0xef, 0x8f, 0x47, 0x3d, 0xee, 0x09, 0x75, 0xe9, 0xc2,
+	0x05, 0x97, 0xf5, 0x42, 0xc7, 0xb0, 0x99, 0x88, 0x7a, 0x2d, 0x16, 0x96, 0x45, 0xe5, 0xdc, 0x9c,
+	0x2f, 0x06, 0xec, 0xcc, 0xb3, 0x0a, 0x21, 0x28, 0x4a, 0xd6, 0xaa, 0x9b, 0x0b, 0x44, 0x9d, 0xe7,
+	0x93, 0x2a, 0xdc, 0x2b, 0x29, 0x73, 0xb5, 0xa4, 0xbe, 0x1a, 0x00, 0xb3, 0xcf, 0x66, 0x61, 0x3a,
+	0xfb, 0x60, 0x75, 0xa2, 0x8b, 0x2b, 0xdf, 0xbb, 0x61, 0x7a, 0x85, 0x96, 0xc9, 0x4c, 0x31, 0x9f,
+	0xac, 0x79, 0xaf, 0x64, 0x8b, 0x2b, 0x25, 0x5b, 0xfb, 0x66, 0x42, 0x75, 0xf1, 0xc0, 0x33, 0xaf,
+	0xcc, 0x93, 0xfc, 0x2b, 0xf3, 0xcf, 0x6a, 0x6c, 0x49, 0x9e, 0x1b, 0xe4, 0xc1, 0x56, 0x62, 0xee,
+	0xf0, 0x49, 0xe0, 0x5d, 0x4f, 0x49, 0xd7, 0xfa, 0x3d, 0xcc, 0x2c, 0x87, 0xbc, 0x43, 0x02, 0x44,
+	0xe6, 0x80, 0x9d, 0x9f, 0x06, 0xec, 0x2d, 0x72, 0x94, 0xef, 0xad, 0x62, 0xe7, 0x72, 0x3a, 0x6a,
+	0x3b, 0x3a, 0xd0, 0x9b, 0x76, 0x29, 0x41, 0xd4, 0x26, 0x3d, 0xd0, 0x9b, 0x74, 0xe9, 0x60, 0xd4,
+	0xa6, 0x3c, 0xcc, 0x6d, 0xca, 0xa5, 0xe3, 0xc8, 0x38, 0xa1, 0xff, 0xa0, 0xec, 0xde, 0x7a, 0x23,
+	0xf9, 0xce, 0xaa, 0x17, 0x71, 0x61, 0x40, 0xea, 0x72, 0xb5, 0xa1, 0xfe, 0x71, 0x8e, 0x7e, 0x05,
+	0x00, 0x00, 0xff, 0xff, 0xa5, 0x84, 0xb5, 0x6d, 0x0c, 0x09, 0x00, 0x00,
 }
