@@ -23,6 +23,39 @@ message SellerFinanceListCollection {
     uint64 total = 2;
 }
 
+message SellerFinanceOrderItemList {
+    int32 Payment = 1;
+    enum PaymentType {
+        Sell = 0;
+        Transfer = 1;
+    }
+    uint64 OrderId = 2;
+    string Title = 3;
+    string Date = 4;
+    int32 Quantity = 5;
+    string OrderItemId = 6;
+    // total items
+    Money Amount = 7;
+    RatedMoney SSO = 8;
+    RatedMoney VAT = 9;
+    RatedMoney Commission = 10;
+    // per item value
+    Money PiAmount = 11;
+    RatedMoney PiSSO = 12;
+    RatedMoney PiVAT = 13;
+    RatedMoney PiCommission = 14;
+}
+
+message RatedMoney {
+    Money Val = 1;
+    float Rate = 2;
+}
+
+message SellerFinanceOrderItemCollection {
+    repeated SellerFinanceOrderItemList items = 1;
+    uint64 total = 2;
+}
+
 //=================== Buyer
 
 //=================== Operator

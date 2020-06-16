@@ -10,10 +10,12 @@ import (
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
 	order_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerOrder"
+	"gitlab.faza.io/services/finance/domain/model/repository/sellerOrderItem"
 	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
 	trigger_history_repository "gitlab.faza.io/services/finance/domain/model/repository/triggerHistory"
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	payment_scheduler "gitlab.faza.io/services/finance/domain/scheduler/payment"
+	"gitlab.faza.io/services/finance/infrastructure/converter"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
 	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
@@ -76,8 +78,10 @@ func main() {
 
 	app.Globals.SellerFinanceRepository = finance_repository.NewSellerFinanceRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.SellerOrderRepository = order_repository.NewSellerOrderRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
+	app.Globals.SellerOrderItemRepository = sellerOrderItem.NewSellerOrderItemRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.SellerCollection)
 	app.Globals.TriggerRepository = trigger_repository.NewSchedulerTriggerRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.FinanceTriggerCollection)
 	app.Globals.TriggerHistoryRepository = trigger_history_repository.NewTriggerHistoryRepository(mongoDriver, app.Globals.Config.Mongo.Database, app.Globals.Config.Mongo.TriggerHistoryCollection)
+	app.Globals.Converter = converter.NewConverter()
 
 	if app.Globals.Config.OrderService.Address == "" ||
 		app.Globals.Config.OrderService.Port == 0 {

@@ -1,41 +1,31 @@
-package grpc
+package sellerOrderItem
 
 import (
 	"context"
-	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
-	finance_proto "gitlab.faza.io/protos/finance-proto"
-	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
-	"gitlab.faza.io/services/finance/domain/model/repository/sellerOrderItem"
-	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
-	"gitlab.faza.io/services/finance/infrastructure/converter"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
-	"gitlab.faza.io/services/finance/infrastructure/utils"
-	"gitlab.faza.io/services/finance/server/grpc_mux"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/grpc"
 	"os"
 	"testing"
 	"time"
 )
 
-var (
-	financeRepository         finance_repository.ISellerFinanceRepository
-	sellerOrderItemRepository sellerOrderItem.ISellerOrderItemRepository
-	cli                       finance_proto.FinanceServiceClient
-)
+var sellerOrderItemRepo ISellerOrderItemRepository
+var financeRepository finance_repository.ISellerFinanceRepository
+var mongoAdapter *mongoadapter.Mongo
+var config *configs.Config
 
 func TestMain(m *testing.M) {
 	var err error
 	var path string
 	if os.Getenv("APP_MODE") == "dev" {
-		path = "../../testdata/.env"
+		path = "../../../../testdata/.env"
 	} else {
 		path = ""
 	}
@@ -43,7 +33,7 @@ func TestMain(m *testing.M) {
 	log.GLog.ZapLogger = log.InitZap()
 	log.GLog.Logger = logger.NewZapLogger(log.GLog.ZapLogger)
 
-	config, err := configs.LoadConfigs(path)
+	config, err = configs.LoadConfigs(path)
 	if err != nil {
 		log.GLog.Logger.Error("configs.LoadConfig failed",
 			"error", err)
@@ -71,135 +61,70 @@ func TestMain(m *testing.M) {
 		ReadPreference:         config.Mongo.ReadPreferred,
 	}
 
-	mongoAdapter, err := mongoadapter.NewMongo(mongoConf)
+	mongoAdapter, err = mongoadapter.NewMongo(mongoConf)
 	if err != nil {
 		log.GLog.Logger.Error("mongoadapter.NewMongo failed", "error", err)
 		os.Exit(1)
 	}
 
+	sellerOrderItemRepo = NewSellerOrderItemRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
 	financeRepository = finance_repository.NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
-	app.Globals.SellerFinanceRepository = financeRepository
-	sellerOrderItemRepository = sellerOrderItem.NewSellerOrderItemRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
-	app.Globals.SellerOrderItemRepository = sellerOrderItemRepository
-	app.Globals.Converter = converter.NewConverter()
-
-	mux := grpc_mux.NewServerMux(config.GRPCMultiplexer)
-	grpcServer := NewServer(config.GRPCServer.Address, uint16(config.GRPCServer.Port), order_scheduler.OrderScheduler{}, mux)
-	go func() {
-		if err := grpcServer.Start(); err != nil {
-			os.Exit(1)
-		}
-	}()
-
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.GRPCServer.Address, config.GRPCServer.Port), grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		panic(err)
-	}
-	cli = finance_proto.NewFinanceServiceClient(conn)
 
 	// Running Tests
 	code := m.Run()
-	removeCollection()
+	// removeCollection()
 	os.Exit(code)
 }
 
-func TestServer_HandleRequest_SellerOrderItemListMethod(t *testing.T) {
-	// todo : create authorized outgoing context for ci-cd pipeline
+func TestISellerOrderItemRepositoryImp_FindOrderItemsByFilterWithPage(t *testing.T) {
 	defer removeCollection()
-	fin := createFinance()
-	ifu := financeRepository.Insert(context.Background(), *fin).Get()
+	finance := createFinance()
 
-	require.Nil(t, ifu.Error())
+	iFuture := financeRepository.Insert(context.Background(), *finance).Get()
+	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
+	finance = iFuture.Data().(*entities.SellerFinance)
 
-	fin = ifu.Data().(*entities.SellerFinance)
-
-	req := finance_proto.RequestMessage{
-		Name: string(grpc_mux.SellerOrderItemListMethod),
-		Type: "",
-		Time: time.Now().Format(utils.ISO8601),
-		Header: &finance_proto.ReqMeta{
-			UTP:       string(grpc_mux.SellerUserType),
-			UID:       fin.SellerId,
-			FID:       fin.FId,
-			Page:      1,
-			PerPage:   2,
-			IpAddress: "",
-			StartAt:   "",
-			EndAt:     "",
-			Sorts: &finance_proto.RequestMetaSorts{
-				Name: "fid",
-				Dir:  uint32(finance_proto.RequestMetaSorts_Descending),
-			},
-			Filters: nil,
-		},
-		Body: nil,
-	}
-
-	res, err := cli.HandleRequest(context.Background(), &req)
-
-	require.Nil(t, err)
-	require.Equal(t, uint32(2), res.Meta.Total)
-
-	body := finance_proto.SellerFinanceOrderItemCollection{}
-	err = proto.Unmarshal(res.Data.Value, &body)
-	require.Nil(t, err)
-	require.Equal(t, uint64(2), body.Total)
-	require.Equal(t, 4, len(body.Items))
-	require.Equal(t, int32(1), body.Items[0].Payment)
-	require.Equal(t, int32(0), body.Items[1].Payment)
-}
-
-func TestServer_HandleRequest_SellerFinanceList(t *testing.T) {
-	defer removeCollection()
-	fin := createFinance()
-	ifu := financeRepository.Insert(context.Background(), *fin).Get()
-
-	require.Nil(t, ifu.Error())
-
-	req := finance_proto.RequestMessage{
-		Name: string(grpc_mux.SellerFinanceListMethod),
-		Type: "",
-		Time: time.Now().Format(utils.ISO8601),
-		Header: &finance_proto.ReqMeta{
-			UTP:       string(grpc_mux.SellerUserType),
-			UID:       fin.SellerId,
-			FID:       fin.FId,
-			Page:      1,
-			PerPage:   2,
-			IpAddress: "",
-			StartAt:   "",
-			EndAt:     "",
-			Sorts: &finance_proto.RequestMetaSorts{
-				Name: "fid",
-				Dir:  uint32(finance_proto.RequestMetaSorts_Descending),
-			},
-			Filters: nil,
-		},
-		Body: nil,
-	}
-
-	res, err := cli.HandleRequest(context.Background(), &req)
-
-	require.Nil(t, err)
-	require.Equal(t, uint32(1), res.Meta.Total)
-
-	body := finance_proto.SellerFinanceListCollection{}
-	err = proto.Unmarshal(res.Data.Value, &body)
-	require.Nil(t, err)
-	require.Equal(t, fin.FId, body.Items[0].FID)
-}
-
-// db related stofs
-func removeCollection() {
 	ctx, _ := context.WithCancel(context.Background())
-	if err := financeRepository.RemoveAll(ctx); err != nil {
+	totalPipeline := []bson.M{
+		{"$match": bson.M{"fid": finance.FId, "sellerId": finance.SellerId}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$unwind": "$ordersInfo.orders.items"},
+		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
+		{"$project": bson.M{"_id": 0, "count": 1}},
+	}
+	pipeline := []bson.M{
+		{"$match": bson.M{"fid": finance.FId, "sellerId": finance.SellerId}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$unwind": "$ordersInfo.orders.items"},
+		{"$project": bson.M{"_id": 0}},
+	}
+
+	totalFunc := func() interface{} {
+		return totalPipeline
+	}
+
+	pipeFunc := func() interface{} {
+		return pipeline
+	}
+
+	res := sellerOrderItemRepo.FindOrderItemsByFilterWithPage(ctx, totalFunc, pipeFunc, 1, 2, "fid", 1).Get()
+
+	result := res.Data().(SellerOrderItems)
+	require.Equal(t, int64(2), result.Total)
+	require.Equal(t, finance.FId, result.SellerFinances[0].FId)
+}
+
+func removeCollection() {
+	if _, err := mongoAdapter.DeleteMany(config.Mongo.Database, config.Mongo.SellerCollection, bson.M{}); err != nil {
 	}
 }
 
 func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
 	return &entities.SellerFinance{
-		FId:        "1233312",
+		FId:        "",
 		SellerId:   100002,
 		Version:    1,
 		DocVersion: entities.FinanceDocumentVersion,
@@ -606,13 +531,10 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "1650000",
 					Currency: "IRR",
 				},
-				FailedTransfer: &entities.Money{
-					Amount:   "1620000",
-					Currency: "IRR",
-				},
-				CreatedAt: time.Now(),
+				FailedTransfer: nil,
+				CreatedAt:      time.Now(),
 			},
-			Status:    entities.TransferPartialState,
+			Status:    "Success",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},

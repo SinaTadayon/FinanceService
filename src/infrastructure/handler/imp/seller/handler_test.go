@@ -1,4 +1,4 @@
-package imp
+package seller
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
+	"gitlab.faza.io/services/finance/domain/model/repository/sellerOrderItem"
+	"gitlab.faza.io/services/finance/infrastructure/converter"
 	"gitlab.faza.io/services/finance/infrastructure/handler"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
@@ -21,15 +23,18 @@ import (
 )
 
 var (
-	financeRepository    finance_repository.ISellerFinanceRepository
-	sellerFinanceHandler handler.IHandler
+	financeRepository         finance_repository.ISellerFinanceRepository
+	sellerOrderItemRepository sellerOrderItem.ISellerOrderItemRepository
+
+	sellerFinanceHandler       handler.IHandler
+	sellerOrderItemListHandler handler.IHandler
 )
 
 func TestMain(m *testing.M) {
 	var err error
 	var path string
 	if os.Getenv("APP_MODE") == "dev" {
-		path = "../../../testdata/.env"
+		path = "../../../../testdata/.env"
 	} else {
 		path = ""
 	}
@@ -72,12 +77,56 @@ func TestMain(m *testing.M) {
 	}
 
 	financeRepository = finance_repository.NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
-	sellerFinanceHandler = NewSellerFinanceListHandler(financeRepository)
+	sellerOrderItemRepository = sellerOrderItem.NewSellerOrderItemRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
+
+	converter := converter.NewConverter()
+	sellerFinanceHandler = NewSellerFinanceListHandler(financeRepository, converter)
+	sellerOrderItemListHandler = NewSellerFinanceOrderItemListHandler(sellerOrderItemRepository, converter)
 
 	// Running Tests
 	code := m.Run()
 	// removeCollection()
 	os.Exit(code)
+}
+
+func TestSellerFinanceOrderItemListHandler_Handle(t *testing.T) {
+	defer removeCollection()
+	finance := createFinance()
+	ctx, _ := context.WithCancel(context.Background())
+	iFuture := financeRepository.Insert(ctx, *finance).Get()
+	require.Nil(t, iFuture.Error())
+	finance = iFuture.Data().(*entities.SellerFinance)
+
+	req := finance_proto.RequestMessage{
+		Name: string(grpc_mux.SellerOrderItemListMethod),
+		Type: "",
+		Time: time.Now().Format(utils.ISO8601),
+		Header: &finance_proto.ReqMeta{
+			UTP:     "Seller",
+			UID:     finance.SellerId,
+			FID:     finance.FId,
+			Page:    1,
+			PerPage: 2,
+			Sorts: &finance_proto.RequestMetaSorts{
+				Name: "fid",
+				Dir:  uint32(finance_proto.RequestMetaSorts_Ascending),
+			},
+			Filters: nil,
+		},
+		Body: nil,
+	}
+
+	res := sellerOrderItemListHandler.Handle(&req).Get()
+
+	require.Nil(t, res.Error())
+	resp := res.Data().(*finance_proto.ResponseMessage)
+	require.Equal(t, uint32(2), resp.Meta.Total)
+
+	body := finance_proto.SellerFinanceOrderItemCollection{}
+	err := proto.Unmarshal(resp.Data.Value, &body)
+	require.Nil(t, err)
+	require.Equal(t, body.Items[0].Payment, int32(1))
+	require.Equal(t, body.Items[1].Payment, int32(0))
 }
 
 func TestSellerFinanceListHandler_Handle(t *testing.T) {
@@ -88,7 +137,7 @@ func TestSellerFinanceListHandler_Handle(t *testing.T) {
 	require.Nil(t, iFuture.Error())
 
 	req := finance_proto.RequestMessage{
-		Name: string(grpc_mux.TestUserType),
+		Name: string(grpc_mux.SellerFinanceListMethod),
 		Type: "",
 		Time: time.Now().Format(utils.ISO8601),
 		Header: &finance_proto.ReqMeta{
