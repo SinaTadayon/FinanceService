@@ -109,7 +109,7 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 	if len(input.SellerFinances) > 0 {
 		item0 := input.SellerFinances[0]
 
-		if item0.Status == entities.FinanceOrderCollectionStatus && item0.Invoice != nil {
+		if item0.Status == entities.FinanceOrderCollectionStatus || item0.Invoice != nil {
 			if item0.Invoice.CommissionRoundupTotal != nil {
 				financeInvoice.Commission = &financesrv.Money{
 					Amount:   item0.Invoice.CommissionRoundupTotal.Amount,
@@ -144,10 +144,23 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 	for _, fi := range input.SellerFinances {
 		//=============== the collecting data didn't have any calculated value
 		if fi.Status == entities.FinanceOrderCollectionStatus {
+			attr := make(map[string]*financesrv.SellerFinanceOrderItemListAttribute)
+
+			for key, value := range fi.OrderInfo.Order.Item.Attributes {
+				attr[key] = &financesrv.SellerFinanceOrderItemListAttribute{
+					KeyTrans:   value.KeyTranslate,
+					ValueTrans: value.ValueTranslate,
+				}
+			}
+
 			item := financesrv.SellerFinanceOrderItemList{
 				PaymentType:   string(Purchase),
 				OrderId:       fi.OrderInfo.Order.OId,
 				Title:         fi.OrderInfo.Order.Item.Title,
+				Brand:         fi.OrderInfo.Order.Item.Brand,
+				Attribute:     attr,
+				Category:      fi.OrderInfo.Order.Item.Category,
+				Guaranty:      fi.OrderInfo.Order.Item.Guaranty,
 				OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
 				Quantity:      fi.OrderInfo.Order.Item.Quantity,
 				SKU:           fi.OrderInfo.Order.Item.SKU,
@@ -173,7 +186,7 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 					OrderId:       fi.OrderInfo.Order.OId,
 					OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
 					Quantity:      fi.OrderInfo.Order.Item.Quantity,
-					SKU:           fi.OrderInfo.Order.Item.InventoryId,
+					SKU:           fi.OrderInfo.Order.Item.SKU,
 					Share:         &share,
 				}
 
@@ -251,10 +264,23 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 		}
 
 		//=============== final item
+		attr := make(map[string]*financesrv.SellerFinanceOrderItemListAttribute)
+
+		for key, value := range fi.OrderInfo.Order.Item.Attributes {
+			attr[key] = &financesrv.SellerFinanceOrderItemListAttribute{
+				KeyTrans:   value.KeyTranslate,
+				ValueTrans: value.ValueTranslate,
+			}
+		}
+
 		item := financesrv.SellerFinanceOrderItemList{
 			PaymentType:   string(Purchase),
 			OrderId:       fi.OrderInfo.Order.OId,
 			Title:         fi.OrderInfo.Order.Item.Title,
+			Brand:         fi.OrderInfo.Order.Item.Brand,
+			Attribute:     attr,
+			Category:      fi.OrderInfo.Order.Item.Category,
+			Guaranty:      fi.OrderInfo.Order.Item.Guaranty,
 			OrderCreateAt: fi.OrderInfo.Order.OrderCreatedAt.Format(utils.ISO8601),
 			Quantity:      fi.OrderInfo.Order.Item.Quantity,
 			SKU:           fi.OrderInfo.Order.Item.SKU,
