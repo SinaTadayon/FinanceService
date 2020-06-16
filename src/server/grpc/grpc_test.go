@@ -143,10 +143,9 @@ func TestServer_HandleRequest_SellerOrderItemListMethod(t *testing.T) {
 	body := finance_proto.SellerFinanceOrderItemCollection{}
 	err = proto.Unmarshal(res.Data.Value, &body)
 	require.Nil(t, err)
-	require.Equal(t, uint64(2), body.Total)
 	require.Equal(t, 4, len(body.Items))
-	require.Equal(t, int32(1), body.Items[0].Payment)
-	require.Equal(t, int32(0), body.Items[1].Payment)
+	require.Equal(t, "Shipment", body.Items[0].PaymentType)
+	require.Equal(t, "Purchase", body.Items[1].PaymentType)
 }
 
 func TestServer_HandleRequest_SellerFinanceList(t *testing.T) {
