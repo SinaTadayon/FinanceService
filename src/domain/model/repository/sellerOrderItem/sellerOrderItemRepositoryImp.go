@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"gitlab.faza.io/go-framework/mongoadapter"
+	"gitlab.faza.io/services/finance/domain/model/entities"
 	"gitlab.faza.io/services/finance/infrastructure/future"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"go.mongodb.org/mongo-driver/bson"
@@ -54,7 +55,7 @@ func (repo iSellerOrderItemRepositoryImp) FindOrderItemsByFilterWithPage(ctx con
 	totalCount := iFuture.Data().(int64)
 	if totalCount == 0 {
 		return future.FactorySync().
-			SetError(future.NotFound, "SellerOrder Not Found", errors.New("SellerOrder Not Found")).
+			SetError(future.NotFound, "SellerOrderItem Not Found", errors.New("SellerOrderItem Not Found")).
 			BuildAndSend()
 	}
 
@@ -101,15 +102,15 @@ func (repo iSellerOrderItemRepositoryImp) FindOrderItemsByFilterWithPage(ctx con
 	}
 
 	defer closeCursor(ctx, cursor)
-	orders := make([]*SellerFinance, 0, perPage)
+	orders := make([]*entities.SellerFinanceOrderItem, 0, perPage)
 
 	// iterate through all documents
 	for cursor.Next(ctx) {
-		var order SellerFinance
+		var order entities.SellerFinanceOrderItem
 		// decode the document
 		if err := cursor.Decode(&order); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrderItem Failed")).
 				BuildAndSend()
 		}
 		orders = append(orders, &order)
@@ -138,7 +139,7 @@ func (repo iSellerOrderItemRepositoryImp) CountWithFilter(ctx context.Context, s
 	if cursor.Next(ctx) {
 		if err := cursor.Decode(&total); err != nil {
 			return future.FactorySync().
-				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrder Failed")).
+				SetError(future.InternalError, "Request Operation Failed", errors.Wrap(err, "Decode SellerOrderItem Failed")).
 				BuildAndSend()
 		}
 	}

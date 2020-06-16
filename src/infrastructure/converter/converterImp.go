@@ -109,7 +109,7 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 	if len(input.SellerFinances) > 0 {
 		item0 := input.SellerFinances[0]
 
-		if item0.Status == entities.FinanceOrderCollectionStatus || item0.Invoice != nil {
+		if item0.Status != entities.FinanceOrderCollectionStatus || item0.Invoice != nil {
 			if item0.Invoice.CommissionRoundupTotal != nil {
 				financeInvoice.Commission = &financesrv.Money{
 					Amount:   item0.Invoice.CommissionRoundupTotal.Amount,
