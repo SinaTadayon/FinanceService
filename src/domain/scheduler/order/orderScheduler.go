@@ -425,10 +425,28 @@ func (scheduler OrderScheduler) missedFireTriggerHandler(ctx context.Context, ac
 		activeInterval = time.Duration(activeTrigger.Interval) * time.Minute
 	}
 
-	timeOffset := timestamp.Sub(activeTrigger.CreatedAt)
+	dateTimeString := activeTrigger.CreatedAt.Format("2006-01-02") + "T" + activeTrigger.TriggerPoint + ":00-0000"
+	triggerPoint, err := time.Parse(utils.ISO8601, dateTimeString)
+	if err != nil {
+		log.GLog.Logger.Error("current date time parse failed",
+			"fn", "init",
+			"timestamp", dateTimeString,
+			"error", err)
+		return 0, err
+	}
+
+	isTotalIntervalCountPlusOne := false
+	if activeTrigger.CreatedAt.Before(triggerPoint) {
+		isTotalIntervalCountPlusOne = true
+	}
+
+	timeOffset := timestamp.Sub(triggerPoint)
 
 	if timeOffset > activeInterval {
 		totalIntervalCount := int(timeOffset / activeInterval)
+		if isTotalIntervalCountPlusOne {
+			totalIntervalCount++
+		}
 
 		iFuture := app.Globals.TriggerHistoryRepository.CountWithFilter(ctx, func() interface{} {
 			return bson.D{{"triggerName", activeTrigger.Name}}
@@ -449,7 +467,7 @@ func (scheduler OrderScheduler) missedFireTriggerHandler(ctx context.Context, ac
 				"totalIntervalCount", totalIntervalCount)
 
 			var newTriggeredAt, latestTriggerAt time.Time
-			for newTriggeredAt = activeTrigger.CreatedAt.Add(activeInterval); timestamp.After(newTriggeredAt); newTriggeredAt = newTriggeredAt.Add(activeInterval) {
+			for newTriggeredAt = triggerPoint.Add(activeInterval); timestamp.After(newTriggeredAt); newTriggeredAt = newTriggeredAt.Add(activeInterval) {
 
 				latestTriggerAt = newTriggeredAt
 				iFuture := app.Globals.TriggerHistoryRepository.ExistsByTriggeredAt(ctx, newTriggeredAt).Get()

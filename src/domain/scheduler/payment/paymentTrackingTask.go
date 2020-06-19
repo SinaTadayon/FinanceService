@@ -355,7 +355,7 @@ func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, selle
 		Currency:           sellerFinance.Invoice.ShareRoundupTotal.Currency,
 		ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
 		ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
-		PaymentDescription: sellerFinance.FId + "پرداخت صورت حساب شماره ",
+		PaymentDescription: sellerFinance.FId + "-bazlia",
 		PaymentType:        payment_service.SellerPayment,
 	}
 
@@ -377,7 +377,7 @@ func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, selle
 			TotalPrice:         *sellerFinance.Invoice.ShareRoundupTotal,
 			ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
 			ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
-			PaymentDescription: "",
+			PaymentDescription: sellerFinance.FId + "-bazlia",
 			TransferType:       string(payment_service.SellerPayment),
 			CreatedAt:          requestTimestamp,
 		},

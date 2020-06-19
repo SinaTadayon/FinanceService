@@ -533,7 +533,7 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			TotalPrice:         *sellerFinance.Invoice.ShareRoundupTotal,
 			ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
 			ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
-			PaymentDescription: "",
+			PaymentDescription: sellerFinance.FId + "-bazlia",
 			TransferType:       string(payment_service.SellerPayment),
 			CreatedAt:          requestTimestamp,
 		},
