@@ -6,10 +6,11 @@ import (
 )
 
 type FinanceState string
-type TransferState string
+type PaymentState string
+type PaymentMode string
 
 const (
-	FinanceDocumentVersion string = "1.0.0"
+	FinanceDocumentVersion string = "1.0.1"
 )
 
 const (
@@ -19,35 +20,46 @@ const (
 )
 
 const (
-	TransferSuccessState TransferState = "SUCCESS"
-	TransferFailedState  TransferState = "FAILED"
-	TransferPendingState TransferState = "PENDING"
-	TransferPartialState TransferState = "PARTIAL_PAYED"
+	PaymentSuccessState PaymentState = "SUCCESS"
+	PaymentFailedState  PaymentState = "FAILED"
+	PaymentPendingState PaymentState = "PENDING"
+	PaymentPartialState PaymentState = "PARTIAL_PAYED"
+)
+
+const (
+	PaymentAutomatic PaymentMode = "AUTOMATIC"
+	PaymentManual    PaymentMode = "MANUAL"
 )
 
 type SellerFinance struct {
-	ID         primitive.ObjectID `bson:"-"`
-	FId        string             `bson:"fid"`
-	SellerId   uint64             `bson:"sellerId"`
-	Version    uint64             `bson:"version"`
-	DocVersion string             `bson:"docVersion"`
-	SellerInfo *SellerProfile     `bson:"sellerInfo"`
-	Invoice    *Invoice           `bson:"invoice"`
-	OrdersInfo []*OrderInfo       `bson:"ordersInfo"`
-	Payment    *FinancePayment    `bson:"payment"`
-	Status     FinanceState       `bson:"status"`
-	StartAt    *time.Time         `bson:"startAt"`
-	EndAt      *time.Time         `bson:"endAt"`
-	CreatedAt  time.Time          `bson:"createdAt"`
-	UpdatedAt  time.Time          `bson:"updatedAt"`
-	DeletedAt  *time.Time         `bson:"deletedAt"`
+	ID             primitive.ObjectID `bson:"-"`
+	FId            string             `bson:"fid"`
+	SellerId       uint64             `bson:"sellerId"`
+	Version        uint64             `bson:"version"`
+	DocVersion     string             `bson:"docVersion"`
+	SellerInfo     *SellerProfile     `bson:"sellerInfo"`
+	Invoice        *Invoice           `bson:"invoice"`
+	OrdersInfo     []*OrderInfo       `bson:"ordersInfo"`
+	Payment        *FinancePayment    `bson:"payment"`
+	PaymentMode    PaymentMode        `bson:"paymentMode"`
+	PaymentHistory []*FinancePayment  `bson:"paymentHistory"`
+	Status         FinanceState       `bson:"status"`
+	StartAt        *time.Time         `bson:"startAt"`
+	EndAt          *time.Time         `bson:"endAt"`
+	CreatedAt      time.Time          `bson:"createdAt"`
+	UpdatedAt      time.Time          `bson:"updatedAt"`
+	DeletedAt      *time.Time         `bson:"deletedAt"`
 }
 
 type FinancePayment struct {
 	TransferRequest  *TransferRequest  `bson:"transferRequest"`
 	TransferResponse *TransferResponse `bson:"transferResponse"`
 	TransferResult   *TransferResult   `bson:"transferResult"`
-	Status           TransferState     `bson:"status"`
+	Status           PaymentState      `bson:"status"`
+	Mode             PaymentMode       `bson:"mode"`
+	Action           *Action           `bson:"action"`
+	RequestRetry     int32             `bson:"requestRetry"`
+	ResultRetry      int32             `bson:"resultRetry"`
 	CreatedAt        time.Time         `bson:"createdAt"`
 	UpdatedAt        time.Time         `bson:"updatedAt"`
 }
@@ -95,18 +107,19 @@ type OrderInfo struct {
 }
 
 type SellerOrder struct {
-	OId                    uint64        `bson:"oid"`
-	FId                    string        `bson:"fid"`
-	SellerId               uint64        `bson:"sellerId"`
-	ShipmentAmount         *Money        `bson:"shipmentAmount"`
-	RawShippingNet         *Money        `bson:"rawShippingNet"`
-	RoundupShippingNet     *Money        `bson:"roundupShippingNet"`
-	IsAlreadyShippingPayed bool          `bson:"isAlreadyShippingPayed"`
-	Items                  []*SellerItem `bson:"items"`
-	OrderCreatedAt         *time.Time    `bson:"orderCreatedAt"`
-	SubPkgCreatedAt        *time.Time    `bson:"subPkgCreatedAt"`
-	SubPkgUpdatedAt        *time.Time    `bson:"subPkgUpdatedAt"`
-	DeletedAt              *time.Time    `bson:"deletedAt"`
+	ID                     primitive.ObjectID `bson:"-"`
+	OId                    uint64             `bson:"oid"`
+	FId                    string             `bson:"fid"`
+	SellerId               uint64             `bson:"sellerId"`
+	ShipmentAmount         *Money             `bson:"shipmentAmount"`
+	RawShippingNet         *Money             `bson:"rawShippingNet"`
+	RoundupShippingNet     *Money             `bson:"roundupShippingNet"`
+	IsAlreadyShippingPayed bool               `bson:"isAlreadyShippingPayed"`
+	Items                  []*SellerItem      `bson:"items"`
+	OrderCreatedAt         *time.Time         `bson:"orderCreatedAt"`
+	SubPkgCreatedAt        *time.Time         `bson:"subPkgCreatedAt"`
+	SubPkgUpdatedAt        *time.Time         `bson:"subPkgUpdatedAt"`
+	DeletedAt              *time.Time         `bson:"deletedAt"`
 }
 
 type SellerItem struct {

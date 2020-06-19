@@ -542,7 +542,7 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			CreatedAt:  responseTimestamp,
 		},
 		TransferResult: nil,
-		Status:         entities.TransferPendingState,
+		Status:         entities.PaymentPendingState,
 		CreatedAt:      requestTimestamp,
 		UpdatedAt:      responseTimestamp,
 	}

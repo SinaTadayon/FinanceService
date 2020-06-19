@@ -246,7 +246,7 @@ func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceRe
 						"fid", sellerFinance.FId,
 						"sellerId", sellerFinance.SellerId)
 				}
-			} else if sellerFinance.Payment.Status == entities.TransferPendingState {
+			} else if sellerFinance.Payment.Status == entities.PaymentPendingState {
 				log.GLog.Logger.Debug("tracking finance payment transfer money",
 					"fn", "financePaymentTracking",
 					"fid", sellerFinance.FId,
@@ -313,11 +313,11 @@ func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceRe
 						"result", transferResult)
 
 					if transferResult.Total == 0 {
-						sellerFinance.Payment.Status = entities.TransferFailedState
+						sellerFinance.Payment.Status = entities.PaymentFailedState
 					} else if transferResult.Failed == 0 {
-						sellerFinance.Payment.Status = entities.TransferSuccessState
+						sellerFinance.Payment.Status = entities.PaymentSuccessState
 					} else {
-						sellerFinance.Payment.Status = entities.TransferPartialState
+						sellerFinance.Payment.Status = entities.PaymentPartialState
 					}
 
 					sellerFinance.Status = entities.FinanceClosedStatus
@@ -386,7 +386,7 @@ func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, selle
 			CreatedAt:  responseTimestamp,
 		},
 		TransferResult: nil,
-		Status:         entities.TransferPendingState,
+		Status:         entities.PaymentPendingState,
 		CreatedAt:      requestTimestamp,
 		UpdatedAt:      responseTimestamp,
 	}
