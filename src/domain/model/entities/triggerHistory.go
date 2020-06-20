@@ -27,18 +27,19 @@ const (
 )
 
 type TriggerHistory struct {
-	ID           primitive.ObjectID   `bson:"_id"`
-	TriggerName  string               `bson:"triggerName"`
-	Version      uint64               `bson:"version"`
-	DocVersion   string               `bson:"docVersion"`
-	ExecResult   TriggerExecResult    `bson:"execResult"`
-	RunMode      TriggerRunMode       `bson:"runMode"`
-	TriggeredAt  *time.Time           `bson:"triggeredAt"`
-	IsMissedFire bool                 `bson:"isMissedFire"`
-	Actions      []primitive.ObjectID `bson:"actions"`
-	RetryIndex   uint32               `bson:"retryIndex"`
-	Finances     []string             `bson:"finances"`
-	CreatedAt    time.Time            `bson:"createdAt"`
-	UpdatedAt    time.Time            `bson:"updatedAt"`
-	DeletedAt    *time.Time           `bson:"deletedAt"`
+	ID            primitive.ObjectID   `bson:"_id"`
+	TriggerName   string               `bson:"triggerName"`
+	Version       uint64               `bson:"version"`
+	DocVersion    string               `bson:"docVersion"`
+	ExecResult    TriggerExecResult    `bson:"execResult"`
+	RunMode       TriggerRunMode       `bson:"runMode"`
+	TriggeredAt   *time.Time           `bson:"triggeredAt"`
+	IsMissedFire  bool                 `bson:"isMissedFire"`
+	Action        primitive.ObjectID   `bson:"action"`
+	ActionHistory []primitive.ObjectID `bson:"actionHistory"`
+	RetryIndex    uint32               `bson:"retryIndex"`
+	Finances      []string             `bson:"finances"`
+	CreatedAt     time.Time            `bson:"createdAt"`
+	UpdatedAt     time.Time            `bson:"updatedAt"`
+	DeletedAt     *time.Time           `bson:"deletedAt"`
 }

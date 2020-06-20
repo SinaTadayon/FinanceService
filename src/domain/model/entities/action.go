@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+const (
+	ActionDocumentVersion string = "1.0.0"
+)
+
 type Action struct {
 	ID         primitive.ObjectID     `bson:"_id"`
 	Version    uint64                 `bson:"version"`
