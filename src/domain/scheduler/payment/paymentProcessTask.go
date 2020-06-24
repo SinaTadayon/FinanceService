@@ -89,6 +89,7 @@ func findEligibleFinance(ctx context.Context) (FinanceReaderStream, error) {
 			iFuture := app.Globals.SellerFinanceRepository.FindByFilterWithPage(ctx, func() interface{} {
 				return bson.D{
 					{"status", entities.FinanceOrderCollectionStatus},
+					{"paymentMode", entities.AutomaticPaymentMode},
 					{"endAt", bson.D{{"$lt", timestamp}}},
 					{"deletedAt", nil}}
 			}, int64(i+1), DefaultFetchFinancePerPage).Get()
@@ -259,7 +260,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 
 			if err := pipeline.financeTriggerValidation(ctx, sellerFinance); err != nil {
 				log.GLog.Logger.Error("finance not accepted for processing because related trigger has problem",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"error", err)
@@ -268,14 +269,14 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 
 			if err := pipeline.financeInvoiceCalculation(ctx, sellerFinance); err != nil {
 				log.GLog.Logger.Error("financeInvoiceCalculation failed",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"error", err)
 				continue
 			} else {
 				log.GLog.Logger.Info("financeInvoiceCalculation success",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"invoice", sellerFinance.Invoice)
@@ -285,7 +286,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 				iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
 				if iFuture.Error() != nil {
 					log.GLog.Logger.Error("UserService.GetSellerProfile failed",
-						"fn", "executePipeline",
+						"fn", "ExecutePipeline",
 						"sellerId", sellerFinance.SellerId,
 						"error", iFuture.Error())
 
@@ -293,7 +294,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 					iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
 					if iFuture.Error() != nil {
 						log.GLog.Logger.Error("sellerFinance update failed",
-							"fn", "executePipeline",
+							"fn", "ExecutePipeline",
 							"fid", sellerFinance.FId,
 							"sellerId", sellerFinance.SellerId,
 							"error", iFuture.Error())
@@ -304,17 +305,26 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 				}
 			}
 
-			updatedSellerFinance, err := pipeline.financePayment(ctx, sellerFinance)
-			if err != nil {
-				log.GLog.Logger.Error("financePayment failed",
-					"fn", "executePipeline",
+			if sellerFinance.PaymentMode == entities.AutomaticPaymentMode {
+				pipeline.financePayment(ctx, sellerFinance)
+			}
+
+			iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
+			if iFuture.Error() != nil {
+				log.GLog.Logger.Error("sellerFinance update failed",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
-					"error", err)
+					"error", iFuture.Error())
 				continue
 			}
 
-			financeOutStream <- updatedSellerFinance
+			log.GLog.Logger.Debug("sellerFinance update payment process ",
+				"fn", "ExecutePipeline",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId)
+
+			financeOutStream <- iFuture.Data().(*entities.SellerFinance)
 		}
 	}
 }
@@ -463,7 +473,7 @@ func (pipeline *Pipeline) financeInvoiceCalculation(ctx context.Context, finance
 
 func (pipeline *Pipeline) financeTriggerValidation(ctx context.Context, finance *entities.SellerFinance) error {
 	for _, orderInfo := range finance.OrdersInfo {
-		iFuture := app.Globals.TriggerHistoryRepository.FindById(ctx, orderInfo.TriggerHistoryId).Get()
+		iFuture := app.Globals.TriggerHistoryRepository.FindById(ctx, *orderInfo.TriggerHistoryId).Get()
 		if iFuture.Error() != nil {
 			log.GLog.Logger.Error("TriggerHistoryRepository.FindById failed",
 				"fn", "financeTriggerValidation",
@@ -491,8 +501,9 @@ func (pipeline *Pipeline) financeTriggerValidation(ctx context.Context, finance 
 	return nil
 }
 
-func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *entities.SellerFinance) (*entities.SellerFinance, error) {
+func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *entities.SellerFinance) {
 
+	sellerFinance.Status = entities.FinancePaymentProcessStatus
 	requestTimestamp := time.Now().UTC()
 	paymentRequest := payment_service.PaymentRequest{
 		FId:                sellerFinance.FId,
@@ -513,19 +524,25 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())
 
-		sellerFinance.Status = entities.FinancePaymentProcessStatus
-		iUpdateFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
-		if iUpdateFuture.Error() != nil {
-			log.GLog.Logger.Error("sellerFinance update failed",
-				"fn", "financePayment",
-				"fid", sellerFinance.FId,
-				"sellerId", sellerFinance.SellerId,
-				"error", iUpdateFuture.Error())
+		timestamp := time.Now().UTC()
+		sellerFinance.Payment = &entities.FinancePayment{
+			TransferRequest:  nil,
+			TransferResponse: nil,
+			TransferResult:   nil,
+			Status:           entities.PaymentNoneState,
+			Mode:             sellerFinance.PaymentMode,
+			Action:           nil,
+			RetryRequest:     0,
+			RetryResult:      0,
+			CreatedAt:        requestTimestamp,
+			UpdatedAt:        timestamp,
 		}
-		return nil, iFuture.Error()
+		sellerFinance.UpdatedAt = timestamp
+		return
 	}
 
 	responseTimestamp := time.Now().UTC()
+	sellerFinance.UpdatedAt = responseTimestamp
 	paymentResponse := iFuture.Data().(payment_service.PaymentResponse)
 
 	sellerFinance.Payment = &entities.FinancePayment{
@@ -542,21 +559,13 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			CreatedAt:  responseTimestamp,
 		},
 		TransferResult: nil,
-		Status:         entities.TransferPendingState,
+		Status:         entities.PaymentPendingState,
+		Mode:           sellerFinance.PaymentMode,
+		Action:         nil,
+		RetryRequest:   0,
+		RetryResult:    0,
 		CreatedAt:      requestTimestamp,
 		UpdatedAt:      responseTimestamp,
 	}
-
-	sellerFinance.Status = entities.FinancePaymentProcessStatus
-	iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
-	if iFuture.Error() != nil {
-		log.GLog.Logger.Error("sellerFinance update after transfer money request failed",
-			"fn", "financeProcess",
-			"fid", sellerFinance.FId,
-			"sellerId", sellerFinance.SellerId,
-			"error", iFuture.Error())
-		return nil, iFuture.Error()
-	}
-
-	return iFuture.Data().(*entities.SellerFinance), nil
+	return
 }

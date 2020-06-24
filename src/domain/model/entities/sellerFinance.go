@@ -6,10 +6,11 @@ import (
 )
 
 type FinanceState string
-type TransferState string
+type PaymentState string
+type PaymentMode string
 
 const (
-	FinanceDocumentVersion string = "1.0.0"
+	FinanceDocumentVersion string = "1.0.1"
 )
 
 const (
@@ -19,37 +20,51 @@ const (
 )
 
 const (
-	TransferSuccessState TransferState = "SUCCESS"
-	TransferFailedState  TransferState = "FAILED"
-	TransferPendingState TransferState = "PENDING"
-	TransferPartialState TransferState = "PARTIAL_PAYED"
+	PaymentNoneState    PaymentState = "NONE"
+	PaymentSuccessState PaymentState = "SUCCESS"
+	PaymentFailedState  PaymentState = "FAILED"
+	PaymentPendingState PaymentState = "PENDING"
+	PaymentPartialState PaymentState = "PARTIAL_PAYED"
+)
+
+const (
+	AutomaticPaymentMode      PaymentMode = "AUTOMATIC_PAYMENT"
+	ManualPaymentMode         PaymentMode = "MANUAL_PAYMENT"
+	ManualPaymentRequestMode  PaymentMode = "MANUAL_PAYMENT_REQUEST"
+	ManualPaymentTrackingMode PaymentMode = "MANUAL_PAYMENT_TRACKING"
 )
 
 type SellerFinance struct {
-	ID         primitive.ObjectID `bson:"-"`
-	FId        string             `bson:"fid"`
-	SellerId   uint64             `bson:"sellerId"`
-	Version    uint64             `bson:"version"`
-	DocVersion string             `bson:"docVersion"`
-	SellerInfo *SellerProfile     `bson:"sellerInfo"`
-	Invoice    *Invoice           `bson:"invoice"`
-	OrdersInfo []*OrderInfo       `bson:"ordersInfo"`
-	Payment    *FinancePayment    `bson:"payment"`
-	Status     FinanceState       `bson:"status"`
-	StartAt    *time.Time         `bson:"startAt"`
-	EndAt      *time.Time         `bson:"endAt"`
-	CreatedAt  time.Time          `bson:"createdAt"`
-	UpdatedAt  time.Time          `bson:"updatedAt"`
-	DeletedAt  *time.Time         `bson:"deletedAt"`
+	ID             primitive.ObjectID `bson:"-"`
+	FId            string             `bson:"fid"`
+	SellerId       uint64             `bson:"sellerId"`
+	Version        uint64             `bson:"version"`
+	DocVersion     string             `bson:"docVersion"`
+	SellerInfo     *SellerProfile     `bson:"sellerInfo"`
+	Invoice        *Invoice           `bson:"invoice"`
+	OrdersInfo     []*OrderInfo       `bson:"ordersInfo"`
+	Payment        *FinancePayment    `bson:"payment"`
+	PaymentMode    PaymentMode        `bson:"paymentMode"`
+	PaymentHistory []*FinancePayment  `bson:"paymentHistory"`
+	Status         FinanceState       `bson:"status"`
+	StartAt        *time.Time         `bson:"startAt"`
+	EndAt          *time.Time         `bson:"endAt"`
+	CreatedAt      time.Time          `bson:"createdAt"`
+	UpdatedAt      time.Time          `bson:"updatedAt"`
+	DeletedAt      *time.Time         `bson:"deletedAt"`
 }
 
 type FinancePayment struct {
-	TransferRequest  *TransferRequest  `bson:"transferRequest"`
-	TransferResponse *TransferResponse `bson:"transferResponse"`
-	TransferResult   *TransferResult   `bson:"transferResult"`
-	Status           TransferState     `bson:"status"`
-	CreatedAt        time.Time         `bson:"createdAt"`
-	UpdatedAt        time.Time         `bson:"updatedAt"`
+	TransferRequest  *TransferRequest    `bson:"transferRequest"`
+	TransferResponse *TransferResponse   `bson:"transferResponse"`
+	TransferResult   *TransferResult     `bson:"transferResult"`
+	Status           PaymentState        `bson:"status"`
+	Mode             PaymentMode         `bson:"mode"`
+	Action           *primitive.ObjectID `bson:"action"`
+	RetryRequest     int32               `bson:"retryRequest"`
+	RetryResult      int32               `bson:"retryResult"`
+	CreatedAt        time.Time           `bson:"createdAt"`
+	UpdatedAt        time.Time           `bson:"updatedAt"`
 }
 
 type TransferRequest struct {
@@ -68,6 +83,7 @@ type TransferResponse struct {
 
 type TransferResult struct {
 	TransferId      string    `bson:"transferId"`
+	TotalTransfer   *Money    `bson:"totalTransfer"`
 	SuccessTransfer *Money    `bson:"successTransfer"`
 	PendingTransfer *Money    `bson:"pendingTransfer"`
 	FailedTransfer  *Money    `bson:"failedTransfer"`
@@ -89,24 +105,25 @@ type Invoice struct {
 }
 
 type OrderInfo struct {
-	TriggerName      string             `bson:"triggerName"`
-	TriggerHistoryId primitive.ObjectID `bson:"triggerHistoryId"`
-	Orders           []*SellerOrder     `bson:"orders"`
+	TriggerName      string              `bson:"triggerName"`
+	TriggerHistoryId *primitive.ObjectID `bson:"triggerHistoryId"`
+	Orders           []*SellerOrder      `bson:"orders"`
 }
 
 type SellerOrder struct {
-	OId                    uint64        `bson:"oid"`
-	FId                    string        `bson:"fid"`
-	SellerId               uint64        `bson:"sellerId"`
-	ShipmentAmount         *Money        `bson:"shipmentAmount"`
-	RawShippingNet         *Money        `bson:"rawShippingNet"`
-	RoundupShippingNet     *Money        `bson:"roundupShippingNet"`
-	IsAlreadyShippingPayed bool          `bson:"isAlreadyShippingPayed"`
-	Items                  []*SellerItem `bson:"items"`
-	OrderCreatedAt         *time.Time    `bson:"orderCreatedAt"`
-	SubPkgCreatedAt        *time.Time    `bson:"subPkgCreatedAt"`
-	SubPkgUpdatedAt        *time.Time    `bson:"subPkgUpdatedAt"`
-	DeletedAt              *time.Time    `bson:"deletedAt"`
+	ID                     primitive.ObjectID `bson:"-"`
+	OId                    uint64             `bson:"oid"`
+	FId                    string             `bson:"fid"`
+	SellerId               uint64             `bson:"sellerId"`
+	ShipmentAmount         *Money             `bson:"shipmentAmount"`
+	RawShippingNet         *Money             `bson:"rawShippingNet"`
+	RoundupShippingNet     *Money             `bson:"roundupShippingNet"`
+	IsAlreadyShippingPayed bool               `bson:"isAlreadyShippingPayed"`
+	Items                  []*SellerItem      `bson:"items"`
+	OrderCreatedAt         *time.Time         `bson:"orderCreatedAt"`
+	SubPkgCreatedAt        *time.Time         `bson:"subPkgCreatedAt"`
+	SubPkgUpdatedAt        *time.Time         `bson:"subPkgUpdatedAt"`
+	DeletedAt              *time.Time         `bson:"deletedAt"`
 }
 
 type SellerItem struct {

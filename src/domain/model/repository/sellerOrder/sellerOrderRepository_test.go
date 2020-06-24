@@ -84,7 +84,7 @@ func TestSaveOrder(t *testing.T) {
 	orderFinance := finance1.OrdersInfo[0].Orders[0]
 	orderFinance.OId = 999999999
 	orderFinance.FId = finance.FId
-	iFuture := sellerOrderRepo.SaveOrder(ctx, finance.OrdersInfo[0].TriggerHistoryId, *orderFinance).Get()
+	iFuture := sellerOrderRepo.SaveOrder(ctx, *finance.OrdersInfo[0].TriggerHistoryId, *orderFinance).Get()
 	require.Nil(t, iFuture.Error())
 	updateFinance, err := getSellerFinance(finance.FId)
 	require.Nil(t, err)
@@ -99,7 +99,8 @@ func TestSaveOrderInfo(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	finance1 := createFinance()
 	orderInfo := finance1.OrdersInfo[0]
-	orderInfo.TriggerHistoryId = primitive.NewObjectID()
+	oid := primitive.NewObjectID()
+	orderInfo.TriggerHistoryId = &oid
 	iFuture := sellerOrderRepo.SaveOrderInfo(ctx, finance.FId, *orderInfo).Get()
 	require.Nil(t, iFuture.Error())
 	updateFinance, err := getSellerFinance(finance.FId)
@@ -309,6 +310,7 @@ func removeCollection() {
 
 func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
+	oid := primitive.NewObjectID()
 	return &entities.SellerFinance{
 		FId:        "",
 		SellerId:   100002,
@@ -384,7 +386,7 @@ func createFinance() *entities.SellerFinance {
 		OrdersInfo: []*entities.OrderInfo{
 			{
 				TriggerName:      "SCH4",
-				TriggerHistoryId: primitive.NewObjectID(),
+				TriggerHistoryId: &oid,
 				Orders: []*entities.SellerOrder{
 					{
 						OId:      1111111111,
@@ -720,16 +722,22 @@ func createFinance() *entities.SellerFinance {
 				FailedTransfer: nil,
 				CreatedAt:      time.Now(),
 			},
-			Status:    "Success",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			Status:       "Success",
+			Mode:         entities.AutomaticPaymentMode,
+			Action:       nil,
+			RetryRequest: 0,
+			RetryResult:  0,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
-		Status:    entities.FinanceClosedStatus,
-		StartAt:   nil,
-		EndAt:     nil,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		DeletedAt: nil,
+		PaymentMode:    entities.AutomaticPaymentMode,
+		PaymentHistory: nil,
+		Status:         entities.FinanceClosedStatus,
+		StartAt:        nil,
+		EndAt:          nil,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		DeletedAt:      nil,
 	}
 }
 

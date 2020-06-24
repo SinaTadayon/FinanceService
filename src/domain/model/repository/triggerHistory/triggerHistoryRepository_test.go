@@ -112,16 +112,20 @@ func TestFindByIdTriggerHistoryRepository(t *testing.T) {
 func createTriggerHistory() *entities.TriggerHistory {
 	timestamp := time.Now().UTC()
 	return &entities.TriggerHistory{
-		TriggerName:  "SCH4",
-		Version:      1,
-		DocVersion:   entities.TriggerDocumentVersion,
-		ExecResult:   entities.TriggerExecResultSuccess,
-		TriggeredAt:  &timestamp,
-		IsMissedFire: false,
-		RunMode:      entities.TriggerRunModeComplete,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-		DeletedAt:    nil,
+		TriggerName:   "SCH4",
+		Version:       1,
+		DocVersion:    entities.TriggerDocumentVersion,
+		ExecResult:    entities.TriggerExecResultSuccess,
+		RunMode:       entities.TriggerRunModeComplete,
+		TriggeredAt:   &timestamp,
+		IsMissedFire:  false,
+		Action:        nil,
+		ActionHistory: nil,
+		RetryIndex:    0,
+		Finances:      nil,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+		DeletedAt:     nil,
 	}
 }
 

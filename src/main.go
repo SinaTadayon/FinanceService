@@ -100,6 +100,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	if strings.ToUpper(app.Globals.Config.App.SellerFinanceDefaultPaymentMode) != "AUTOMATIC" && strings.ToUpper(app.Globals.Config.App.SellerFinanceDefaultPaymentMode) != "MANUAL" {
+		log.GLog.Logger.Error("SellerFinanceDefaultPaymentMode invalid",
+			"fn", "main",
+			"SellerFinanceDefaultPaymentMode", app.Globals.Config.App.SellerFinanceDefaultPaymentMode)
+		os.Exit(1)
+	}
+
 	var OrderSchedulerTimeUnit utils.TimeUnit
 	if app.Globals.Config.App.FinanceOrderSchedulerTimeUint == "" {
 		app.Globals.Config.App.FinanceOrderSchedulerTimeUint = string(utils.MinuteUnit)

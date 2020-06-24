@@ -738,15 +738,19 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		return
 	}
 
+	// TODO implement automatic retry trigger
 	triggerHistory := &entities.TriggerHistory{
-		TriggerName:  trigger.Name,
-		ExecResult:   entities.TriggerExecResultNone,
-		RunMode:      entities.TriggerRunModeRunning,
-		TriggeredAt:  trigger.LatestTriggerAt,
-		IsMissedFire: false,
-		CreatedAt:    timestamp,
-		UpdatedAt:    timestamp,
-		DeletedAt:    nil,
+		TriggerName:   trigger.Name,
+		ExecResult:    entities.TriggerExecResultNone,
+		RunMode:       entities.TriggerRunModeRunning,
+		TriggeredAt:   trigger.LatestTriggerAt,
+		IsMissedFire:  false,
+		ActionHistory: nil,
+		RetryIndex:    0,
+		Finances:      nil,
+		CreatedAt:     timestamp,
+		UpdatedAt:     timestamp,
+		DeletedAt:     nil,
 	}
 
 	iFuture = app.Globals.TriggerHistoryRepository.Save(ctx, *triggerHistory).Get()
