@@ -524,6 +524,7 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())
 
+		timestamp := time.Now().UTC()
 		sellerFinance.Payment = &entities.FinancePayment{
 			TransferRequest:  nil,
 			TransferResponse: nil,
@@ -534,9 +535,9 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			RetryRequest:     0,
 			RetryResult:      0,
 			CreatedAt:        requestTimestamp,
-			UpdatedAt:        time.Now().UTC(),
+			UpdatedAt:        timestamp,
 		}
-		sellerFinance.UpdatedAt = time.Now().UTC()
+		sellerFinance.UpdatedAt = timestamp
 		return
 	}
 

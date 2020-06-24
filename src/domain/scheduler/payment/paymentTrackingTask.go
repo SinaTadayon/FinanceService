@@ -265,8 +265,21 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 			sellerFinance.PaymentMode = entities.ManualPaymentMode
 			sellerFinance.UpdatedAt = timestamp
 
+			payment := &entities.FinancePayment{
+				TransferRequest:  sellerFinance.Payment.TransferRequest,
+				TransferResponse: sellerFinance.Payment.TransferResponse,
+				TransferResult:   sellerFinance.Payment.TransferResult,
+				Status:           sellerFinance.Payment.Status,
+				Mode:             sellerFinance.Payment.Mode,
+				Action:           sellerFinance.Payment.Action,
+				RetryRequest:     sellerFinance.Payment.RetryRequest,
+				RetryResult:      sellerFinance.Payment.RetryResult,
+				CreatedAt:        sellerFinance.Payment.CreatedAt,
+				UpdatedAt:        timestamp,
+			}
+
 			sellerFinance.PaymentHistory = make([]*entities.FinancePayment, 0, 5)
-			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, sellerFinance.Payment)
+			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, payment)
 
 			sellerFinance.Payment.Mode = entities.ManualPaymentMode
 			sellerFinance.Payment.UpdatedAt = timestamp
@@ -288,6 +301,20 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"error", iFuture.Error())
+
+				timestamp := time.Now().UTC()
+				sellerFinance.Payment.RetryResult++
+				sellerFinance.Payment.UpdatedAt = timestamp
+				sellerFinance.UpdatedAt = timestamp
+
+				iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
+				if iFuture.Error() != nil {
+					log.GLog.Logger.Error("sellerFinance transfer money result failed",
+						"fn", "automaticPaymentHandler",
+						"fid", sellerFinance.FId,
+						"sellerId", sellerFinance.SellerId,
+						"error", iFuture.Error())
+				}
 				return
 			}
 
@@ -411,7 +438,19 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 				sellerFinance.PaymentHistory = make([]*entities.FinancePayment, 0, 5)
 			}
 
-			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, sellerFinance.Payment)
+			payment := &entities.FinancePayment{
+				TransferRequest:  sellerFinance.Payment.TransferRequest,
+				TransferResponse: sellerFinance.Payment.TransferResponse,
+				TransferResult:   sellerFinance.Payment.TransferResult,
+				Status:           sellerFinance.Payment.Status,
+				Mode:             sellerFinance.Payment.Mode,
+				Action:           sellerFinance.Payment.Action,
+				RetryRequest:     sellerFinance.Payment.RetryRequest,
+				RetryResult:      sellerFinance.Payment.RetryResult,
+				CreatedAt:        sellerFinance.Payment.CreatedAt,
+				UpdatedAt:        timestamp,
+			}
+			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, payment)
 
 			sellerFinance.Payment.Mode = entities.ManualPaymentMode
 			sellerFinance.Payment.UpdatedAt = timestamp
