@@ -107,7 +107,9 @@ func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerH
 					break
 				}
 			} else {
-				fids = append(fids, processResult.SellerFinance.FId)
+				if processResult.SellerFinance != nil {
+					fids = append(fids, processResult.SellerFinance.FId)
+				}
 			}
 		}
 

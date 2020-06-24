@@ -260,7 +260,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 
 			if err := pipeline.financeTriggerValidation(ctx, sellerFinance); err != nil {
 				log.GLog.Logger.Error("finance not accepted for processing because related trigger has problem",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"error", err)
@@ -269,14 +269,14 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 
 			if err := pipeline.financeInvoiceCalculation(ctx, sellerFinance); err != nil {
 				log.GLog.Logger.Error("financeInvoiceCalculation failed",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"error", err)
 				continue
 			} else {
 				log.GLog.Logger.Info("financeInvoiceCalculation success",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"invoice", sellerFinance.Invoice)
@@ -286,7 +286,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 				iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
 				if iFuture.Error() != nil {
 					log.GLog.Logger.Error("UserService.GetSellerProfile failed",
-						"fn", "executePipeline",
+						"fn", "ExecutePipeline",
 						"sellerId", sellerFinance.SellerId,
 						"error", iFuture.Error())
 
@@ -294,7 +294,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 					iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
 					if iFuture.Error() != nil {
 						log.GLog.Logger.Error("sellerFinance update failed",
-							"fn", "executePipeline",
+							"fn", "ExecutePipeline",
 							"fid", sellerFinance.FId,
 							"sellerId", sellerFinance.SellerId,
 							"error", iFuture.Error())
@@ -312,12 +312,17 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 			iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
 			if iFuture.Error() != nil {
 				log.GLog.Logger.Error("sellerFinance update failed",
-					"fn", "executePipeline",
+					"fn", "ExecutePipeline",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
 					"error", iFuture.Error())
 				continue
 			}
+
+			log.GLog.Logger.Debug("sellerFinance update payment process ",
+				"fn", "ExecutePipeline",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId)
 
 			financeOutStream <- iFuture.Data().(*entities.SellerFinance)
 		}
