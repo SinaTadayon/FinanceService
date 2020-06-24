@@ -728,7 +728,7 @@ func (scheduler OrderScheduler) doProcess(ctx context.Context) {
 		TriggeredAt:   trigger.LatestTriggerAt,
 		IsMissedFire:  false,
 		ActionHistory: nil,
-		RetryIndex:    1,
+		RetryIndex:    0,
 		Finances:      nil,
 		CreatedAt:     timestamp,
 		UpdatedAt:     timestamp,

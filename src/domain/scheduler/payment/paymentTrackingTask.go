@@ -247,7 +247,7 @@ func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceRe
 
 func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFinance *entities.SellerFinance) {
 	if sellerFinance.Payment.Status == entities.PaymentNoneState {
-		if int(sellerFinance.Payment.RetryRequest) <= app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentRequest {
+		if int(sellerFinance.Payment.RetryRequest) < app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentRequest {
 			log.GLog.Logger.Info("start automatic finance payment transfer money",
 				"fn", "automaticPaymentHandler",
 				"fid", sellerFinance.FId,
@@ -273,7 +273,7 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 		}
 
 	} else if sellerFinance.Payment.Status == entities.PaymentPendingState {
-		if int(sellerFinance.Payment.RetryResult) <= app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentResult {
+		if int(sellerFinance.Payment.RetryResult) < app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentResult {
 			log.GLog.Logger.Debug("tracking finance payment transfer money",
 				"fn", "automaticPaymentHandler",
 				"fid", sellerFinance.FId,

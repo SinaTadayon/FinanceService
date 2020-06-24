@@ -531,8 +531,8 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 			Status:           entities.PaymentNoneState,
 			Mode:             sellerFinance.PaymentMode,
 			Action:           nil,
-			RetryRequest:     1,
-			RetryResult:      1,
+			RetryRequest:     0,
+			RetryResult:      0,
 			CreatedAt:        requestTimestamp,
 			UpdatedAt:        time.Now().UTC(),
 		}
@@ -561,8 +561,8 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 		Status:         entities.PaymentPendingState,
 		Mode:           sellerFinance.PaymentMode,
 		Action:         nil,
-		RetryRequest:   1,
-		RetryResult:    1,
+		RetryRequest:   0,
+		RetryResult:    0,
 		CreatedAt:      requestTimestamp,
 		UpdatedAt:      responseTimestamp,
 	}
