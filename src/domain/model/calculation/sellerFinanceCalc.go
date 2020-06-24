@@ -263,7 +263,7 @@ func FinanceCalcFactory(ctx context.Context, finance *entities.SellerFinance) (*
 	for _, orderInfo := range finance.OrdersInfo {
 		orderInfoCalc := &OrderInfoCalc{
 			TriggerName:    orderInfo.TriggerName,
-			TriggerHistory: orderInfo.TriggerHistoryId,
+			TriggerHistory: *orderInfo.TriggerHistoryId,
 			Orders:         nil,
 		}
 

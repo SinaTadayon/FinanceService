@@ -67,6 +67,7 @@ func findPaymentPendingFinance(ctx context.Context) (FinanceReaderStream, error)
 			iFuture := app.Globals.SellerFinanceRepository.FindByFilterWithPage(ctx, func() interface{} {
 				return bson.D{
 					{"status", entities.FinancePaymentProcessStatus},
+					{"paymentMode", entities.AutomaticPaymentMode},
 					{"deletedAt", nil}}
 			}, int64(i+1), DefaultFetchFinancePerPage).Get()
 
@@ -234,110 +235,9 @@ func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceRe
 			default:
 			}
 
-			if sellerFinance.Payment == nil {
-				log.GLog.Logger.Debug("start finance payment transfer money",
-					"fn", "financePaymentTracking",
-					"fid", sellerFinance.FId,
-					"sellerId", sellerFinance.SellerId)
-				err := pipeline.financeTrackingStartPayment(ctx, sellerFinance)
-				if err != nil {
-					log.GLog.Logger.Warn("financePaymentTracking StartPayment failed",
-						"fn", "financePaymentTracking",
-						"fid", sellerFinance.FId,
-						"sellerId", sellerFinance.SellerId)
-				}
-			} else if sellerFinance.Payment.Status == entities.PaymentPendingState {
-				log.GLog.Logger.Debug("tracking finance payment transfer money",
-					"fn", "financePaymentTracking",
-					"fid", sellerFinance.FId,
-					"sellerId", sellerFinance.SellerId)
-
-				iFuture := app.Globals.PaymentService.GetSingleTransferMoneyResult(ctx, sellerFinance.FId,
-					sellerFinance.Payment.TransferResponse.TransferId).Get()
-
-				if iFuture.Error() != nil {
-					log.GLog.Logger.Error("PaymentService.GetSingleTransferMoneyResult failed",
-						"fn", "financePaymentTracking",
-						"fid", sellerFinance.FId,
-						"sellerId", sellerFinance.SellerId,
-						"error", iFuture.Error())
-					continue
-				}
-
-				transferResult := iFuture.Data().(payment_service.TransferMoneyResult)
-				if sellerFinance.Payment.TransferResult == nil {
-					sellerFinance.Payment.TransferResult = &entities.TransferResult{
-						TransferId: transferResult.TransferId,
-						SuccessTransfer: &entities.Money{
-							Amount:   strconv.Itoa(int(transferResult.Total)),
-							Currency: transferResult.Currency,
-						},
-
-						PendingTransfer: &entities.Money{
-							Amount:   strconv.Itoa(int(transferResult.Pending)),
-							Currency: transferResult.Currency,
-						},
-
-						FailedTransfer: &entities.Money{
-							Amount:   strconv.Itoa(int(transferResult.Failed)),
-							Currency: transferResult.Currency,
-						},
-						CreatedAt: time.Now().UTC(),
-						UpdatedAt: time.Now().UTC(),
-					}
-				} else {
-					sellerFinance.Payment.TransferResult.SuccessTransfer = &entities.Money{
-						Amount:   strconv.Itoa(int(transferResult.Total)),
-						Currency: transferResult.Currency,
-					}
-
-					sellerFinance.Payment.TransferResult.PendingTransfer = &entities.Money{
-						Amount:   strconv.Itoa(int(transferResult.Pending)),
-						Currency: transferResult.Currency,
-					}
-
-					sellerFinance.Payment.TransferResult.FailedTransfer = &entities.Money{
-						Amount:   strconv.Itoa(int(transferResult.Failed)),
-						Currency: transferResult.Currency,
-					}
-					sellerFinance.Payment.TransferResult.UpdatedAt = time.Now().UTC()
-				}
-
-				sellerFinance.Payment.UpdatedAt = sellerFinance.Payment.TransferResult.UpdatedAt
-
-				if transferResult.Pending == 0 {
-					log.GLog.Logger.Debug("finance transfer money complete",
-						"fn", "financePaymentTracking",
-						"fid", sellerFinance.FId,
-						"sellerId", sellerFinance.SellerId,
-						"result", transferResult)
-
-					if transferResult.Total == 0 {
-						sellerFinance.Payment.Status = entities.PaymentFailedState
-					} else if transferResult.Failed == 0 {
-						sellerFinance.Payment.Status = entities.PaymentSuccessState
-					} else {
-						sellerFinance.Payment.Status = entities.PaymentPartialState
-					}
-
-					sellerFinance.Status = entities.FinanceClosedStatus
-				} else {
-					log.GLog.Logger.Debug("finance transfer money in progress . . .",
-						"fn", "financePaymentTracking",
-						"fid", sellerFinance.FId,
-						"sellerId", sellerFinance.SellerId,
-						"result", transferResult)
-				}
-
-				iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
-				if iFuture.Error() != nil {
-					log.GLog.Logger.Error("sellerFinance transfer money result failed",
-						"fn", "financeProcess",
-						"fid", sellerFinance.FId,
-						"sellerId", sellerFinance.SellerId,
-						"error", iFuture.Error())
-					continue
-				}
+			// TODO implement manual payment mode
+			if sellerFinance.Payment.Mode == entities.AutomaticPaymentMode {
+				pipeline.automaticPaymentHandler(ctx, sellerFinance)
 			}
 
 			financeOutStream <- sellerFinance
@@ -345,7 +245,190 @@ func (pipeline *Pipeline) financePaymentTracking(ctx context.Context) (FinanceRe
 	}
 }
 
-func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, sellerFinance *entities.SellerFinance) error {
+func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFinance *entities.SellerFinance) {
+	if sellerFinance.Payment.Status == entities.PaymentNoneState {
+		if int(sellerFinance.Payment.RetryRequest) <= app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentRequest {
+			log.GLog.Logger.Info("start automatic finance payment transfer money",
+				"fn", "automaticPaymentHandler",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId,
+				"retryRequest", sellerFinance.Payment.RetryRequest)
+			pipeline.financeTrackingAutomaticPayment(ctx, sellerFinance)
+		} else {
+			log.GLog.Logger.Info("reach to maximum automatic retry payment request, change to manual finance payment request transfer money",
+				"fn", "automaticPaymentHandler",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId,
+				"retryResult", sellerFinance.Payment.RetryResult)
+
+			timestamp := time.Now().UTC()
+			sellerFinance.PaymentMode = entities.ManualPaymentMode
+			sellerFinance.UpdatedAt = timestamp
+
+			sellerFinance.PaymentHistory = make([]*entities.FinancePayment, 0, 5)
+			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, sellerFinance.Payment)
+
+			sellerFinance.Payment.Mode = entities.ManualPaymentMode
+			sellerFinance.Payment.UpdatedAt = timestamp
+		}
+
+	} else if sellerFinance.Payment.Status == entities.PaymentPendingState {
+		if int(sellerFinance.Payment.RetryResult) <= app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentResult {
+			log.GLog.Logger.Debug("tracking finance payment transfer money",
+				"fn", "automaticPaymentHandler",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId)
+
+			iFuture := app.Globals.PaymentService.GetSingleTransferMoneyResult(ctx, sellerFinance.FId,
+				sellerFinance.Payment.TransferResponse.TransferId).Get()
+
+			if iFuture.Error() != nil {
+				log.GLog.Logger.Error("PaymentService.GetSingleTransferMoneyResult failed",
+					"fn", "automaticPaymentHandler",
+					"fid", sellerFinance.FId,
+					"sellerId", sellerFinance.SellerId,
+					"error", iFuture.Error())
+				return
+			}
+
+			timestamp := time.Now().UTC()
+			transferResult := iFuture.Data().(payment_service.TransferMoneyResult)
+			var success int64
+			if transferResult.Pending == 0 {
+				success = transferResult.Total
+			} else {
+				success = transferResult.Total - transferResult.Pending
+			}
+
+			if sellerFinance.Payment.TransferResult == nil {
+				sellerFinance.Payment.TransferResult = &entities.TransferResult{
+					TransferId: transferResult.TransferId,
+
+					TotalTransfer: &entities.Money{
+						Amount:   strconv.Itoa(int(transferResult.Total)),
+						Currency: transferResult.Currency,
+					},
+
+					SuccessTransfer: &entities.Money{
+						Amount:   strconv.Itoa(int(success)),
+						Currency: transferResult.Currency,
+					},
+
+					PendingTransfer: &entities.Money{
+						Amount:   strconv.Itoa(int(transferResult.Pending)),
+						Currency: transferResult.Currency,
+					},
+
+					FailedTransfer: &entities.Money{
+						Amount:   strconv.Itoa(int(transferResult.Failed)),
+						Currency: transferResult.Currency,
+					},
+					CreatedAt: timestamp,
+					UpdatedAt: timestamp,
+				}
+
+				if sellerFinance.PaymentHistory == nil {
+					sellerFinance.PaymentHistory = make([]*entities.FinancePayment, 0, 5)
+				}
+
+				sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, sellerFinance.Payment)
+
+			} else {
+				isResultChanged := false
+
+				if sellerFinance.Payment.TransferResult.TotalTransfer.Amount != strconv.Itoa(int(transferResult.Total)) ||
+					sellerFinance.Payment.TransferResult.SuccessTransfer.Amount != strconv.Itoa(int(success)) ||
+					sellerFinance.Payment.TransferResult.PendingTransfer.Amount != strconv.Itoa(int(transferResult.Pending)) ||
+					sellerFinance.Payment.TransferResult.FailedTransfer.Amount != strconv.Itoa(int(transferResult.Failed)) {
+					isResultChanged = true
+				}
+
+				sellerFinance.Payment.TransferResult.TotalTransfer = &entities.Money{
+					Amount:   strconv.Itoa(int(transferResult.Total)),
+					Currency: transferResult.Currency,
+				}
+
+				sellerFinance.Payment.TransferResult.SuccessTransfer = &entities.Money{
+					Amount:   strconv.Itoa(int(success)),
+					Currency: transferResult.Currency,
+				}
+
+				sellerFinance.Payment.TransferResult.PendingTransfer = &entities.Money{
+					Amount:   strconv.Itoa(int(transferResult.Pending)),
+					Currency: transferResult.Currency,
+				}
+
+				sellerFinance.Payment.TransferResult.FailedTransfer = &entities.Money{
+					Amount:   strconv.Itoa(int(transferResult.Failed)),
+					Currency: transferResult.Currency,
+				}
+				sellerFinance.Payment.TransferResult.UpdatedAt = timestamp
+
+				if isResultChanged {
+					sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, sellerFinance.Payment)
+				}
+			}
+
+			sellerFinance.Payment.UpdatedAt = timestamp
+
+			if transferResult.Pending == 0 {
+				log.GLog.Logger.Debug("finance transfer money complete",
+					"fn", "automaticPaymentHandler",
+					"fid", sellerFinance.FId,
+					"sellerId", sellerFinance.SellerId,
+					"result", transferResult)
+
+				if transferResult.Total == 0 {
+					sellerFinance.Payment.Status = entities.PaymentFailedState
+				} else if transferResult.Failed == 0 {
+					sellerFinance.Payment.Status = entities.PaymentSuccessState
+				} else {
+					sellerFinance.Payment.Status = entities.PaymentPartialState
+				}
+
+				sellerFinance.Status = entities.FinanceClosedStatus
+			} else {
+				log.GLog.Logger.Debug("finance transfer money in progress . . .",
+					"fn", "automaticPaymentHandler",
+					"fid", sellerFinance.FId,
+					"sellerId", sellerFinance.SellerId,
+					"result", transferResult)
+
+				sellerFinance.Payment.RetryResult++
+			}
+		} else {
+			log.GLog.Logger.Info("reach to maximum automatic retry payment result, change to manual finance payment result transfer money",
+				"fn", "automaticPaymentHandler",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId,
+				"retryResult", sellerFinance.Payment.RetryResult)
+
+			timestamp := time.Now().UTC()
+			sellerFinance.PaymentMode = entities.ManualPaymentMode
+			sellerFinance.UpdatedAt = timestamp
+
+			if sellerFinance.PaymentHistory == nil {
+				sellerFinance.PaymentHistory = make([]*entities.FinancePayment, 0, 5)
+			}
+
+			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, sellerFinance.Payment)
+
+			sellerFinance.Payment.Mode = entities.ManualPaymentMode
+			sellerFinance.Payment.UpdatedAt = timestamp
+		}
+	}
+
+	iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
+	if iFuture.Error() != nil {
+		log.GLog.Logger.Error("sellerFinance transfer money result failed",
+			"fn", "automaticPaymentHandler",
+			"fid", sellerFinance.FId,
+			"sellerId", sellerFinance.SellerId,
+			"error", iFuture.Error())
+	}
+}
+
+func (pipeline *Pipeline) financeTrackingAutomaticPayment(ctx context.Context, sellerFinance *entities.SellerFinance) {
 
 	requestTimestamp := time.Now().UTC()
 	paymentRequest := payment_service.PaymentRequest{
@@ -355,52 +438,44 @@ func (pipeline *Pipeline) financeTrackingStartPayment(ctx context.Context, selle
 		Currency:           sellerFinance.Invoice.ShareRoundupTotal.Currency,
 		ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
 		ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
-		PaymentDescription: sellerFinance.FId + "پرداخت صورت حساب شماره ",
+		PaymentDescription: sellerFinance.FId + "-bazlia",
 		PaymentType:        payment_service.SellerPayment,
 	}
 
 	iFuture := app.Globals.PaymentService.SingleTransferMoney(ctx, paymentRequest).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("SingleTransferMoney for seller payment failed",
-			"fn", "financeTrackingStartPayment",
+			"fn", "financePayment",
 			"fid", sellerFinance.FId,
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())
-		return iFuture.Error()
+
+		sellerFinance.Payment.UpdatedAt = time.Now().UTC()
+		sellerFinance.UpdatedAt = time.Now().UTC()
+		sellerFinance.Payment.RetryRequest++
+		return
 	}
 
 	responseTimestamp := time.Now().UTC()
 	paymentResponse := iFuture.Data().(payment_service.PaymentResponse)
 
-	sellerFinance.Payment = &entities.FinancePayment{
-		TransferRequest: &entities.TransferRequest{
-			TotalPrice:         *sellerFinance.Invoice.ShareRoundupTotal,
-			ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
-			ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
-			PaymentDescription: "",
-			TransferType:       string(payment_service.SellerPayment),
-			CreatedAt:          requestTimestamp,
+	sellerFinance.Payment.TransferRequest = &entities.TransferRequest{
+		TotalPrice: entities.Money{
+			Amount:   sellerFinance.Invoice.ShareRoundupTotal.Amount,
+			Currency: sellerFinance.Invoice.ShareRoundupTotal.Currency,
 		},
-		TransferResponse: &entities.TransferResponse{
-			TransferId: paymentResponse.TransferId,
-			CreatedAt:  responseTimestamp,
-		},
-		TransferResult: nil,
-		Status:         entities.PaymentPendingState,
-		CreatedAt:      requestTimestamp,
-		UpdatedAt:      responseTimestamp,
+		ReceiverName:       sellerFinance.SellerInfo.GeneralInfo.ShopDisplayName,
+		ReceiverAccountId:  sellerFinance.SellerInfo.FinanceData.Iban,
+		PaymentDescription: sellerFinance.FId + "-bazlia",
+		TransferType:       string(payment_service.SellerPayment),
+		CreatedAt:          requestTimestamp,
 	}
 
-	sellerFinance.Status = entities.FinancePaymentProcessStatus
-	iFuture = app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
-	if iFuture.Error() != nil {
-		log.GLog.Logger.Error("sellerFinance update after transfer money request failed",
-			"fn", "financeTrackingStartPayment",
-			"fid", sellerFinance.FId,
-			"sellerId", sellerFinance.SellerId,
-			"error", iFuture.Error())
-		return iFuture.Error()
+	sellerFinance.Payment.TransferResponse = &entities.TransferResponse{
+		TransferId: paymentResponse.TransferId,
+		CreatedAt:  responseTimestamp,
 	}
 
-	return nil
+	sellerFinance.Payment.UpdatedAt = responseTimestamp
+	sellerFinance.UpdatedAt = responseTimestamp
 }

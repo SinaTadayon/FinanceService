@@ -43,6 +43,7 @@ func (repo iSellerFinanceRepositoryImpl) Save(ctx context.Context, finance entit
 		for i := 0; i < len(finance.OrdersInfo); i++ {
 			for j := 0; j < len(finance.OrdersInfo[i].Orders); j++ {
 				finance.OrdersInfo[i].Orders[j].FId = finance.FId
+				finance.OrdersInfo[i].Orders[j].ID = primitive.NewObjectID()
 			}
 		}
 		finance.Version = 1
@@ -126,6 +127,7 @@ func (repo iSellerFinanceRepositoryImpl) Insert(ctx context.Context, finance ent
 		for i := 0; i < len(finance.OrdersInfo); i++ {
 			for j := 0; j < len(finance.OrdersInfo[i].Orders); j++ {
 				finance.OrdersInfo[i].Orders[j].FId = finance.FId
+				finance.OrdersInfo[i].Orders[j].ID = primitive.NewObjectID()
 			}
 		}
 

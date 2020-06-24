@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	TriggerDocumentVersion string = "1.0.1"
+	TriggerDocumentVersion string = "1.0.0"
 )
 
 type TriggerTimeUnit string
@@ -51,7 +51,6 @@ type FinanceTrigger struct {
 	LatestTriggerAt  *time.Time         `bson:"latestTriggerAt"`
 	TriggerAt        *time.Time         `bson:"triggerAt"`
 	Data             interface{}        `bson:"data"`
-	Retry            uint32             `bson:"retry"`
 	Type             TriggerType        `bson:"type"`
 	IsActive         bool               `bson:"isActive"`
 	IsEnable         bool               `bson:"isEnable"`

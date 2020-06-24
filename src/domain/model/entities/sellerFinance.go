@@ -20,6 +20,7 @@ const (
 )
 
 const (
+	PaymentNoneState    PaymentState = "NONE"
 	PaymentSuccessState PaymentState = "SUCCESS"
 	PaymentFailedState  PaymentState = "FAILED"
 	PaymentPendingState PaymentState = "PENDING"
@@ -27,8 +28,10 @@ const (
 )
 
 const (
-	PaymentAutomatic PaymentMode = "AUTOMATIC"
-	PaymentManual    PaymentMode = "MANUAL"
+	AutomaticPaymentMode      PaymentMode = "AUTOMATIC_PAYMENT"
+	ManualPaymentMode         PaymentMode = "MANUAL_PAYMENT"
+	ManualPaymentRequestMode  PaymentMode = "MANUAL_PAYMENT_REQUEST"
+	ManualPaymentTrackingMode PaymentMode = "MANUAL_PAYMENT_TRACKING"
 )
 
 type SellerFinance struct {
@@ -52,16 +55,16 @@ type SellerFinance struct {
 }
 
 type FinancePayment struct {
-	TransferRequest  *TransferRequest  `bson:"transferRequest"`
-	TransferResponse *TransferResponse `bson:"transferResponse"`
-	TransferResult   *TransferResult   `bson:"transferResult"`
-	Status           PaymentState      `bson:"status"`
-	Mode             PaymentMode       `bson:"mode"`
-	Action           *Action           `bson:"action"`
-	RequestRetry     int32             `bson:"requestRetry"`
-	ResultRetry      int32             `bson:"resultRetry"`
-	CreatedAt        time.Time         `bson:"createdAt"`
-	UpdatedAt        time.Time         `bson:"updatedAt"`
+	TransferRequest  *TransferRequest    `bson:"transferRequest"`
+	TransferResponse *TransferResponse   `bson:"transferResponse"`
+	TransferResult   *TransferResult     `bson:"transferResult"`
+	Status           PaymentState        `bson:"status"`
+	Mode             PaymentMode         `bson:"mode"`
+	Action           *primitive.ObjectID `bson:"action"`
+	RetryRequest     int32               `bson:"retryRequest"`
+	RetryResult      int32               `bson:"retryResult"`
+	CreatedAt        time.Time           `bson:"createdAt"`
+	UpdatedAt        time.Time           `bson:"updatedAt"`
 }
 
 type TransferRequest struct {
@@ -80,6 +83,7 @@ type TransferResponse struct {
 
 type TransferResult struct {
 	TransferId      string    `bson:"transferId"`
+	TotalTransfer   *Money    `bson:"totalTransfer"`
 	SuccessTransfer *Money    `bson:"successTransfer"`
 	PendingTransfer *Money    `bson:"pendingTransfer"`
 	FailedTransfer  *Money    `bson:"failedTransfer"`
@@ -101,9 +105,9 @@ type Invoice struct {
 }
 
 type OrderInfo struct {
-	TriggerName      string             `bson:"triggerName"`
-	TriggerHistoryId primitive.ObjectID `bson:"triggerHistoryId"`
-	Orders           []*SellerOrder     `bson:"orders"`
+	TriggerName      string              `bson:"triggerName"`
+	TriggerHistoryId *primitive.ObjectID `bson:"triggerHistoryId"`
+	Orders           []*SellerOrder      `bson:"orders"`
 }
 
 type SellerOrder struct {

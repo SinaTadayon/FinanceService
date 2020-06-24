@@ -36,7 +36,11 @@ type Config struct {
 		SellerFinanceTriggerEnabled   bool   `env:"FINANCE_SELLER_FINANCE_TRIGGER_ENABLED"`
 		SellerFinanceTriggerTestMode  bool   `env:"FINANCE_SELLER_FINANCE_TRIGGER_TEST_MODE"`
 
-		SellerFinancePreventDuplicateOrderItem bool `env:"FINANCE_SELLER_FINANCE_PREVENT_DUPLICATE_ORDER_ITEM"`
+		SellerFinancePreventDuplicateOrderItem    bool   `env:"FINANCE_SELLER_FINANCE_PREVENT_DUPLICATE_ORDER_ITEM"`
+		SellerFinanceDefaultPaymentMode           string `env:"FINANCE_SELLER_FINANCE_DEFAULT_PAYMENT_MODE"`
+		SellerFinanceRetryAutomaticPaymentRequest int    `env:"FINANCE_SELLER_FINANCE_RETRY_AUTOMATIC_PAYMENT_REQUEST"`
+		SellerFinanceRetryAutomaticPaymentResult  int    `env:"FINANCE_SELLER_FINANCE_RETRY_AUTOMATIC_PAYMENT_RESULT"`
+		SellerFinanceRetryTriggerFailed           int    `env:"FINANCE_SELLER_FINANCE_RETRY_TRIGGER_FAILED"`
 	}
 
 	GRPCServer struct {

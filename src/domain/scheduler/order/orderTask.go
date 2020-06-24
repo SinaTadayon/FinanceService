@@ -12,6 +12,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"go.mongodb.org/mongo-driver/bson"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -64,6 +65,7 @@ type OrderReaderStream <-chan *entities.SellerOrder
 
 type ResultReaderStream <-chan *ProcessResult
 
+// TODO implement automatic / manual retry trigger
 func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerHistory entities.TriggerHistory) future.IFuture {
 
 	startAt := triggerHistory.TriggeredAt.Add(-scheduler.financeTriggerInterval)
@@ -95,6 +97,7 @@ func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerH
 			return
 		}
 
+		fids := make([]string, 0, 8192)
 		isSuccessFlag := true
 		for processResult := range resultStream {
 			if !processResult.Result {
@@ -103,16 +106,20 @@ func (scheduler OrderScheduler) OrderSchedulerTask(ctx context.Context, triggerH
 					isSuccessFlag = false
 					break
 				}
+			} else {
+				fids = append(fids, processResult.SellerFinance.FId)
 			}
 		}
 
 		if !isSuccessFlag {
 			triggerHistory.ExecResult = entities.TriggerExecResultFail
+			triggerHistory.RetryIndex++
 		} else {
 			triggerHistory.ExecResult = entities.TriggerExecResultSuccess
 		}
 
 		triggerHistory.RunMode = entities.TriggerRunModeComplete
+		triggerHistory.Finances = fids
 
 		iTriggerFuture := app.Globals.TriggerHistoryRepository.Update(ctx, triggerHistory).Get()
 		if iTriggerFuture.Error() != nil {
@@ -409,7 +416,7 @@ func (pipeline *Pipeline) reduceOrders(ctx context.Context, orderStream OrderRea
 		OrdersInfo: []*entities.OrderInfo{
 			{
 				TriggerName:      triggerHistory.TriggerName,
-				TriggerHistoryId: triggerHistory.ID,
+				TriggerHistoryId: &triggerHistory.ID,
 				Orders:           nil,
 			},
 		},
@@ -612,7 +619,7 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 
 			newOrderInfo := &entities.OrderInfo{
 				TriggerName:      triggerHistory.TriggerName,
-				TriggerHistoryId: triggerHistory.ID,
+				TriggerHistoryId: &triggerHistory.ID,
 				Orders:           nil,
 			}
 
@@ -724,6 +731,12 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 		} else {
 			startAt := triggerHistory.TriggeredAt.Add(-pipeline.scheduler.financeTriggerInterval)
 			endAt := startAt.Add(pipeline.scheduler.financeTriggerDuration)
+			var paymentMode entities.PaymentMode
+			if strings.ToUpper(app.Globals.Config.App.SellerFinanceDefaultPaymentMode) == "AUTOMATIC" {
+				paymentMode = entities.AutomaticPaymentMode
+			} else {
+				paymentMode = entities.ManualPaymentMode
+			}
 
 			newSellerFinance := &entities.SellerFinance{
 				SellerId:   sellerFinance.SellerId,
@@ -732,17 +745,19 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 				OrdersInfo: []*entities.OrderInfo{
 					{
 						TriggerName:      triggerHistory.TriggerName,
-						TriggerHistoryId: triggerHistory.ID,
+						TriggerHistoryId: &triggerHistory.ID,
 						Orders:           sellerFinance.OrdersInfo[0].Orders,
 					},
 				},
-				Payment:   nil,
-				Status:    entities.FinanceOrderCollectionStatus,
-				StartAt:   &startAt,
-				EndAt:     &endAt,
-				CreatedAt: timestamp,
-				UpdatedAt: timestamp,
-				DeletedAt: nil,
+				Payment:        nil,
+				PaymentMode:    paymentMode,
+				PaymentHistory: nil,
+				Status:         entities.FinanceOrderCollectionStatus,
+				StartAt:        &startAt,
+				EndAt:          &endAt,
+				CreatedAt:      timestamp,
+				UpdatedAt:      timestamp,
+				DeletedAt:      nil,
 			}
 
 			sids := make([]uint64, 0, len(sellerFinance.OrdersInfo[0].Orders)*2)
@@ -799,6 +814,12 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 	} else {
 		startAt := triggerHistory.TriggeredAt.Add(-pipeline.scheduler.financeTriggerInterval)
 		endAt := startAt.Add(pipeline.scheduler.financeTriggerDuration)
+		var paymentMode entities.PaymentMode
+		if strings.ToUpper(app.Globals.Config.App.SellerFinanceDefaultPaymentMode) == "AUTOMATIC" {
+			paymentMode = entities.AutomaticPaymentMode
+		} else {
+			paymentMode = entities.ManualPaymentMode
+		}
 
 		newSellerFinance := &entities.SellerFinance{
 			SellerId:   sellerFinance.SellerId,
@@ -807,17 +828,19 @@ func (pipeline *Pipeline) createUpdateFinance(ctx context.Context, sellerFinance
 			OrdersInfo: []*entities.OrderInfo{
 				{
 					TriggerName:      triggerHistory.TriggerName,
-					TriggerHistoryId: triggerHistory.ID,
+					TriggerHistoryId: &triggerHistory.ID,
 					Orders:           sellerFinance.OrdersInfo[0].Orders,
 				},
 			},
-			Payment:   nil,
-			Status:    entities.FinanceOrderCollectionStatus,
-			StartAt:   &startAt,
-			EndAt:     &endAt,
-			CreatedAt: timestamp,
-			UpdatedAt: timestamp,
-			DeletedAt: nil,
+			Payment:        nil,
+			PaymentMode:    paymentMode,
+			PaymentHistory: nil,
+			Status:         entities.FinanceOrderCollectionStatus,
+			StartAt:        &startAt,
+			EndAt:          &endAt,
+			CreatedAt:      timestamp,
+			UpdatedAt:      timestamp,
+			DeletedAt:      nil,
 		}
 
 		iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()

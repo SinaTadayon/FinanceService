@@ -387,6 +387,7 @@ func removeCollection() {
 
 func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
+	objId := primitive.NewObjectID()
 	return &entities.SellerFinance{
 		FId:        "",
 		SellerId:   100002,
@@ -462,7 +463,7 @@ func createFinance() *entities.SellerFinance {
 		OrdersInfo: []*entities.OrderInfo{
 			{
 				TriggerName:      "SCH4",
-				TriggerHistoryId: primitive.NewObjectID(),
+				TriggerHistoryId: &objId,
 				Orders: []*entities.SellerOrder{
 					{
 						OId:      1111111111,
@@ -798,15 +799,21 @@ func createFinance() *entities.SellerFinance {
 				FailedTransfer: nil,
 				CreatedAt:      time.Now(),
 			},
-			Status:    "Success",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			Status:       "Success",
+			Mode:         entities.AutomaticPaymentMode,
+			Action:       nil,
+			RetryRequest: 0,
+			RetryResult:  0,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
-		Status:    entities.FinanceClosedStatus,
-		StartAt:   nil,
-		EndAt:     nil,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		DeletedAt: nil,
+		PaymentMode:    entities.AutomaticPaymentMode,
+		PaymentHistory: nil,
+		Status:         entities.FinanceClosedStatus,
+		StartAt:        nil,
+		EndAt:          nil,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		DeletedAt:      nil,
 	}
 }
