@@ -274,13 +274,13 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 					"sellerId", sellerFinance.SellerId,
 					"error", err)
 				continue
-			} else {
-				log.GLog.Logger.Info("financeInvoiceCalculation success",
-					"fn", "ExecutePipeline",
-					"fid", sellerFinance.FId,
-					"sellerId", sellerFinance.SellerId,
-					"invoice", sellerFinance.Invoice)
 			}
+
+			log.GLog.Logger.Info("financeInvoiceCalculation success",
+				"fn", "ExecutePipeline",
+				"fid", sellerFinance.FId,
+				"sellerId", sellerFinance.SellerId,
+				"invoice", sellerFinance.Invoice)
 
 			if sellerFinance.SellerInfo == nil {
 				iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
