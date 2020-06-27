@@ -2,6 +2,7 @@ package order_repository
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
@@ -38,6 +39,8 @@ func TestMain(m *testing.M) {
 			"error", err)
 		os.Exit(1)
 	}
+
+	fmt.Println(config)
 
 	// store in mongo
 	mongoConf := &mongoadapter.MongoConfig{
