@@ -259,7 +259,7 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 				"fn", "automaticPaymentHandler",
 				"fid", sellerFinance.FId,
 				"sellerId", sellerFinance.SellerId,
-				"retryResult", sellerFinance.Payment.RetryResult)
+				"retryRequest", sellerFinance.Payment.RetryRequest)
 
 			timestamp := time.Now().UTC()
 			sellerFinance.PaymentMode = entities.ManualPaymentMode
@@ -287,10 +287,11 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 
 	} else if sellerFinance.Payment.Status == entities.PaymentPendingState {
 		if int(sellerFinance.Payment.RetryResult) < app.Globals.Config.App.SellerFinanceRetryAutomaticPaymentResult {
-			log.GLog.Logger.Debug("tracking finance payment transfer money",
+			log.GLog.Logger.Debug("tracking finance payment transfer money . . .",
 				"fn", "automaticPaymentHandler",
 				"fid", sellerFinance.FId,
-				"sellerId", sellerFinance.SellerId)
+				"sellerId", sellerFinance.SellerId,
+				"retryResult", sellerFinance.Payment.RetryResult)
 
 			iFuture := app.Globals.PaymentService.GetSingleTransferMoneyResult(ctx, sellerFinance.FId,
 				sellerFinance.Payment.TransferResponse.TransferId).Get()
@@ -403,7 +404,8 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 					"fn", "automaticPaymentHandler",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
-					"result", transferResult)
+					"result", transferResult,
+					"retryResult", sellerFinance.Payment.RetryResult)
 
 				if transferResult.Total == 0 {
 					sellerFinance.Payment.Status = entities.PaymentFailedState
@@ -415,13 +417,13 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 
 				sellerFinance.Status = entities.FinanceClosedStatus
 			} else {
+				sellerFinance.Payment.RetryResult++
 				log.GLog.Logger.Debug("finance transfer money in progress . . .",
 					"fn", "automaticPaymentHandler",
 					"fid", sellerFinance.FId,
 					"sellerId", sellerFinance.SellerId,
-					"result", transferResult)
-
-				sellerFinance.Payment.RetryResult++
+					"result", transferResult,
+					"retryResult", sellerFinance.Payment.RetryResult)
 			}
 		} else {
 			log.GLog.Logger.Info("reach to maximum automatic retry payment result, change to manual finance payment result transfer money",
@@ -459,7 +461,7 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 
 	iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
 	if iFuture.Error() != nil {
-		log.GLog.Logger.Error("sellerFinance transfer money result failed",
+		log.GLog.Logger.Error("sellerFinance transfer money update failed",
 			"fn", "automaticPaymentHandler",
 			"fid", sellerFinance.FId,
 			"sellerId", sellerFinance.SellerId,
