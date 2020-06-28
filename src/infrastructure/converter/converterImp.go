@@ -315,7 +315,7 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 
 //============================= other functions
 func resolveFinanceState(state entities.FinanceState, payment *entities.FinancePayment) (paymentStatus string) {
-	switch item.Status {
+	switch state {
 	case entities.FinanceOrderCollectionStatus:
 		paymentStatus = string(paymentCalculation)
 
@@ -324,13 +324,13 @@ func resolveFinanceState(state entities.FinanceState, payment *entities.FinanceP
 
 	case entities.FinanceClosedStatus:
 		switch payment.Status {
-		case entities.PaymentSuccessState:
+		case entities.TransferSuccessState:
 			paymentStatus = string(paymentSucceed)
 
-		case entities.PaymentFailedState:
+		case entities.TransferFailedState:
 			paymentStatus = string(paymentFailed)
 
-		case entities.PaymentPartialState:
+		case entities.TransferPartialState:
 			paymentStatus = string(paymentPartial)
 		}
 	}
