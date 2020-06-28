@@ -16,7 +16,7 @@ require (
 	gitlab.faza.io/go-framework/acl v0.0.3
 	gitlab.faza.io/go-framework/logger v0.0.12
 	gitlab.faza.io/go-framework/mongoadapter v0.1.4
-	gitlab.faza.io/protos/finance-proto v0.0.2-rs10
+	gitlab.faza.io/protos/finance-proto v0.0.2-rs12
 	gitlab.faza.io/protos/order v0.0.83-rs4
 	gitlab.faza.io/protos/payment-transfer-proto v0.0.14
 	gitlab.faza.io/protos/user v0.0.49

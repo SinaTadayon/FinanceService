@@ -105,9 +105,27 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 	}
 
 	var financeInvoice financesrv.SellerFinanceOrderItemCollection_SellerFinanceInvoice
+	var sellerInfo financesrv.SellerFinanceOrderItemCollectionSellerInfo
 
 	if len(input.SellerFinances) > 0 {
 		item0 := input.SellerFinances[0]
+
+		if item0.SellerInfo != nil {
+			if item0.SellerInfo.GeneralInfo != nil {
+				sellerInfo.PostCode = item0.SellerInfo.GeneralInfo.PostalCode
+				sellerInfo.Type = item0.SellerInfo.GeneralInfo.Type
+				sellerInfo.ShopDisplayName = item0.SellerInfo.GeneralInfo.ShopDisplayName
+				sellerInfo.IsVatObliged = item0.SellerInfo.GeneralInfo.IsVATObliged
+			}
+
+			if item0.SellerInfo.FinanceData != nil {
+				sellerInfo.FinanceData = &financesrv.SellerFinanceOrderItemCollectionFinanceData{
+					Iban:                    item0.SellerInfo.FinanceData.Iban,
+					AccountHolderFirstName:  item0.SellerInfo.FinanceData.AccountHolderFirstName,
+					AccountHolderFamilyName: item0.SellerInfo.FinanceData.AccountHolderFamilyName,
+				}
+			}
+		}
 
 		if item0.Status != entities.FinanceOrderCollectionStatus && item0.Invoice != nil {
 			if item0.Invoice.CommissionRoundupTotal != nil {
@@ -141,6 +159,8 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 	}
 
 	output.FinanceInvoice = &financeInvoice
+	output.SellerInf = &sellerInfo
+
 	for _, fi := range input.SellerFinances {
 		//=============== the collecting data didn't have any calculated value
 		if fi.Status == entities.FinanceOrderCollectionStatus {

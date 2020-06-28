@@ -79,10 +79,85 @@ message SellerFinanceOrderItemCollection {
     }
 
     SellerFinanceInvoice FinanceInvoice = 2;
+
+    message financeData {
+        string Iban = 1;
+        string AccountHolderFirstName = 2;
+        string accountHolderFamilyName = 3;
+    }
+
+    message sellerInfo {
+        financeData FinanceData = 1;
+        string ShopDisplayName = 2;
+        bool IsVatObliged = 3;
+        string Type = 4;
+        string PostCode = 5;
+    }
+
+    sellerInfo SellerInf = 3;
+}
+
+message SellerFinanceOrderItemCollectionExported {
+    repeated ExportData exportData = 1;
 }
 
 //=================== Buyer
 
 //=================== Operator
 
+//=================== Actions
+message ActionRequest {
+    message FinancesActionRequest {
+        string exportType = 1; // which can be pdf, csv, etc..
+        repeated uint64 FID = 2;
+    }
 
+    message TriggerActionRequest {
+        string id = 1;
+        string name = 2;
+        string triggerType = 3;
+        string group = 4;
+        string executeMode = 5;
+        string jobExecutionType = 6;
+        repeated string triggerHistory = 7;
+    }
+
+    oneof data {
+        FinancesActionRequest finances = 1;
+        TriggerActionRequest trigger = 2;
+    }
+}
+
+message ActionResponse {
+    message FinanceActionResponse {
+        string actionId = 1;
+    }
+
+    oneof data {
+        FinanceActionResponse finance = 1;
+    }
+}
+
+//=================== Export data
+message ExportData {
+    message Reason {
+        string key = 1;
+        bool hasDescription = 2;
+        string translation = 3;
+        repeated uint64 FID = 4;
+    }
+
+    string EXN = 1; // exportation number
+    repeated uint64 FID = 2;
+    string createdAt = 3;
+    string status = 4; // the state is, Pending, InProgress, Failed -> reason, Succeeded -> link, Partial -> reason for wrong fid
+
+    message File {
+        string link = 1;
+    }
+
+    oneof result {
+        File file = 5;
+        Reason reason = 6;
+    }
+}
