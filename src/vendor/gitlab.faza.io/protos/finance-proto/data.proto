@@ -95,6 +95,7 @@ message SellerFinanceOrderItemCollection {
     }
 
     sellerInfo SellerInf = 3;
+    string PaymentStatus = 4;
 }
 
 message SellerFinanceOrderItemCollectionExported {

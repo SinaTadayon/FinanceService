@@ -127,6 +127,8 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 			}
 		}
 
+		output.PaymentStatus = resolveFinanceState(item0.Status, item0.Payment)
+
 		if item0.Status != entities.FinanceOrderCollectionStatus && item0.Invoice != nil {
 			if item0.Invoice.CommissionRoundupTotal != nil {
 				financeInvoice.Commission = &financesrv.Money{
@@ -312,6 +314,30 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 }
 
 //============================= other functions
+func resolveFinanceState(state entities.FinanceState, payment *entities.FinancePayment) (paymentStatus string) {
+	switch item.Status {
+	case entities.FinanceOrderCollectionStatus:
+		paymentStatus = string(paymentCalculation)
+
+	case entities.FinancePaymentProcessStatus:
+		paymentStatus = string(paymentPending)
+
+	case entities.FinanceClosedStatus:
+		switch payment.Status {
+		case entities.PaymentSuccessState:
+			paymentStatus = string(paymentSucceed)
+
+		case entities.PaymentFailedState:
+			paymentStatus = string(paymentFailed)
+
+		case entities.PaymentPartialState:
+			paymentStatus = string(paymentPartial)
+		}
+	}
+
+	return paymentStatus
+}
+
 func resolveFinanceStat(item *entities.SellerFinance) (paymentStatus string, total financesrv.Money) {
 	switch item.Status {
 	case entities.FinanceOrderCollectionStatus:
