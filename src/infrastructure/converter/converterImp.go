@@ -359,10 +359,12 @@ func resolveFinanceStat(item *entities.SellerFinance) (paymentStatus string, tot
 		}
 	}
 
-	if item.Payment.TransferRequest != nil {
-		total = financesrv.Money{
-			Amount:   item.Payment.TransferRequest.TotalPrice.Amount,
-			Currency: item.Payment.TransferRequest.TotalPrice.Currency,
+	if item.Payment != nil {
+		if item.Payment.TransferRequest != nil {
+			total = financesrv.Money{
+				Amount:   item.Payment.TransferRequest.TotalPrice.Amount,
+				Currency: item.Payment.TransferRequest.TotalPrice.Currency,
+			}
 		}
 	}
 
