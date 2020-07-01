@@ -258,6 +258,19 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 			default:
 			}
 
+			if sellerFinance.SellerInfo == nil {
+				iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
+				if iFuture.Error() != nil {
+					log.GLog.Logger.Error("UserService.GetSellerProfile failed",
+						"fn", "ExecutePipeline",
+						"sellerId", sellerFinance.SellerId,
+						"error", iFuture.Error())
+					continue
+				} else {
+					sellerFinance.SellerInfo = iFuture.Data().(*entities.SellerProfile)
+				}
+			}
+
 			if err := pipeline.financeTriggerValidation(ctx, sellerFinance); err != nil {
 				log.GLog.Logger.Error("finance not accepted for processing because related trigger has problem",
 					"fn", "ExecutePipeline",
@@ -281,29 +294,6 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 				"fid", sellerFinance.FId,
 				"sellerId", sellerFinance.SellerId,
 				"invoice", sellerFinance.Invoice)
-
-			if sellerFinance.SellerInfo == nil {
-				iFuture := app.Globals.UserService.GetSellerProfile(ctx, strconv.Itoa(int(sellerFinance.SellerId))).Get()
-				if iFuture.Error() != nil {
-					log.GLog.Logger.Error("UserService.GetSellerProfile failed",
-						"fn", "ExecutePipeline",
-						"sellerId", sellerFinance.SellerId,
-						"error", iFuture.Error())
-
-					sellerFinance.Status = entities.FinancePaymentProcessStatus
-					iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
-					if iFuture.Error() != nil {
-						log.GLog.Logger.Error("sellerFinance update failed",
-							"fn", "ExecutePipeline",
-							"fid", sellerFinance.FId,
-							"sellerId", sellerFinance.SellerId,
-							"error", iFuture.Error())
-					}
-					continue
-				} else {
-					sellerFinance.SellerInfo = iFuture.Data().(*entities.SellerProfile)
-				}
-			}
 
 			if sellerFinance.PaymentMode == entities.AutomaticPaymentMode {
 				pipeline.financePayment(ctx, sellerFinance)
