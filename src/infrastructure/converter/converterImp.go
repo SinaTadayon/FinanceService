@@ -238,6 +238,11 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 					Currency: invoice.Share.RoundupUnitSellerShare.Currency,
 				},
 			}
+		} else {
+			share = financesrv.SellerFinanceOrderItemList_SellerShare{
+				RoundupUnit:  nil,
+				RoundupTotal: nil,
+			}
 		}
 
 		//=============== sso per item and total package
@@ -253,6 +258,13 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 					Amount:   invoice.SSO.RoundupTotalPrice.Amount,
 					Currency: invoice.SSO.RoundupTotalPrice.Currency,
 				},
+			}
+		} else {
+			sso = financesrv.SellerFinanceOrderItemList_RatedMoney{
+				Rate:         0,
+				IsObliged:    false,
+				RoundupUnit:  nil,
+				RoundupTotal: nil,
 			}
 		}
 
@@ -270,6 +282,13 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 					Currency: invoice.VAT.RoundupTotalPrice.Currency,
 				},
 			}
+		} else {
+			vat = financesrv.SellerFinanceOrderItemList_RatedMoney{
+				Rate:         0,
+				IsObliged:    false,
+				RoundupUnit:  nil,
+				RoundupTotal: nil,
+			}
 		}
 
 		//=============== commission per item and total package
@@ -284,6 +303,12 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 					Amount:   invoice.Commission.RoundupTotalPrice.Amount,
 					Currency: invoice.Commission.RoundupTotalPrice.Currency,
 				},
+			}
+		} else {
+			commission = financesrv.SellerFinanceOrderItemList_SellerCommission{
+				Rate:         0,
+				RoundupUnit:  nil,
+				RoundupTotal: nil,
 			}
 		}
 
