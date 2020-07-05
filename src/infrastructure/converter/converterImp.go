@@ -144,6 +144,13 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 				}
 			}
 
+			if item0.Invoice.SSORoundupTotal != nil {
+				financeInvoice.SSO = &financesrv.Money{
+					Amount:   item0.Invoice.SSORoundupTotal.Amount,
+					Currency: item0.Invoice.SSORoundupTotal.Currency,
+				}
+			}
+
 			if item0.Invoice.ShipmentRoundupTotal != nil {
 				financeInvoice.Shipment = &financesrv.Money{
 					Amount:   item0.Invoice.ShipmentRoundupTotal.Amount,
