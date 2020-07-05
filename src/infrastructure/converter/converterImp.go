@@ -212,6 +212,12 @@ func convertSellerOrderItemsToSellerFinanceOrderItemCollection(input sellerOrder
 						Amount:   fi.OrderInfo.Order.RoundupShippingNet.Amount,
 						Currency: fi.OrderInfo.Order.RoundupShippingNet.Currency,
 					},
+					SSO: &financesrv.SellerFinanceOrderItemList_RatedMoney{
+						Rate:         0,
+						IsObliged:    false,
+						RoundupUnit:  nil,
+						RoundupTotal: nil,
+					},
 				}
 
 				//=============== add a row for shipment amount
