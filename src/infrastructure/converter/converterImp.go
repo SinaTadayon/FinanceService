@@ -362,13 +362,13 @@ func resolveFinanceState(state entities.FinanceState, payment *entities.FinanceP
 
 	case entities.FinanceClosedStatus:
 		switch payment.Status {
-		case entities.TransferSuccessState:
+		case entities.PaymentSuccessState:
 			paymentStatus = string(paymentSucceed)
 
-		case entities.TransferFailedState:
+		case entities.PaymentFailedState:
 			paymentStatus = string(paymentFailed)
 
-		case entities.TransferPartialState:
+		case entities.PaymentPartialState:
 			paymentStatus = string(paymentPartial)
 		}
 	}
@@ -386,13 +386,13 @@ func resolveFinanceStat(item *entities.SellerFinance) (paymentStatus string, tot
 
 	case entities.FinanceClosedStatus:
 		switch item.Payment.Status {
-		case entities.TransferSuccessState:
+		case entities.PaymentSuccessState:
 			paymentStatus = string(paymentSucceed)
 
-		case entities.TransferFailedState:
+		case entities.PaymentFailedState:
 			paymentStatus = string(paymentFailed)
 
-		case entities.TransferPartialState:
+		case entities.PaymentPartialState:
 			paymentStatus = string(paymentPartial)
 		}
 	}
