@@ -311,7 +311,7 @@ func (scheduler OrderScheduler) fanOutPipelines(ctx context.Context, pipelineStr
 				initIndex++
 			}
 
-			if index > len(pipelineChannels) {
+			if index >= len(pipelineChannels) {
 				index = 0
 			}
 
