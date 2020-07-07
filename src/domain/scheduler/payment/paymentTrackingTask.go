@@ -145,7 +145,7 @@ func fanOutFinancePipeline(ctx context.Context, financeStream FinanceReaderStrea
 				initIndex++
 			}
 
-			if index > len(financeWriterChannels) {
+			if index >= len(financeWriterChannels) {
 				index = 0
 			}
 

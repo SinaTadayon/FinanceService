@@ -13,7 +13,7 @@ import (
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	payment_scheduler "gitlab.faza.io/services/finance/domain/scheduler/payment"
 	"gitlab.faza.io/services/finance/infrastructure/future"
-	"gitlab.faza.io/services/finance/infrastructure/handler/imp"
+	"gitlab.faza.io/services/finance/infrastructure/handler/imp/seller"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/server/grpc_mux"
@@ -50,7 +50,7 @@ func (server Server) HandleRequest(ctx context.Context, req *finance_proto.Reque
 		utp    string
 		method string
 	)
-
+	
 	iFuture := app.Globals.UserService.AuthenticateContextToken(ctx).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("UserService.AuthenticateContextToken failed",
@@ -240,8 +240,11 @@ func (server Server) Start() error {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 
 	// register handler over there
-	hand := imp.NewSellerFinanceListHandler(app.Globals.SellerFinanceRepository)
+	hand := seller.NewSellerFinanceListHandler(app.Globals.SellerFinanceRepository, app.Globals.Converter)
 	err = server.mux.RegHandler(grpc_mux.SellerUserType, grpc_mux.SellerFinanceListMethod, hand)
+	hand = seller.NewSellerFinanceOrderItemListHandler(app.Globals.SellerOrderItemRepository, app.Globals.Converter)
+	err = server.mux.RegHandler(grpc_mux.SellerUserType, grpc_mux.SellerOrderItemListMethod, hand)
+
 	if err != nil {
 		log.GLog.Logger.Error("GRPC server register method on mux field", "fn", "Start", "error", err.Error())
 		return err

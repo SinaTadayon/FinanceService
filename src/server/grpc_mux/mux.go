@@ -16,8 +16,9 @@ const (
 	SellerUserType UserType = "seller"
 
 	// defined methods
-	TestMethod              Method = "test"
-	SellerFinanceListMethod Method = "finance_list"
+	TestMethod                Method = "test"
+	SellerFinanceListMethod   Method = "finance_list"
+	SellerOrderItemListMethod Method = "finance_order_item_list"
 )
 
 type (

@@ -1,35 +1,31 @@
-package imp
+package sellerOrderItem
 
 import (
 	"context"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
-	finance_proto "gitlab.faza.io/protos/finance-proto"
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
-	"gitlab.faza.io/services/finance/infrastructure/handler"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
-	"gitlab.faza.io/services/finance/infrastructure/utils"
-	"gitlab.faza.io/services/finance/server/grpc_mux"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"os"
 	"testing"
 	"time"
 )
 
-var (
-	financeRepository    finance_repository.ISellerFinanceRepository
-	sellerFinanceHandler handler.IHandler
-)
+var sellerOrderItemRepo ISellerOrderItemRepository
+var financeRepository finance_repository.ISellerFinanceRepository
+var mongoAdapter *mongoadapter.Mongo
+var config *configs.Config
 
 func TestMain(m *testing.M) {
 	var err error
 	var path string
 	if os.Getenv("APP_MODE") == "dev" {
-		path = "../../../testdata/.env"
+		path = "../../../../testdata/.env"
 	} else {
 		path = ""
 	}
@@ -37,7 +33,7 @@ func TestMain(m *testing.M) {
 	log.GLog.ZapLogger = log.InitZap()
 	log.GLog.Logger = logger.NewZapLogger(log.GLog.ZapLogger)
 
-	config, err := configs.LoadConfigs(path)
+	config, err = configs.LoadConfigs(path)
 	if err != nil {
 		log.GLog.Logger.Error("configs.LoadConfig failed",
 			"error", err)
@@ -65,14 +61,14 @@ func TestMain(m *testing.M) {
 		ReadPreference:         config.Mongo.ReadPreferred,
 	}
 
-	mongoAdapter, err := mongoadapter.NewMongo(mongoConf)
+	mongoAdapter, err = mongoadapter.NewMongo(mongoConf)
 	if err != nil {
 		log.GLog.Logger.Error("mongoadapter.NewMongo failed", "error", err)
 		os.Exit(1)
 	}
 
+	sellerOrderItemRepo = NewSellerOrderItemRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
 	financeRepository = finance_repository.NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
-	sellerFinanceHandler = NewSellerFinanceListHandler(financeRepository)
 
 	// Running Tests
 	code := m.Run()
@@ -80,50 +76,48 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestSellerFinanceListHandler_Handle(t *testing.T) {
+func TestISellerOrderItemRepositoryImp_FindOrderItemsByFilterWithPage(t *testing.T) {
 	defer removeCollection()
 	finance := createFinance()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
 
-	req := finance_proto.RequestMessage{
-		Name: string(grpc_mux.TestUserType),
-		Type: "",
-		Time: time.Now().Format(utils.ISO8601),
-		Header: &finance_proto.ReqMeta{
-			UTP:       "Seller",
-			UID:       finance.SellerId,
-			FID:       finance.FId,
-			Page:      1,
-			PerPage:   2,
-			IpAddress: "",
-			StartAt:   "",
-			EndAt:     "",
-			Sorts: &finance_proto.RequestMetaSorts{
-				Name: "fid",
-				Dir:  uint32(finance_proto.RequestMetaSorts_Descending),
-			},
-			Filters: nil,
-		},
-		Body: nil,
+	iFuture := financeRepository.Insert(context.Background(), *finance).Get()
+	require.Nil(t, iFuture.Error(), "financeRepository.Save failed")
+	finance = iFuture.Data().(*entities.SellerFinance)
+
+	ctx, _ := context.WithCancel(context.Background())
+	totalPipeline := []bson.M{
+		{"$match": bson.M{"fid": finance.FId, "sellerId": finance.SellerId}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$unwind": "$ordersInfo.orders.items"},
+		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
+		{"$project": bson.M{"_id": 0, "count": 1}},
+	}
+	pipeline := []bson.M{
+		{"$match": bson.M{"fid": finance.FId, "sellerId": finance.SellerId}},
+		{"$unwind": "$ordersInfo"},
+		{"$unwind": "$ordersInfo.orders"},
+		{"$unwind": "$ordersInfo.orders.items"},
+		{"$project": bson.M{"_id": 0}},
 	}
 
-	res := sellerFinanceHandler.Handle(&req).Get()
+	totalFunc := func() interface{} {
+		return totalPipeline
+	}
 
-	require.Nil(t, res.Error())
-	resp := res.Data().(*finance_proto.ResponseMessage)
-	require.Equal(t, uint32(1), resp.Meta.Total)
+	pipeFunc := func() interface{} {
+		return pipeline
+	}
 
-	body := finance_proto.SellerFinanceListCollection{}
-	err := proto.Unmarshal(resp.Data.Value, &body)
-	require.Nil(t, err)
-	require.Equal(t, finance.Payment.TransferRequest.TotalPrice.Amount, body.Items[0].Total.Amount)
+	res := sellerOrderItemRepo.FindOrderItemsByFilterWithPage(ctx, totalFunc, pipeFunc, 1, 2, "fid", 1).Get()
+
+	result := res.Data().(SellerOrderItems)
+	require.Equal(t, int64(2), result.Total)
+	require.Equal(t, finance.FId, result.SellerFinances[0].FId)
 }
 
 func removeCollection() {
-	ctx, _ := context.WithCancel(context.Background())
-	if err := financeRepository.RemoveAll(ctx); err != nil {
+	if _, err := mongoAdapter.DeleteMany(config.Mongo.Database, config.Mongo.SellerCollection, bson.M{}); err != nil {
 	}
 }
 
@@ -537,13 +531,10 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "1650000",
 					Currency: "IRR",
 				},
-				FailedTransfer: &entities.Money{
-					Amount:   "1620000",
-					Currency: "IRR",
-				},
-				CreatedAt: time.Now(),
+				FailedTransfer: nil,
+				CreatedAt:      time.Now(),
 			},
-			Status:    entities.TransferPartialState,
+			Status:    "Success",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},

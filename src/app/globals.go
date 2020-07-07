@@ -6,8 +6,10 @@ import (
 	"gitlab.faza.io/services/finance/configs"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
 	order_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerOrder"
+	"gitlab.faza.io/services/finance/domain/model/repository/sellerOrderItem"
 	trigger_repository "gitlab.faza.io/services/finance/domain/model/repository/trigger"
 	trigger_history_repository "gitlab.faza.io/services/finance/domain/model/repository/triggerHistory"
+	"gitlab.faza.io/services/finance/infrastructure/converter"
 	"gitlab.faza.io/services/finance/infrastructure/logger"
 	order_service "gitlab.faza.io/services/finance/infrastructure/services/order"
 	payment_service "gitlab.faza.io/services/finance/infrastructure/services/payment"
@@ -17,16 +19,18 @@ import (
 )
 
 var Globals struct {
-	MongoDriver              *mongoadapter.Mongo
-	Config                   *configs.Config
-	UserService              user_service.IUserService
-	OrderService             order_service.IOrderService
-	PaymentService           payment_service.IPaymentService
-	SellerFinanceRepository  finance_repository.ISellerFinanceRepository
-	SellerOrderRepository    order_repository.ISellerOrderRepository
-	TriggerRepository        trigger_repository.ISchedulerTriggerRepository
-	TriggerHistoryRepository trigger_history_repository.ITriggerHistoryRepository
-	WorkerPool               worker_pool.IWorkerPool
+	MongoDriver               *mongoadapter.Mongo
+	Config                    *configs.Config
+	UserService               user_service.IUserService
+	OrderService              order_service.IOrderService
+	PaymentService            payment_service.IPaymentService
+	SellerFinanceRepository   finance_repository.ISellerFinanceRepository
+	SellerOrderRepository     order_repository.ISellerOrderRepository
+	SellerOrderItemRepository sellerOrderItem.ISellerOrderItemRepository
+	TriggerRepository         trigger_repository.ISchedulerTriggerRepository
+	TriggerHistoryRepository  trigger_history_repository.ITriggerHistoryRepository
+	WorkerPool                worker_pool.IWorkerPool
+	Converter                 converter.IConverter
 }
 
 func SetupMongoDriver(config configs.Config) (*mongoadapter.Mongo, error) {

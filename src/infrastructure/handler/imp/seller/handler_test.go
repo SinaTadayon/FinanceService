@@ -1,25 +1,22 @@
-package grpc
+package seller
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
-	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
 	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
 	"gitlab.faza.io/services/finance/domain/model/repository/sellerOrderItem"
-	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	"gitlab.faza.io/services/finance/infrastructure/converter"
+	"gitlab.faza.io/services/finance/infrastructure/handler"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/server/grpc_mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/grpc"
 	"os"
 	"testing"
 	"time"
@@ -28,14 +25,16 @@ import (
 var (
 	financeRepository         finance_repository.ISellerFinanceRepository
 	sellerOrderItemRepository sellerOrderItem.ISellerOrderItemRepository
-	cli                       finance_proto.FinanceServiceClient
+
+	sellerFinanceHandler       handler.IHandler
+	sellerOrderItemListHandler handler.IHandler
 )
 
 func TestMain(m *testing.M) {
 	var err error
 	var path string
 	if os.Getenv("APP_MODE") == "dev" {
-		path = "../../testdata/.env"
+		path = "../../../../testdata/.env"
 	} else {
 		path = ""
 	}
@@ -78,91 +77,73 @@ func TestMain(m *testing.M) {
 	}
 
 	financeRepository = finance_repository.NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
-	app.Globals.SellerFinanceRepository = financeRepository
 	sellerOrderItemRepository = sellerOrderItem.NewSellerOrderItemRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
-	app.Globals.SellerOrderItemRepository = sellerOrderItemRepository
-	app.Globals.Converter = converter.NewConverter()
 
-	mux := grpc_mux.NewServerMux(config.GRPCMultiplexer)
-	grpcServer := NewServer(config.GRPCServer.Address, uint16(config.GRPCServer.Port), order_scheduler.OrderScheduler{}, mux)
-	go func() {
-		if err := grpcServer.Start(); err != nil {
-			os.Exit(1)
-		}
-	}()
-
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.GRPCServer.Address, config.GRPCServer.Port), grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		panic(err)
-	}
-	cli = finance_proto.NewFinanceServiceClient(conn)
+	converter := converter.NewConverter()
+	sellerFinanceHandler = NewSellerFinanceListHandler(financeRepository, converter)
+	sellerOrderItemListHandler = NewSellerFinanceOrderItemListHandler(sellerOrderItemRepository, converter)
 
 	// Running Tests
 	code := m.Run()
-	removeCollection()
+	// removeCollection()
 	os.Exit(code)
 }
 
-func TestServer_HandleRequest_SellerOrderItemListMethod(t *testing.T) {
-	// todo : create authorized outgoing context for ci-cd pipeline
+func TestSellerFinanceOrderItemListHandler_Handle(t *testing.T) {
 	defer removeCollection()
-	fin := createFinance()
-	ifu := financeRepository.Insert(context.Background(), *fin).Get()
-
-	require.Nil(t, ifu.Error())
-
-	fin = ifu.Data().(*entities.SellerFinance)
+	finance := createFinance()
+	ctx, _ := context.WithCancel(context.Background())
+	iFuture := financeRepository.Insert(ctx, *finance).Get()
+	require.Nil(t, iFuture.Error())
+	finance = iFuture.Data().(*entities.SellerFinance)
 
 	req := finance_proto.RequestMessage{
 		Name: string(grpc_mux.SellerOrderItemListMethod),
 		Type: "",
 		Time: time.Now().Format(utils.ISO8601),
 		Header: &finance_proto.ReqMeta{
-			UTP:       string(grpc_mux.SellerUserType),
-			UID:       fin.SellerId,
-			FID:       fin.FId,
-			Page:      1,
-			PerPage:   2,
-			IpAddress: "",
-			StartAt:   "",
-			EndAt:     "",
+			UTP:     "Seller",
+			UID:     finance.SellerId,
+			FID:     finance.FId,
+			Page:    1,
+			PerPage: 2,
 			Sorts: &finance_proto.RequestMetaSorts{
 				Name: "fid",
-				Dir:  uint32(finance_proto.RequestMetaSorts_Descending),
+				Dir:  uint32(finance_proto.RequestMetaSorts_Ascending),
 			},
 			Filters: nil,
 		},
 		Body: nil,
 	}
 
-	res, err := cli.HandleRequest(context.Background(), &req)
+	res := sellerOrderItemListHandler.Handle(&req).Get()
 
-	require.Nil(t, err)
-	require.Equal(t, uint32(2), res.Meta.Total)
+	require.Nil(t, res.Error())
+	resp := res.Data().(*finance_proto.ResponseMessage)
+	require.Equal(t, uint32(2), resp.Meta.Total)
 
 	body := finance_proto.SellerFinanceOrderItemCollection{}
-	err = proto.Unmarshal(res.Data.Value, &body)
+	err := proto.Unmarshal(resp.Data.Value, &body)
 	require.Nil(t, err)
-	require.Equal(t, 4, len(body.Items))
-	require.Equal(t, "Shipment", body.Items[0].PaymentType)
-	require.Equal(t, "Purchase", body.Items[1].PaymentType)
+	require.Equal(t, body.Items[0].PaymentType, "Shipment")
+	require.Equal(t, body.Items[1].PaymentType, "Purchase")
 }
 
-func TestServer_HandleRequest_SellerFinanceList(t *testing.T) {
+func TestSellerFinanceListHandler_Handle(t *testing.T) {
 	defer removeCollection()
-	fin := createFinance()
-	ifu := financeRepository.Insert(context.Background(), *fin).Get()
-
-	require.Nil(t, ifu.Error())
+	finance := createFinance()
+	ctx, _ := context.WithCancel(context.Background())
+	iFuture := financeRepository.Insert(ctx, *finance).Get()
+	require.Nil(t, iFuture.Error())
 
 	req := finance_proto.RequestMessage{
 		Name: string(grpc_mux.SellerFinanceListMethod),
 		Type: "",
 		Time: time.Now().Format(utils.ISO8601),
 		Header: &finance_proto.ReqMeta{
-			UTP:       string(grpc_mux.SellerUserType),
-			UID:       fin.SellerId,
-			FID:       fin.FId,
+			UTP:       "Seller",
+			UID:       finance.SellerId,
+			FID:       finance.FId,
 			Page:      1,
 			PerPage:   2,
 			IpAddress: "",
@@ -177,18 +158,18 @@ func TestServer_HandleRequest_SellerFinanceList(t *testing.T) {
 		Body: nil,
 	}
 
-	res, err := cli.HandleRequest(context.Background(), &req)
+	res := sellerFinanceHandler.Handle(&req).Get()
 
-	require.Nil(t, err)
-	require.Equal(t, uint32(1), res.Meta.Total)
+	require.Nil(t, res.Error())
+	resp := res.Data().(*finance_proto.ResponseMessage)
+	require.Equal(t, uint32(1), resp.Meta.Total)
 
 	body := finance_proto.SellerFinanceListCollection{}
-	err = proto.Unmarshal(res.Data.Value, &body)
+	err := proto.Unmarshal(resp.Data.Value, &body)
 	require.Nil(t, err)
-	require.Equal(t, fin.FId, body.Items[0].FID)
+	require.Equal(t, finance.Payment.TransferRequest.TotalPrice.Amount, body.Items[0].Total.Amount)
 }
 
-// db related stofs
 func removeCollection() {
 	ctx, _ := context.WithCancel(context.Background())
 	if err := financeRepository.RemoveAll(ctx); err != nil {
@@ -198,7 +179,7 @@ func removeCollection() {
 func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
 	return &entities.SellerFinance{
-		FId:        "1233312",
+		FId:        "",
 		SellerId:   100002,
 		Version:    1,
 		DocVersion: entities.FinanceDocumentVersion,

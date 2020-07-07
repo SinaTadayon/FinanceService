@@ -194,3 +194,43 @@ type Money struct {
 	Amount   string `bson:"amount"`
 	Currency string `bson:"currency"`
 }
+
+//============= unwind
+type SellerFinanceOrderItem struct {
+	ID         primitive.ObjectID   `bson:"_"`
+	FId        string               `bson:"fid"`
+	SellerId   uint64               `bson:"sellerId"`
+	Version    uint64               `bson:"version"`
+	DocVersion string               `bson:"docVersion"`
+	SellerInfo *SellerProfile       `bson:"sellerInfo"`
+	Invoice    *Invoice             `bson:"invoice"`
+	OrderInfo  *SellerOrderItemInfo `bson:"ordersInfo"`
+	Payment    *FinancePayment      `bson:"payment"`
+	Status     FinanceState         `bson:"status"`
+	StartAt    *time.Time           `bson:"startAt"`
+	EndAt      *time.Time           `bson:"endAt"`
+	CreatedAt  time.Time            `bson:"createdAt"`
+	UpdatedAt  time.Time            `bson:"updatedAt"`
+	DeletedAt  *time.Time           `bson:"deletedAt"`
+}
+
+type SellerOrderItemInfo struct {
+	TriggerName      string             `bson:"triggerName"`
+	TriggerHistoryId primitive.ObjectID `bson:"triggerHistoryId"`
+	Order            *SellerOrderItem   `bson:"orders"`
+}
+
+type SellerOrderItem struct {
+	OId                    uint64      `bson:"oid"`
+	FId                    string      `bson:"fid"`
+	SellerId               uint64      `bson:"sellerId"`
+	ShipmentAmount         *Money      `bson:"shipmentAmount"`
+	RawShippingNet         *Money      `bson:"rawShippingNet"`
+	RoundupShippingNet     *Money      `bson:"roundupShippingNet"`
+	IsAlreadyShippingPayed bool        `bson:"isAlreadyShippingPayed"`
+	Item                   *SellerItem `bson:"items"`
+	OrderCreatedAt         *time.Time  `bson:"orderCreatedAt"`
+	SubPkgCreatedAt        *time.Time  `bson:"subPkgCreatedAt"`
+	SubPkgUpdatedAt        *time.Time  `bson:"subPkgUpdatedAt"`
+	DeletedAt              *time.Time  `bson:"deletedAt"`
+}
