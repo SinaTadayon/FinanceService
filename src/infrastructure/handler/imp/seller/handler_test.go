@@ -16,7 +16,6 @@ import (
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/server/grpc_mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"os"
 	"testing"
 	"time"
@@ -252,8 +251,7 @@ func createFinance() *entities.SellerFinance {
 		},
 		OrdersInfo: []*entities.OrderInfo{
 			{
-				TriggerName:      "SCH4",
-				TriggerHistoryId: primitive.NewObjectID(),
+				TriggerName: "SCH4",
 				Orders: []*entities.SellerOrder{
 					{
 						OId:      1111111111,
@@ -592,7 +590,7 @@ func createFinance() *entities.SellerFinance {
 				},
 				CreatedAt: time.Now(),
 			},
-			Status:    entities.TransferPartialState,
+			Status:    entities.PaymentPartialState,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
