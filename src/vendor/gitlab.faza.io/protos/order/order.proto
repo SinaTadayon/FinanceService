@@ -54,6 +54,7 @@ message ResponseNewOrder {
         IPGResponse ipg = 2;
         MPGResponse mpg = 3;
     }
+    uint64 OrderId = 4;
 }
 
 message IPGResponse {

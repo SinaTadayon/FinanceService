@@ -8680,9 +8680,7 @@ func init() {
 	proto.RegisterType((*OperatorOrderInvoiceDetail_PackageFinance_ItemFinance_ItemInvoice_ItemVAT_ItemBusinessVAT)(nil), "ordersrv.OperatorOrderInvoiceDetail.PackageFinance.ItemFinance.ItemInvoice.ItemVAT.ItemBusinessVAT")
 }
 
-func init() {
-	proto.RegisterFile("message.proto", fileDescriptor_33c57e4bae7b9afd)
-}
+func init() { proto.RegisterFile("message.proto", fileDescriptor_33c57e4bae7b9afd) }
 
 var fileDescriptor_33c57e4bae7b9afd = []byte{
 	// 5639 bytes of a gzipped FileDescriptorProto
