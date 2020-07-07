@@ -5,6 +5,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"gitlab.faza.io/go-framework/acl"
 	"gitlab.faza.io/go-framework/logger"
 	finance_proto "gitlab.faza.io/protos/finance-proto"
 	"gitlab.faza.io/services/finance/app"
@@ -12,8 +13,10 @@ import (
 	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	payment_scheduler "gitlab.faza.io/services/finance/domain/scheduler/payment"
 	"gitlab.faza.io/services/finance/infrastructure/future"
+	"gitlab.faza.io/services/finance/infrastructure/handler/imp"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
 	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"gitlab.faza.io/services/finance/server/grpc_mux"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -30,14 +33,82 @@ type Server struct {
 	orderScheduler order_scheduler.OrderScheduler
 	address        string
 	port           uint16
+	mux            grpc_mux.IServerMux
 }
 
-func NewServer(address string, port uint16, orderScheduler order_scheduler.OrderScheduler) Server {
+func NewServer(address string, port uint16, orderScheduler order_scheduler.OrderScheduler, mux grpc_mux.IServerMux) Server {
 	return Server{
 		orderScheduler: orderScheduler,
 		address:        address,
 		port:           port,
+		mux:            mux,
 	}
+}
+
+func (server Server) HandleRequest(ctx context.Context, req *finance_proto.RequestMessage) (*finance_proto.ResponseMessage, error) {
+	var (
+		utp    string
+		method string
+	)
+
+	iFuture := app.Globals.UserService.AuthenticateContextToken(ctx).Get()
+	if iFuture.Error() != nil {
+		log.GLog.Logger.Error("UserService.AuthenticateContextToken failed",
+			"fn", "HandleRequest", "error", iFuture.Error().Reason())
+		return nil, status.Error(codes.Code(iFuture.Error().Code()), iFuture.Error().Message())
+	}
+
+	userAcl := iFuture.Data().(*acl.Acl)
+	if uint64(userAcl.User().UserID) != req.Header.UID {
+		log.GLog.Logger.Error("request userId mismatch with token userId", "fn", "HandleRequest",
+			"userId", req.Header.UID, "token", userAcl.User().UserID)
+		return nil, status.Error(codes.Code(future.Forbidden), "User Not Authorized")
+	}
+
+	if ctx.Value(string(utils.CtxUserID)) == nil {
+		ctx = context.WithValue(ctx, string(utils.CtxUserID), uint64(req.Header.UID))
+		ctx = context.WithValue(ctx, string(utils.CtxUserACL), userAcl)
+	}
+
+	log.GLog.Logger.Info("Start handling request",
+		"fn", "HandleRequest",
+		"uid", req.Header.UID,
+		"utp", req.Header.UTP,
+		"method", req.Name,
+		"type", req.Type,
+		"time", req.Time)
+
+	utp = req.Header.UTP
+	method = req.Name
+
+	if utp == "" || method == "" {
+		log.GLog.Logger.Error("undfined user or method type",
+			"fn", "HandleRequest",
+			"uid", req.Header.UID,
+			"time", req.Time)
+
+		return nil, status.Error(codes.Code(future.BadRequest), "user type or method is undefined")
+	}
+
+	res, err := server.mux.Handle(ctx, utp, method, req)
+
+	if err != nil {
+		log.GLog.Logger.Error("Got error on handling request",
+			"fn", "HandleRequest",
+			"uid", req.Header.UID,
+			"utp", req.Header.UTP,
+			"method", req.Name,
+			"type", req.Type,
+			"time", req.Time,
+			"error", err)
+
+		if _, ok := status.FromError(err); !ok {
+			return nil, status.Error(codes.Code(future.InternalError), err.Error())
+		}
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (server Server) TestSellerFinance_OrderCollectionRequestHandler(ctx context.Context, req *finance_proto.OrderCollectionRequest) (*finance_proto.OrderCollectionResponse, error) {
@@ -167,6 +238,14 @@ func (server Server) Start() error {
 
 	// enable grpc prometheus interceptors to log timing info for grpc APIs
 	grpc_prometheus.EnableHandlingTimeHistogram()
+
+	// register handler over there
+	hand := imp.NewSellerFinanceListHandler(app.Globals.SellerFinanceRepository)
+	err = server.mux.RegHandler(grpc_mux.SellerUserType, grpc_mux.SellerFinanceListMethod, hand)
+	if err != nil {
+		log.GLog.Logger.Error("GRPC server register method on mux field", "fn", "Start", "error", err.Error())
+		return err
+	}
 
 	//Start GRPC server and register the server
 	grpcServer := grpc.NewServer(uIntOpt, sIntOpt)

@@ -21,6 +21,7 @@ import (
 	"gitlab.faza.io/services/finance/infrastructure/utils"
 	"gitlab.faza.io/services/finance/infrastructure/workerPool"
 	"gitlab.faza.io/services/finance/server/grpc"
+	"gitlab.faza.io/services/finance/server/grpc_mux"
 	"net/http"
 	"os"
 	"strconv"
@@ -495,7 +496,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	grpcServer := grpc.NewServer(app.Globals.Config.GRPCServer.Address, uint16(app.Globals.Config.GRPCServer.Port), orderScheduler)
+	mux := grpc_mux.NewServerMux(app.Globals.Config.GRPCMultiplexer)
+	grpcServer := grpc.NewServer(app.Globals.Config.GRPCServer.Address, uint16(app.Globals.Config.GRPCServer.Port), orderScheduler, mux)
 	if err := grpcServer.Start(); err != nil {
 		os.Exit(1)
 	}

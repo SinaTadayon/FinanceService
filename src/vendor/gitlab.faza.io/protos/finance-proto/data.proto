@@ -1,0 +1,30 @@
+//
+// This file contains data which will be serialized into
+// request data body, or response data body for specified user types
+syntax = "proto3";
+
+package financesrv;
+
+import "finance.proto";
+
+//=================== Seller
+
+message SellerFinanceList {
+    string FID = 1; // finance-id
+    uint64 UID = 2;
+    string StartDate = 3;
+    string EndDate = 4;
+    string PaymentStatus = 5;
+    Money Total = 6;
+}
+
+message SellerFinanceListCollection {
+    repeated SellerFinanceList items = 1;
+    uint64 total = 2;
+}
+
+//=================== Buyer
+
+//=================== Operator
+
+

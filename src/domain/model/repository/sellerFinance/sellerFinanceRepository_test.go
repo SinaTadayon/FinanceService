@@ -366,16 +366,13 @@ func TestFindByFilterWithPageAndPerPageAndSortRepository_success(t *testing.T) {
 	fid := iFuture.Data().(*entities.SellerFinance).FId
 
 	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
-
-	iFuture = financeRepository.Insert(ctx, *finance).Get()
-	require.Nil(t, iFuture.Error())
+	require.NotNil(t, iFuture.Error())
 
 	iFuture = financeRepository.FindByFilterWithPageAndSort(ctx, func() (interface{}, string, int) {
-		return bson.D{{}, {"deletedAt", nil}}, "fid", 1
+		return bson.D{{"fid", finance.FId}}, "", 0
 	}, 1, 2).Get()
 	require.Nil(t, iFuture.Error())
-	require.Equal(t, 2, len(iFuture.Data().(FinancePageableResult).SellerFinances))
+	require.Equal(t, 1, len(iFuture.Data().(FinancePageableResult).SellerFinances))
 	require.Equal(t, fid, iFuture.Data().(FinancePageableResult).SellerFinances[0].FId)
 }
 
@@ -389,7 +386,7 @@ func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
 	objId := primitive.NewObjectID()
 	return &entities.SellerFinance{
-		FId:        "",
+		FId:        "1233312",
 		SellerId:   100002,
 		Version:    1,
 		DocVersion: entities.FinanceDocumentVersion,

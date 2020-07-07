@@ -1,31 +1,38 @@
-package order_repository
+package grpc
 
 import (
 	"context"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.faza.io/go-framework/logger"
 	"gitlab.faza.io/go-framework/mongoadapter"
+	finance_proto "gitlab.faza.io/protos/finance-proto"
+	"gitlab.faza.io/services/finance/app"
 	"gitlab.faza.io/services/finance/configs"
 	"gitlab.faza.io/services/finance/domain/model/entities"
+	finance_repository "gitlab.faza.io/services/finance/domain/model/repository/sellerFinance"
+	order_scheduler "gitlab.faza.io/services/finance/domain/scheduler/order"
 	log "gitlab.faza.io/services/finance/infrastructure/logger"
-	"go.mongodb.org/mongo-driver/bson"
+	"gitlab.faza.io/services/finance/infrastructure/utils"
+	"gitlab.faza.io/services/finance/server/grpc_mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/grpc"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 )
 
-var sellerOrderRepo ISellerOrderRepository
-var mongoAdapter *mongoadapter.Mongo
-var config *configs.Config
+var (
+	financeRepository finance_repository.ISellerFinanceRepository
+	cli               finance_proto.FinanceServiceClient
+)
 
 func TestMain(m *testing.M) {
 	var err error
 	var path string
 	if os.Getenv("APP_MODE") == "dev" {
-		path = "../../../../testdata/.env"
+		path = "../../testdata/.env"
 	} else {
 		path = ""
 	}
@@ -33,14 +40,12 @@ func TestMain(m *testing.M) {
 	log.GLog.ZapLogger = log.InitZap()
 	log.GLog.Logger = logger.NewZapLogger(log.GLog.ZapLogger)
 
-	config, err = configs.LoadConfigs(path)
+	config, err := configs.LoadConfigs(path)
 	if err != nil {
 		log.GLog.Logger.Error("configs.LoadConfig failed",
 			"error", err)
 		os.Exit(1)
 	}
-
-	fmt.Println(config)
 
 	// store in mongo
 	mongoConf := &mongoadapter.MongoConfig{
@@ -63,13 +68,28 @@ func TestMain(m *testing.M) {
 		ReadPreference:         config.Mongo.ReadPreferred,
 	}
 
-	mongoAdapter, err = mongoadapter.NewMongo(mongoConf)
+	mongoAdapter, err := mongoadapter.NewMongo(mongoConf)
 	if err != nil {
 		log.GLog.Logger.Error("mongoadapter.NewMongo failed", "error", err)
 		os.Exit(1)
 	}
 
-	sellerOrderRepo = NewSellerOrderRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
+	financeRepository = finance_repository.NewSellerFinanceRepository(mongoAdapter, config.Mongo.Database, config.Mongo.SellerCollection)
+	app.Globals.SellerFinanceRepository = financeRepository
+
+	mux := grpc_mux.NewServerMux(config.GRPCMultiplexer)
+	grpcServer := NewServer(config.GRPCServer.Address, uint16(config.GRPCServer.Port), order_scheduler.OrderScheduler{}, mux)
+	go func() {
+		if err := grpcServer.Start(); err != nil {
+			os.Exit(1)
+		}
+	}()
+
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", config.GRPCServer.Address, config.GRPCServer.Port), grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		panic(err)
+	}
+	cli = finance_proto.NewFinanceServiceClient(conn)
 
 	// Running Tests
 	code := m.Run()
@@ -77,245 +97,57 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestSaveOrder(t *testing.T) {
+func TestServer_HandleRequest_SellerFinanceList(t *testing.T) {
 	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerFinance fid not generated")
-	ctx, _ := context.WithCancel(context.Background())
-	finance1 := createFinance()
-	orderFinance := finance1.OrdersInfo[0].Orders[0]
-	orderFinance.OId = 999999999
-	orderFinance.FId = finance.FId
-	iFuture := sellerOrderRepo.SaveOrder(ctx, *finance.OrdersInfo[0].TriggerHistoryId, *orderFinance).Get()
-	require.Nil(t, iFuture.Error())
-	updateFinance, err := getSellerFinance(finance.FId)
+	fin := createFinance()
+	ifu := financeRepository.Insert(context.Background(), *fin).Get()
+
+	require.Nil(t, ifu.Error())
+
+	req := finance_proto.RequestMessage{
+		Name: string(grpc_mux.SellerFinanceListMethod),
+		Type: "",
+		Time: time.Now().Format(utils.ISO8601),
+		Header: &finance_proto.ReqMeta{
+			UTP:       string(grpc_mux.SellerUserType),
+			UID:       fin.SellerId,
+			FID:       fin.FId,
+			Page:      1,
+			PerPage:   2,
+			IpAddress: "",
+			StartAt:   "",
+			EndAt:     "",
+			Sorts: &finance_proto.RequestMetaSorts{
+				Name: "fid",
+				Dir:  uint32(finance_proto.RequestMetaSorts_Descending),
+			},
+			Filters: nil,
+		},
+		Body: nil,
+	}
+
+	res, err := cli.HandleRequest(context.Background(), &req)
+
 	require.Nil(t, err)
-	require.Equal(t, 3, len(updateFinance.OrdersInfo[0].Orders))
-}
+	require.Equal(t, uint32(1), res.Meta.Total)
 
-func TestSaveOrderInfo(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerFinance fid not generated")
-	ctx, _ := context.WithCancel(context.Background())
-	finance1 := createFinance()
-	orderInfo := finance1.OrdersInfo[0]
-	oid := primitive.NewObjectID()
-	orderInfo.TriggerHistoryId = &oid
-	iFuture := sellerOrderRepo.SaveOrderInfo(ctx, finance.FId, *orderInfo).Get()
-	require.Nil(t, iFuture.Error())
-	updateFinance, err := getSellerFinance(finance.FId)
+	body := finance_proto.SellerFinanceListCollection{}
+	err = proto.Unmarshal(res.Data.Value, &body)
 	require.Nil(t, err)
-	require.Equal(t, 2, len(updateFinance.OrdersInfo))
-	require.Equal(t, orderInfo.TriggerHistoryId, updateFinance.OrdersInfo[1].TriggerHistoryId)
+	require.Equal(t, fin.FId, body.Items[0].FID)
 }
 
-func TestFindByFIdAndOId(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerFinance fid not generated")
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindByFIdAndOId(ctx, finance.FId, finance.OrdersInfo[0].Orders[1].OId).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.OrdersInfo[0].Orders[1].OId, iFuture.Data().(*entities.SellerOrder).OId)
-}
-
-func TestFindBySellerIdAndOId(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	defer removeCollection()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindBySellerIdAndOId(ctx, finance.SellerId, finance.OrdersInfo[0].Orders[0].OId).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
-}
-
-func TestFindById(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	defer removeCollection()
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindById(ctx, finance.OrdersInfo[0].Orders[0].OId).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
-}
-
-func TestFindAll(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-
-	finance, err = createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	ctx, _ := context.WithCancel(context.Background())
-
-	iFuture := sellerOrderRepo.FindAll(ctx, finance.FId).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
-	require.Equal(t, finance.OrdersInfo[0].Orders[1].OId, iFuture.Data().([]*entities.SellerOrder)[1].OId)
-}
-
-func TestFindAllWithSort(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.FindAllWithSort(ctx, finance.FId, "orders.oid", -1).Get()
-
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().([]*entities.SellerOrder)[0].OId)
-}
-
-func TestFindAllWithPage(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	ctx, _ := context.WithCancel(context.Background())
-
-	iFuture := sellerOrderRepo.FindAllWithPage(ctx, finance.FId, 1, 1).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
-	require.Equal(t, 1, len(iFuture.Data().(SellerOrderPageableResult).SellerOrders))
-	require.Equal(t, int64(2), iFuture.Data().(SellerOrderPageableResult).TotalCount)
-}
-
-func TestFindAllWithPageAndSort(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	ctx, _ := context.WithCancel(context.Background())
-
-	iFuture := sellerOrderRepo.FindAllWithPageAndSort(ctx, finance.FId, 1, 1, "orders.oid", -1).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 1, len(iFuture.Data().(SellerOrderPageableResult).SellerOrders))
-	require.Equal(t, int64(2), iFuture.Data().(SellerOrderPageableResult).TotalCount)
-	require.Equal(t, finance.OrdersInfo[0].Orders[0].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
-}
-
-func TestFindByFilter(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-
-	finance, err = createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-
-	ctx, _ := context.WithCancel(context.Background())
-	totalPipeline := []bson.M{
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$unwind": "$ordersInfo"},
-		{"$unwind": "$ordersInfo.orders"},
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
-		{"$project": bson.M{"_id": 0, "count": 1}},
-	}
-	pipeline := []bson.M{
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$unwind": "$ordersInfo"},
-		{"$unwind": "$ordersInfo.orders"},
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
-		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
-		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
-	}
-
-	iFuture := sellerOrderRepo.FindByFilter(ctx, func() (filter interface{}) { return totalPipeline }, func() (filter interface{}) { return pipeline }).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 2, len(iFuture.Data().([]*entities.SellerOrder)))
-}
-
-func TestFindByFilterWithPage(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-
-	finance, err = createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-
-	ctx, _ := context.WithCancel(context.Background())
-	totalPipeline := []bson.M{
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$unwind": "$ordersInfo"},
-		{"$unwind": "$ordersInfo.orders"},
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$group": bson.M{"_id": nil, "count": bson.M{"$sum": 1}}},
-		{"$project": bson.M{"_id": 0, "count": 1}},
-	}
-
-	pipeline := []bson.M{
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$unwind": "$ordersInfo"},
-		{"$unwind": "$ordersInfo.orders"},
-		{"$match": bson.M{"ordersInfo.orders.oid": finance.OrdersInfo[0].Orders[1].OId, "ordersInfo.orders.deletedAt": nil}},
-		{"$project": bson.M{"_id": 0, "ordersInfo.orders": 1}},
-		{"$skip": 0},
-		{"$limit": 1},
-		{"$replaceRoot": bson.M{"newRoot": "$ordersInfo"}},
-		{"$replaceRoot": bson.M{"newRoot": "$orders"}},
-	}
-	iFuture := sellerOrderRepo.FindByFilterWithPage(ctx, func() (filter interface{}) { return totalPipeline }, func() (filter interface{}) { return pipeline }, 1, 2).Get()
-	require.Nil(t, iFuture.Error())
-	require.Equal(t, 1, len(iFuture.Data().(SellerOrderPageableResult).SellerOrders))
-	require.Equal(t, int64(2), iFuture.Data().(SellerOrderPageableResult).TotalCount)
-	require.Equal(t, finance.OrdersInfo[0].Orders[1].OId, iFuture.Data().(SellerOrderPageableResult).SellerOrders[0].OId)
-}
-
-func TestExitsById_Success(t *testing.T) {
-	defer removeCollection()
-	finance, err := createFinanceAndSave()
-	require.Nil(t, err, "createFinanceAndSave failed")
-	require.NotEmpty(t, finance.FId, "createFinanceAndSave failed, sellerOrder id not generated")
-	ctx, _ := context.WithCancel(context.Background())
-	iFuture := sellerOrderRepo.ExistsById(ctx, finance.OrdersInfo[0].Orders[0].OId).Get()
-	require.Nil(t, iFuture.Error())
-	require.True(t, iFuture.Data().(bool))
-}
-
-func insert(finance *entities.SellerFinance) (*entities.SellerFinance, error) {
-	finance.FId = strconv.Itoa(int(finance.SellerId)) + strconv.Itoa(int(time.Now().UnixNano()/1000))
-	for j := 0; j < len(finance.OrdersInfo); j++ {
-		for i := 0; i < len(finance.OrdersInfo[j].Orders); i++ {
-			finance.OrdersInfo[j].Orders[i].FId = finance.FId
-		}
-	}
-	var insertOneResult, err = mongoAdapter.InsertOne(config.Mongo.Database, config.Mongo.SellerCollection, finance)
-	if err != nil {
-		return nil, err
-	}
-	finance.ID = insertOneResult.InsertedID.(primitive.ObjectID)
-	return finance, nil
-}
-
-func createFinanceAndSave() (*entities.SellerFinance, error) {
-	return insert(createFinance())
-}
-
+// db related stofs
 func removeCollection() {
-	if _, err := mongoAdapter.DeleteMany(config.Mongo.Database, config.Mongo.SellerCollection, bson.M{}); err != nil {
+	ctx, _ := context.WithCancel(context.Background())
+	if err := financeRepository.RemoveAll(ctx); err != nil {
 	}
 }
 
 func createFinance() *entities.SellerFinance {
 	timestamp := time.Now().UTC()
-	oid := primitive.NewObjectID()
 	return &entities.SellerFinance{
-		FId:        "",
+		FId:        "1233312",
 		SellerId:   100002,
 		Version:    1,
 		DocVersion: entities.FinanceDocumentVersion,
@@ -389,7 +221,7 @@ func createFinance() *entities.SellerFinance {
 		OrdersInfo: []*entities.OrderInfo{
 			{
 				TriggerName:      "SCH4",
-				TriggerHistoryId: &oid,
+				TriggerHistoryId: primitive.NewObjectID(),
 				Orders: []*entities.SellerOrder{
 					{
 						OId:      1111111111,
@@ -722,38 +554,21 @@ func createFinance() *entities.SellerFinance {
 					Amount:   "1650000",
 					Currency: "IRR",
 				},
-				FailedTransfer: nil,
-				CreatedAt:      time.Now(),
+				FailedTransfer: &entities.Money{
+					Amount:   "1620000",
+					Currency: "IRR",
+				},
+				CreatedAt: time.Now(),
 			},
-			Status:       "Success",
-			Mode:         entities.AutomaticPaymentMode,
-			Action:       nil,
-			RetryRequest: 0,
-			RetryResult:  0,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			Status:    entities.TransferPartialState,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		},
-		PaymentMode:    entities.AutomaticPaymentMode,
-		PaymentHistory: nil,
-		Status:         entities.FinanceClosedStatus,
-		StartAt:        nil,
-		EndAt:          nil,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-		DeletedAt:      nil,
+		Status:    entities.FinanceClosedStatus,
+		StartAt:   nil,
+		EndAt:     nil,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		DeletedAt: nil,
 	}
-}
-
-func getSellerFinance(fid string) (*entities.SellerFinance, error) {
-	var finance entities.SellerFinance
-	singleResult := mongoAdapter.FindOne(config.Mongo.Database, config.Mongo.SellerCollection, bson.D{{"fid", fid}, {"deletedAt", nil}})
-	if err := singleResult.Err(); err != nil {
-		return nil, err
-	}
-
-	if err := singleResult.Decode(&finance); err != nil {
-		return nil, err
-	}
-
-	return &finance, nil
 }
