@@ -50,7 +50,7 @@ func (server Server) HandleRequest(ctx context.Context, req *finance_proto.Reque
 		utp    string
 		method string
 	)
-	
+
 	iFuture := app.Globals.UserService.AuthenticateContextToken(ctx).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("UserService.AuthenticateContextToken failed",

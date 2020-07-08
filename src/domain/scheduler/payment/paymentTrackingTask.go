@@ -269,7 +269,7 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 				TransferRequest:  sellerFinance.Payment.TransferRequest,
 				TransferResponse: sellerFinance.Payment.TransferResponse,
 				TransferResult:   sellerFinance.Payment.TransferResult,
-				Status:           sellerFinance.Payment.Status,
+				Status:           entities.PaymentFailedState,
 				Mode:             sellerFinance.Payment.Mode,
 				Action:           sellerFinance.Payment.Action,
 				RetryRequest:     sellerFinance.Payment.RetryRequest,
@@ -281,6 +281,7 @@ func (pipeline *Pipeline) automaticPaymentHandler(ctx context.Context, sellerFin
 			sellerFinance.PaymentHistory = make([]*entities.FinancePayment, 0, 5)
 			sellerFinance.PaymentHistory = append(sellerFinance.PaymentHistory, payment)
 
+			sellerFinance.Payment.Status = entities.PaymentPendingState
 			sellerFinance.Payment.Mode = entities.ManualPaymentMode
 			sellerFinance.Payment.UpdatedAt = timestamp
 		}
@@ -486,7 +487,7 @@ func (pipeline *Pipeline) financeTrackingAutomaticPayment(ctx context.Context, s
 	iFuture := app.Globals.PaymentService.SingleTransferMoney(ctx, paymentRequest).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("SingleTransferMoney for seller payment failed",
-			"fn", "financePayment",
+			"fn", "financeTrackingAutomaticPayment",
 			"fid", sellerFinance.FId,
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())
@@ -517,6 +518,12 @@ func (pipeline *Pipeline) financeTrackingAutomaticPayment(ctx context.Context, s
 		CreatedAt:  responseTimestamp,
 	}
 
+	sellerFinance.Payment.Status = entities.PaymentPendingState
 	sellerFinance.Payment.UpdatedAt = responseTimestamp
 	sellerFinance.UpdatedAt = responseTimestamp
+
+	log.GLog.Logger.Debug("sellerFinance PaymentService.SingleTransferMoney success ",
+		"fn", "financeTrackingAutomaticPayment",
+		"fid", sellerFinance.FId,
+		"sellerId", sellerFinance.SellerId)
 }

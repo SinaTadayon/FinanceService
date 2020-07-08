@@ -39,7 +39,7 @@ func (repo iSellerOrderItemRepositoryImp) FindOrderItemsByFilterWithPage(ctx con
 	}
 
 	if sortName == "" {
-		sortDir = 0;
+		sortDir = 0
 	} else if sortDir != -1 && sortDir != 1 {
 		return future.FactorySync().
 			SetError(future.BadRequest, "Invalid sort direction", errors.New("Invalid sort direction")).

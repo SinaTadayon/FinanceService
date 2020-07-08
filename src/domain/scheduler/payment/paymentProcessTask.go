@@ -296,7 +296,7 @@ func (pipeline *Pipeline) ExecutePipeline(ctx context.Context) (FinanceReaderStr
 				"invoice", sellerFinance.Invoice)
 
 			if sellerFinance.PaymentMode == entities.AutomaticPaymentMode {
-				pipeline.financePayment(ctx, sellerFinance)
+				pipeline.financeStartPaymentProcess(ctx, sellerFinance)
 			}
 
 			iFuture := app.Globals.SellerFinanceRepository.Save(ctx, *sellerFinance).Get()
@@ -491,7 +491,7 @@ func (pipeline *Pipeline) financeTriggerValidation(ctx context.Context, finance 
 	return nil
 }
 
-func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *entities.SellerFinance) {
+func (pipeline *Pipeline) financeStartPaymentProcess(ctx context.Context, sellerFinance *entities.SellerFinance) {
 
 	sellerFinance.Status = entities.FinancePaymentProcessStatus
 	requestTimestamp := time.Now().UTC()
@@ -509,7 +509,7 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 	iFuture := app.Globals.PaymentService.SingleTransferMoney(ctx, paymentRequest).Get()
 	if iFuture.Error() != nil {
 		log.GLog.Logger.Error("SingleTransferMoney for seller payment failed",
-			"fn", "financePayment",
+			"fn", "financeStartPaymentProcess",
 			"fid", sellerFinance.FId,
 			"sellerId", sellerFinance.SellerId,
 			"error", iFuture.Error())
@@ -557,5 +557,9 @@ func (pipeline *Pipeline) financePayment(ctx context.Context, sellerFinance *ent
 		CreatedAt:      requestTimestamp,
 		UpdatedAt:      responseTimestamp,
 	}
-	return
+
+	log.GLog.Logger.Debug("sellerFinance PaymentService.SingleTransferMoney success ",
+		"fn", "financeStartPaymentProcess",
+		"fid", sellerFinance.FId,
+		"sellerId", sellerFinance.SellerId)
 }
