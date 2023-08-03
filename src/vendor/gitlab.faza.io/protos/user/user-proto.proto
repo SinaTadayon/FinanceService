@@ -1,0 +1,552 @@
+syntax = "proto3";
+
+
+package protoUserServiceV1;
+
+service User {
+    rpc HelloWorld (HelloWorldRequest) returns (HelloWorldResponse) {}
+    rpc Login (LoginRequest) returns (LoginResponse) {}
+    rpc LoginAsanPardakht (LoginAsanPardakhtRequest) returns (LoginAsanPardakhtResponse) {}
+    rpc Logout (EmptyRequest) returns (Result) {}
+    rpc Register (RegisterRequest) returns (Result) {}
+    rpc RegisterVerify (RegisterVerifyRequest) returns (LoginResponse) {}
+    rpc RegisterOperator (RegisterOperatorRequest) returns (Result) {}
+    rpc UserEdit (UserEditRequest) returns (LoginResponse) {} // because on success, we produce new access token and refresh token
+    rpc TokenVerify (EmptyRequest) returns (Result) {}
+    rpc TokenRefresh (TokenRefreshRequest) returns (LoginResponse) {}
+    rpc PasswordChange (PasswordChangeRequest) returns (LoginResponse) {}
+    rpc ForgotPassword (ForgotPasswordRequest) returns (Result) {}
+    rpc ForgotPasswordVerify (ForgotPasswordVerifyRequest) returns (Result) {}
+    rpc CheckVerificationCode (CheckVerificationCodeRequest) returns (Result) {}
+
+    rpc RoleAdd (RoleAddRequest) returns (Result) {}
+    rpc RoleRemove (RoleRemoveRequest) returns (Result) {}
+    rpc RoleEdit (RoleAddRequest) returns (Result) {}
+    rpc RoleGetOne (RoleGetRequest) returns (RoleGetResponse) {}
+    rpc RoleGetList (ListRequest) returns (RoleListResponse) {}
+    rpc PermissionGetList (ListRequest) returns (PermissionListResponse) {}
+
+    rpc UserGetOne (UserGetRequest) returns (UserGetResponse) {}
+    rpc InternalUserGetOne (UserGetRequest) returns (UserGetResponse) {}
+
+    rpc UserGetList (ListRequest) returns (UserListResponse) {}
+
+    rpc CreateDummyUser(EmptyRequest) returns (Result) {}
+    rpc DeleteDummyUser(EmptyRequest) returns (Result) {}
+
+    rpc UserAddAddress(UserAddAddressRequest) returns (UserAddAddressResponse) {}
+    rpc UserEditAddress(UserEditAddressRequest) returns (UserEditAddressResponse) {}
+    rpc UserDeleteAddress(UserDeleteAddressRequest) returns (EmptyRequest) {}
+
+    rpc SellerEdit(SellerEditRequest) returns (EmptyResponse) {}
+
+    rpc ListCountries(EmptyRequest) returns (ListCountriesResponse) {}
+    rpc ListProvinces(ListProvincesRequest) returns (ListProvincesResponse) {}
+    rpc ListCities(ListCitiesRequest) returns (ListCitiesResponse) {}
+    rpc ListNeighborhoods(ListNeighborsRequest) returns (ListNeighborsResponse) {}
+
+    rpc AddUserType(ChangeUserTypeRequest) returns (ChangeUserTypeResponse) {}
+    rpc RemoveUserType(ChangeUserTypeRequest) returns (ChangeUserTypeResponse) {}
+}
+
+message ChangeUserTypeRequest {
+    string userId   = 1 ;
+    string userType = 2 ;
+}
+
+message ChangeUserTypeResponse {
+
+}
+
+message ValidationError {
+    map<string, string> validation = 1;
+}
+
+message UserAddressIn {
+    string      id              = 1 ;
+    string      title           = 2 ;
+    string      firstName       = 3 ;
+    string      lastName        = 4 ;
+    string      countryId       = 5 ;
+    string      cityId          = 6 ;
+    string      neighborhoodId  = 7 ;
+    string      provinceId       = 8 ;
+    Location    location        = 9 ;
+    string      address         = 10;
+    string      addressType     = 11;
+    string      zipCode         = 12;
+    string      phone           = 13;
+    string      mobile          = 14;
+}
+
+message UserAddressData {
+    string                      id           = 1 ;
+    string                      title        = 2 ;
+    string                      firstName    = 3 ;
+    string                      lastName     = 4 ;
+    NameIdPair                  country      = 5 ;
+    NameIdPair                  city         = 6 ;
+    NameIdPair                  neighborhood = 7 ;
+    NameIdPair                  province     = 8 ;
+    Location                    location     = 9 ;
+    string                      address      = 10;
+    string                      addressType  = 11;
+    string                      zipCode      = 12;
+    string                      phone        = 13;
+    string                      mobile       = 14;
+    string                      createdAt    = 15;
+    string                      updatedAt    = 16;
+}
+
+message UserAddAddressRequest {
+    UserAddressIn address = 1;
+}
+
+message UserAddAddressResponse {
+    UserAddressData address = 1;
+}
+
+message UserEditAddressRequest {
+    UserAddressIn address = 1;
+}
+
+message UserEditAddressResponse {
+    UserAddressData address = 1;
+}
+
+message UserDeleteAddressRequest {
+    string id = 1;
+}
+
+message NameIdPair {
+    string name = 1;
+    string id = 2;
+}
+
+message ListCountriesResponse{
+    repeated NameIdPair countries =1;
+}
+
+message ListProvincesRequest{
+    string countryId = 1;
+}
+
+message ListProvincesResponse{
+    repeated NameIdPair provinces =1;
+}
+
+message ListCitiesRequest{
+    string provinceId = 1;
+}
+
+message ListCitiesResponse{
+    repeated NameIdPair cities =1;
+}
+
+message ListNeighborsRequest{
+    string cityId = 1;
+}
+
+message ListNeighborsResponse{
+    repeated NameIdPair neighborhoods =1;
+}
+
+
+message UserGetRequest {
+    string field = 1;
+    string value = 2;
+}
+
+message UserGetResponse {
+    int32 Code = 1;
+    string Message = 2;
+    UserGetResponseData Data = 3;
+}
+
+message UserListResponse {
+    int32 Code = 1;
+    string Message = 2;
+    ListData Data = 3;
+}
+
+message ListData {
+    int32 page = 1;
+    int32 perPage = 2;
+    int32 total = 3;
+    repeated UserGetResponseData items = 4;
+}
+
+message UserGetResponseData {
+    string id = 19;
+    int64  userId = 20;
+    string status = 21;
+    string firstName = 1;
+    string lastName = 2;
+    string email = 3;
+    string mobile = 4;
+    string nationalCode = 5;
+    repeated string userType = 7;
+    repeated string roles = 8;
+    repeated UserFinanceData finance = 9;
+    repeated UserAddressData addresses = 13;
+    UserSellerData seller = 14;
+    string gender = 10;
+    string parentUserId = 18;
+    string birthDate = 12;
+    string createdAt = 16;
+    string updatedAt = 17;
+}
+
+message UserFinanceData {
+    string cardNumber = 1;
+    string iban = 2;
+}
+
+message SellerEditRequest{
+    string          userId  = 1;
+    UserSellerData  data    = 2;
+}
+
+message UserSellerData {
+    int64                   id              = 1;
+    // @inject_tag: validate:"required"
+    GeneralSellerInfo       generalInfo     = 2;
+    CorporateSellerInfo     corpInfo        = 3;
+    IndividualSellerInfo    indivInfo       = 4;
+    // @inject_tag: validate:"required"
+    ReturnInfo              returnInfo      = 5;
+    SellerContactPerson     contactPerson   = 6;
+    SellerShipmentInfo      shipmentInfo    = 7;
+    SellerFinanceData       financeData     = 8;
+}
+
+message SellerFinanceData {
+    string iban                     = 1;
+    string accountHolderFirstName   = 2;
+    string accountHolderFamilyName  = 3;
+}
+
+message GeneralSellerInfo {
+    // @inject_tag: validate:"required"
+    string	shopDisplayName = 2;
+    // @inject_tag: validate:"required"
+    string	type = 3;
+    string	email = 4;
+    string	landPhone = 5;
+    // @inject_tag: validate:"required"
+    string	mobilePhone = 6;
+    string	website = 7;
+    // @inject_tag: validate:"required"
+    NameIdPair	country = 8;
+    // @inject_tag: validate:"required"
+    NameIdPair	province = 9;
+    // @inject_tag: validate:"required"
+    NameIdPair	city = 10;
+    NameIdPair	neighborhood = 11;
+    // @inject_tag: validate:"required"
+    string 	postalAddress = 12;
+    string	postalCode = 13;
+
+    bool	isVATObliged = 14;
+    string	VATCertificationImageURL = 15;
+
+    bool    ssoEligible = 16;
+    // @inject_tag: validate:"gte=0,lt=100"
+    float   ssoPercentage = 17;
+}
+
+message CorporateSellerInfo {
+    string	companyRegisteredName       = 1;
+    string	companyRegistrationNumber   = 2;
+    string	companyRationalID           = 3;
+    string	tradeNumber                 = 4;
+}
+
+message IndividualSellerInfo{
+    string	firstName           = 1;
+    string	familyName          = 2;
+    string	nationalID          = 3;
+    string	nationalIDfrontURL  = 4;
+    string	nationalIDbackURL   = 5;
+}
+
+message ReturnInfo{
+    // @inject_tag: validate:"required"
+    NameIdPair country		    = 1; 
+    // @inject_tag: validate:"required"
+    NameIdPair province	        = 2;          	
+    // @inject_tag: validate:"required"
+    NameIdPair city		        = 3;  
+    NameIdPair neighborhood     = 4;       	
+    // @inject_tag: validate:"required"
+    string postalAddress    = 5;        
+    // @inject_tag: validate:"required"
+    string postalCode	    = 6;  	
+}
+
+message SellerContactPerson {
+    string	firstName       = 1;
+    string	familyName      = 2;
+    string	mobilePhone     = 3;
+    string	email           = 4;
+}
+
+message SellerShipmentInfo{
+   message PricePlan {
+       int64 threshold          = 1;
+       int64 belowPrice         = 3;
+       int64 reactionTimeDays   = 4;
+   } 
+   PricePlan sameCity       = 1;
+   PricePlan differentCity  = 2;
+}
+
+message Location {
+    double lat = 1;
+    double long = 2;
+}
+
+message LoginRequest {
+    string Username = 1;
+    string Password = 2;
+}
+
+message ForgotPasswordRequest {
+    string identifier = 1;
+}
+
+message ForgotPasswordVerifyRequest {
+    string identifier = 1;
+    string password = 2;
+    string code = 3;
+}
+
+message EmptyRequest {
+}
+message EmptyResponse {
+}
+message RoleAddRequest {
+    // @inject_tag validate:"required,alpha,min=4,max=32,alpha"
+    string Key = 1;
+    // @inject_tag validate:"required,alpha,min=4,max=32,alpha"
+    string Title = 2;
+    repeated string Permissions = 3;
+}
+
+message RoleRemoveRequest {
+    string Key = 1;
+}
+
+message RoleGetRequest {
+    string Key = 1;
+}
+
+message ListRequest {
+    int32 page = 1;
+    int32 perPage = 2;
+    repeated FilterEntry filters = 3;
+    map<string, int32> sorting = 4;
+}
+
+message FilterEntry {
+    string field = 1;
+    string value = 2;
+    string operator = 3;
+}
+
+message RoleGetResponse {
+    string Key = 1;
+    int32 code = 2;
+    string message = 3;
+    RoleGetResponseData data = 4;
+}
+
+
+message RoleGetResponseData {
+    string title = 1;
+    string key = 2;
+    repeated string permissions = 3;
+}
+
+message RoleListData {
+    int32 page = 1;
+    int32 perPage = 2;
+    int32 total = 3;
+    repeated RoleGetResponseData items = 4;
+}
+
+message RoleListResponse {
+    int32 code = 1;
+    string message = 2;
+    map<string, string> errors = 4;
+    RoleListData data = 5;
+}
+
+message PermissionsGetResponseData {
+    string title = 1;
+    string key = 2;
+    string createdAt = 3;
+}
+
+message PermissionListData {
+    int32 page = 1;
+    int32 perPage = 2;
+    int32 total = 3;
+    repeated PermissionsGetResponseData items = 4;
+}
+
+message PermissionListResponse {
+    int32 code = 1;
+    string message = 2;
+    map<string, string> errors = 4;
+    PermissionListData data = 5;
+}
+
+
+message PasswordChangeRequest {
+    // @inject_tag: validate:"required,max=32"
+    string passwordOld = 1;
+
+    // @inject_tag: validate:"required,min=6,max=32"
+    string passwordNew = 2;
+}
+
+message LoginResponse {
+    string message = 2;
+    uint32 code = 3;
+    LoginResponseData data = 4;
+    map<string, string> errors = 5;
+}
+
+message LoginAsanPardakhtRequest {
+    string token = 1;
+}
+
+message LoginAsanPardakhtResponse {
+    string message = 1;
+    uint32 code = 2;
+    LoginResponseData data = 3;
+    map<string, string> errors = 4;
+}
+
+message LoginResponseData {
+    string accessToken = 1;
+    string refreshToken = 2;
+}
+
+message TokenRefreshRequest {
+    string refreshToken = 1;
+}
+
+message HelloWorldRequest {
+    string name = 1;
+}
+
+message HelloWorldResponse {
+    string greeting = 1;
+}
+
+message CheckVerificationCodeRequest {
+    // @inject_tag: validate:"required,max=64"
+    string identifier = 1;
+    // @inject_tag: validate:"required,max=64"
+    string code = 2;
+}
+
+message RegisterOperatorRequest {
+    // @inject_tag: validate:"omitempty,email,max=128"
+    string email = 3;
+
+    // @inject_tag: validate:"required,min=6"
+    string password = 6;
+
+    repeated string roles = 8;
+}
+
+
+
+
+message RegisterRequest {
+    string firstName = 1;
+
+    string lastName = 2;
+
+    // @inject_tag: validate:"omitempty,email,max=128"
+    string email = 3;
+
+    // @inject_tag: validate:"required,numeric"
+    string mobile = 4;
+
+    // @inject_tag: validate:"omitempty,numeric,min=10,max=10"
+    string nationalCode = 5;
+
+    // @inject_tag: validate:"required,min=6"
+    string password = 6;
+
+    // @inject_tag: validate:"omitempty,alpha"
+    string userType = 7;
+
+    repeated string roles = 8;
+
+    // @inject_tag: validate:"omitempty,numeric"
+    string country = 9;
+
+    // @inject_tag: validate:"omitempty,alpha,max=6"
+    string gender = 10;
+
+    // @inject_tag: validate:"omitempty,numeric,min=16,max=32"
+    string cardNumber = 11;
+
+    // @inject_tag: validate:"omitempty"
+    string birthDate = 12;
+
+    // @inject_tag: validate:"omitempty,min=26"
+    string iban = 13;
+}
+
+
+message UserEditRequest {
+    string userId = 15;
+
+    // @inject_tag: validate:"max=64"
+    string firstName = 1;
+
+    // @inject_tag: validate:"max=32"
+    string lastName = 2;
+
+    // @inject_tag: validate:"omitempty,email,max=128"
+    string email = 3;
+
+    // @inject_tag: validate:"omitempty,numeric,min=10,max=10"
+    string nationalCode = 5;
+
+    repeated string roles = 8;
+
+    // @inject_tag: validate:"omitempty,alpha,max=6"
+    string gender = 10;
+
+    // @inject_tag: validate:"omitempty"
+    string birthDate = 12;
+
+    repeated UserFinanceData finance = 16;
+}
+
+message RegisterVerifyRequest {
+    // @inject_tag: validate:"required"
+    string identifier = 1;
+    // @inject_tag: validate:"required"
+    string code = 2;
+}
+
+
+// Result is a generic type of result response
+message Result {
+    uint32 code = 2;
+    string message = 3;
+    map<string, string> errors = 4;
+}
+
+message ErrorEntry {
+    string field = 1;
+    string error = 2;
+}

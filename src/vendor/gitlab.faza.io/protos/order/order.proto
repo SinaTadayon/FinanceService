@@ -1,0 +1,306 @@
+syntax = "proto3";
+
+package ordersrv;
+
+import "message.proto";
+
+service OrderService {
+    rpc RequestHandler (MessageRequest) returns (MessageResponse);
+    rpc SchedulerMessageHandler(MessageRequest) returns (MessageResponse);
+    rpc NewOrder (RequestNewOrder) returns (ResponseNewOrder);
+    rpc ReportOrderItems(RequestReportOrderItems) returns(stream ResponseDownloadFile);
+    rpc ReasonsList(ReasonsListRequest) returns (ReasonsListResponse);
+    rpc VerifyUserSuccessOrder(VerifyUserOrderRequest) returns (VerifyUserOrderResponse);
+    rpc FinanceOrderItems (MessageRequest) returns (MessageResponse);
+}
+
+message VerifyUserOrderRequest {
+    uint64 userId = 1;
+}
+
+message VerifyUserOrderResponse {
+    uint64 userId = 1;
+    bool   isSuccessOrder = 2;
+}
+
+message ResponseDownloadFile {
+    bytes data = 1;
+}
+
+message RequestReportOrderItems {
+    string startDateTime = 1;
+    string endDataTime = 2;
+    enum PaymentStatus {
+        ALL         = 0;
+        FAIL        = 1;
+        SUCCESS     = 2;
+        PENDING     = 3;
+    }
+    PaymentStatus status = 3;
+}
+
+message Money {
+    string Amount = 1;
+    string Currency = 2;
+}
+
+message ResponseNewOrder {
+    enum Action {
+        MPG = 0;
+        Redirect = 1;
+    }
+    Action action = 1;
+    oneof Response {
+        IPGResponse ipg = 2;
+        MPGResponse mpg = 3;
+    }
+    uint64 OrderId = 4;
+}
+
+message IPGResponse {
+    string callbackUrl  = 1;
+}
+
+message MPGResponse {
+    string HostRequest  = 1;
+    string HostRequestSign = 2;
+}
+
+message RequestNewOrder {
+    Buyer buyer = 1;
+    string platform = 2;
+    Invoice invoice = 3;
+    repeated Package packages = 4;
+}
+
+message Package {
+    uint64 sellerId = 1;
+    string shopName = 2;
+    ShippingSpec shipment = 3;
+    PackageInvoice invoice = 4;
+    repeated Item items = 5;
+}
+
+message PackageInvoice {
+    Money subtotal = 1;
+    Money discount = 2;
+    Money shipmentPrice = 3;
+    message SellerSSO {
+        float value = 1;
+        bool isObliged = 2;
+    }
+
+    SellerSSO   sso = 4;
+}
+
+message Invoice {
+    Money  grandTotal      = 1;
+    Money  subtotal        = 2;
+    Money  discount        = 3;
+    Money  shipmentTotal   = 6;
+    string  paymentMethod   = 7;
+    string  paymentGateway  = 8;
+    PaymentOption  paymentOption   = 9;
+    Voucher voucher         = 10;
+    message BusinessVAT {
+        float value = 1;
+    }
+    BusinessVAT     vat             = 11;
+}
+
+message PaymentOption {}
+
+message Voucher {
+    float   percent = 1;
+    Money   RawAppliedPrice = 2;
+    Money   RoundupAppliedPrice = 3;
+    Money   Price   = 4;
+    string  code    = 5;
+    VoucherDetails details = 6;
+}
+
+message VoucherDetails {
+    string startDate = 1;
+    string endDate = 2;
+    string type = 3;
+    uint64 maxDiscountValue = 4;
+    uint64 minBasketValue = 5;
+    string title = 6;
+    string prefix = 7;
+    int32 useLimit = 8;
+    int32 count = 9;
+    int32 length = 10;
+    bool isFirstPurchase = 11;
+    message Info {
+        repeated string categories = 1;
+        repeated string products = 2;
+        repeated string users = 3;
+        repeated string sellers = 4;
+    }
+    Info info = 12;
+
+    enum VoucherType {
+        PURCHASE = 0;
+        SHIPMENT = 1;
+    }
+    VoucherType voucherType = 13;
+
+    enum VoucherSponsor {
+        BAZLIA = 0;
+        SELLER = 1;
+    }
+    VoucherSponsor voucherSponsor = 14;
+}
+
+message Item {
+    string sku = 1;
+    string inventoryId = 2;
+    string title = 3;
+    string brand = 4;
+    string category = 5;
+    string guaranty = 6;
+    string image = 7;
+    bool returnable = 8;
+    int32 quantity = 9;
+    map<string,attribute> attributes = 10;
+    ItemInvoice invoice = 11;
+}
+
+message attribute {
+    map<string, string> key_trans   = 2;
+    map<string, string> value_trans = 3;
+}
+
+message Buyer {
+    uint64 buyerId = 1;
+    string firstName = 2;
+    string lastName = 3;
+    string phone = 4;
+    string mobile = 5;
+    string email = 6;
+    string nationalId = 7;
+    string ip = 8;
+    string gender = 9;
+    FinanceInfo finance = 10;
+    Address shippingAddress = 11;
+}
+
+message FinanceInfo {
+    string iban = 1;
+    string cardNumber = 2;
+    string accountNumber = 3;
+    string bankName = 4;
+}
+
+message Address {
+    string firstName = 1;
+    string lastName = 2;
+    string address = 3;
+    string phone = 4;
+    string mobile = 5;
+    string country = 6;
+    string city = 7;
+    string province = 8;
+    string neighbourhood = 9;
+    string lat = 10;
+    string long = 11;
+    string zipCode = 12;
+}
+
+message ItemInvoice {
+    Money unit = 1;
+    Money total = 2;
+    Money original = 3;
+    Money special = 4;
+    Money discount = 5;
+    float  itemCommission = 6;
+    message SellerVAT {
+        float value = 1;
+        bool isObliged = 2;
+    }
+
+    SellerVAT vat = 7;
+}
+
+message ShippingSpec {
+    repeated string carrierNames = 1;
+    string carrierProduct = 2;
+    string carrierType = 3;
+    Money shippingCost = 4;
+    int32 reactionTime = 5;
+    int32 shippingTime = 6;
+    int32 returnTime = 7;
+    string details = 8;
+}
+
+message FinanceOrderItemDetailList {
+    message OrderItemDetail {
+        uint64 OId = 1;
+        uint64 SellerId = 2;
+        Money ShipmentAmount = 3;
+        Money RawShippingNet = 4;
+        Money RoundupShippingNet = 5;
+
+        message Item {
+            uint64 SId = 1;
+            string Sku = 2;
+            string InventoryId = 3;
+            string Title = 4;
+            string Brand = 5;
+            string Category = 6;
+            string Guaranty = 7;
+            string Image = 8;
+            bool Returnable = 9;
+            int32 Quantity = 10;
+            map<string,attribute> Attributes = 11;
+            message ItemInvoice {
+                message ItemCommission {
+                    float ItemCommission = 1;
+                    Money RawUnitPrice = 2;
+                    Money RoundupUnitPrice = 3;
+                    Money RawTotalPrice = 4;
+                    Money RoundupTotalPrice = 5;
+                }
+                ItemCommission Commission = 1;
+
+                message ItemShare {
+                    Money RawItemNet = 1;
+                    Money RoundupItemNet = 2;
+                    Money RawTotalNet = 3;
+                    Money RoundupTotalNet = 4;
+                    Money RawUnitSellerShare = 5;
+                    Money RoundupUnitSellerShare = 6;
+                    Money RawTotalSellerShare = 7;
+                    Money RoundupTotalSellerShare = 8;
+                }
+                ItemShare Share = 2;
+
+                message ItemSSO {
+                    float Rate = 1;
+                    bool  IsObliged = 2;
+                    Money RawUnitPrice = 3;
+                    Money RoundupUnitPrice = 4;
+                    Money RawTotalPrice = 5;
+                    Money RoundupTotalPrice = 6;
+                }
+                ItemSSO SSO = 3;
+
+                message ItemVAT {
+                    float Rate = 1;
+                    bool  IsObliged = 2;
+                    Money RawUnitPrice = 3;
+                    Money RoundupUnitPrice = 4;
+                    Money RawTotalPrice = 5;
+                    Money RoundupTotalPrice = 6;
+                }
+                ItemVAT VAT = 4;
+            }
+            ItemInvoice invoice = 12;
+        }
+        repeated Item items = 6;
+        string CreatedAt = 7;
+        string UpdatedAt = 8;
+        string OrderCreatedAt = 9;
+    }
+    repeated OrderItemDetail orderItems = 1;
+}
