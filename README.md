@@ -6,5 +6,6 @@ The significant features include:
 - Managing accountings of orders with MongoDB
 - Using gRPC to communicate with other services
 - Designing and developing a simple scheduler from scratch (using the ward/steward pattern)
+- Support Docker
 
 Note: Please refrain from launching the service standalone due to microservice considerations in the design.
